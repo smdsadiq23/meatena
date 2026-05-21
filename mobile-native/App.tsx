@@ -23,7 +23,7 @@ import {
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 
-const meatenaLogo = require('./assets/logo.png');
+const meatenaLogo = require('./assets/brand-icon.png');
 
 type Role = 'admin' | 'staff';
 type Language = 'en' | 'ar';

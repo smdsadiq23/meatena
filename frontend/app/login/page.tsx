@@ -82,14 +82,24 @@ export default function LoginPage() {
           </button>
         </div>
         <div>
-          <Image
-            src="/logo.png"
-            alt="Meatena logo"
-            width={260}
-            height={160}
-            className="mb-5 h-auto w-44 object-contain"
-            priority
-          />
+          <div className="mb-6 flex items-center gap-4">
+            <Image
+              src="/brand-icon.png"
+              alt="Meatena logo"
+              width={72}
+              height={72}
+              className="h-16 w-16 rounded-2xl object-cover shadow-lg shadow-red-100"
+              priority
+            />
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.24em] text-slate-400">
+                Meatena
+              </p>
+              <p className="text-2xl font-black tracking-tight text-slate-950">
+                Butchery Operations
+              </p>
+            </div>
+          </div>
           <p className="soft-label">{t("Secure Access")}</p>
           <h1 className="mt-3 text-3xl font-black tracking-tight text-slate-950">
             {t("Sign in to Meatena")}
