@@ -317,7 +317,7 @@ type InvoiceProfileForm = {
   contactNames: string;
 };
 
-const CLOUD_API = process.env.CLOUD_API_URL ?? 'http://20.121.115.100/api';
+const CLOUD_API = process.env.CLOUD_API_URL ?? 'https://meatena.induxen.com/api';
 const LAN_API = process.env.LAN_API_URL ?? 'http://192.168.29.204:3003';
 const DEFAULT_API = CLOUD_API;
 const SERVER_PRESETS = [
