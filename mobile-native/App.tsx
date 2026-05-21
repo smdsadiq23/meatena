@@ -1825,31 +1825,6 @@ export default function App() {
           </View>
 
           <View style={styles.card}>
-            <Text style={styles.kicker}>{t('Server')}</Text>
-            <Text style={styles.sectionTitle}>{t('Backend URL / IP')}</Text>
-            <TextInput
-              style={styles.input}
-              value={apiUrl}
-              onChangeText={editServerUrl}
-              onBlur={() => applyServerUrl(apiUrl)}
-              placeholder="Backend URL or IP"
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-            <Text style={styles.helpText}>
-              Android emulator uses 10.0.2.2 for your Mac. A real phone needs your Mac LAN IP.
-            </Text>
-            <View style={styles.presetGrid}>
-              {SERVER_PRESETS.map(preset => (
-                <TouchableOpacity
-                  key={preset.label}
-                  style={styles.presetButton}
-                  onPress={() => applyServerUrl(preset.value)}>
-                  <Text style={styles.presetTitle}>{preset.label}</Text>
-                  <Text style={styles.presetCaption}>{preset.caption}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
             <Text style={styles.subhead}>{t('Login')}</Text>
             <TextInput
               style={styles.input}
