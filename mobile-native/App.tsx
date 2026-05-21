@@ -297,6 +297,8 @@ type InvoiceProfile = {
   company_activity_ar?: string | null;
   company_address: string;
   company_phone: string;
+  company_email?: string | null;
+  contact_names?: string | null;
   is_default?: boolean;
 };
 
@@ -311,6 +313,8 @@ type InvoiceProfileForm = {
   companyActivityAr: string;
   companyAddress: string;
   companyPhone: string;
+  companyEmail: string;
+  contactNames: string;
 };
 
 const LAN_API = process.env.LAN_API_URL ?? 'http://192.168.29.204:3003';
@@ -353,6 +357,8 @@ const defaultInvoiceProfile: InvoiceProfile = {
   company_activity_ar: '',
   company_address: 'Kuwait',
   company_phone: '00000000',
+  company_email: 'almajad.albasat.co@gmail.com',
+  contact_names: 'Abdul Basit, Zahoor Ellahi',
   is_default: true,
 };
 
@@ -420,6 +426,8 @@ const ARABIC_LABELS: Record<string, string> = {
   'Company activity Arabic': 'نشاط الشركة بالعربية',
   'Company address': 'عنوان الشركة',
   'Company phone': 'هاتف الشركة',
+  'Company email': 'البريد الإلكتروني للشركة',
+  'Contact names': 'أسماء جهات الاتصال',
   'Save Profile': 'حفظ الملف',
   Cancel: 'إلغاء',
   Customer: 'العميل',
@@ -659,6 +667,8 @@ function profileToForm(profile: InvoiceProfile): InvoiceProfileForm {
     companyActivityAr: profile.company_activity_ar ?? '',
     companyAddress: profile.company_address ?? '',
     companyPhone: profile.company_phone ?? '',
+    companyEmail: profile.company_email ?? '',
+    contactNames: profile.contact_names ?? '',
   };
 }
 
@@ -1147,6 +1157,8 @@ export default function App() {
       company_activity_ar: profileForm.companyActivityAr.trim() || undefined,
       company_address: profileForm.companyAddress.trim(),
       company_phone: profileForm.companyPhone.trim(),
+      company_email: profileForm.companyEmail.trim() || undefined,
+      contact_names: profileForm.contactNames.trim() || undefined,
       is_default: true,
     };
 
@@ -1243,6 +1255,8 @@ export default function App() {
           company_activity_ar: selectedProfile.company_activity_ar?.trim() || undefined,
           company_address: selectedProfile.company_address.trim(),
           company_phone: selectedProfile.company_phone.trim(),
+          company_email: selectedProfile.company_email?.trim() || undefined,
+          contact_names: selectedProfile.contact_names?.trim() || undefined,
           items: validItems,
         }),
       });
@@ -2063,6 +2077,11 @@ export default function App() {
               <Text style={styles.rowSubtitle}>
                 {selectedProfile.company_address} | {selectedProfile.company_phone}
               </Text>
+              {selectedProfile.company_email || selectedProfile.contact_names ? (
+                <Text style={styles.rowSubtitle}>
+                  {[selectedProfile.company_email, selectedProfile.contact_names].filter(Boolean).join(' | ')}
+                </Text>
+              ) : null}
             </View>
           </View>
           {isAdmin ? (
@@ -2084,6 +2103,8 @@ export default function App() {
                   <TextInput style={styles.input} value={profileForm.companyActivityAr} onChangeText={value => setProfileForm(current => ({ ...current, companyActivityAr: value }))} placeholder="Company activity Arabic" />
                   <TextInput style={styles.input} value={profileForm.companyAddress} onChangeText={value => setProfileForm(current => ({ ...current, companyAddress: value }))} placeholder="Company address" />
                   <TextInput style={styles.input} value={profileForm.companyPhone} onChangeText={value => setProfileForm(current => ({ ...current, companyPhone: value }))} placeholder="Company phone" keyboardType="phone-pad" />
+                  <TextInput style={styles.input} value={profileForm.companyEmail} onChangeText={value => setProfileForm(current => ({ ...current, companyEmail: value }))} placeholder="Company email" keyboardType="email-address" autoCapitalize="none" />
+                  <TextInput style={styles.input} value={profileForm.contactNames} onChangeText={value => setProfileForm(current => ({ ...current, contactNames: value }))} placeholder="Contact names" />
                   <View style={styles.twoCols}>
                     <PrimaryButton title="Save Profile" onPress={saveInvoiceProfile} disabled={busy} />
                     <SecondaryButton title="Cancel" onPress={() => setProfileEditorOpen(false)} disabled={busy} />

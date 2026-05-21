@@ -159,5 +159,17 @@ export function generateInvoicePDF(
     align: 'center',
   });
 
+  if (invoice.company_email) {
+    doc.text(`Email: ${invoice.company_email}`, {
+      align: 'center',
+    });
+  }
+
+  if (invoice.contact_names) {
+    doc.text(`Contacts: ${invoice.contact_names}`, {
+      align: 'center',
+    });
+  }
+
   doc.end();
 }

@@ -38,6 +38,14 @@ export class SaveInvoiceProfileDto {
   company_phone: string;
 
   @IsOptional()
+  @IsString()
+  company_email?: string;
+
+  @IsOptional()
+  @IsString()
+  contact_names?: string;
+
+  @IsOptional()
   @IsBoolean()
   is_default?: boolean;
 }

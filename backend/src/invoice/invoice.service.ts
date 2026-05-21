@@ -173,6 +173,8 @@ export class InvoiceService {
         company_activity_ar: cleanText(data.company_activity_ar),
         company_address: data.company_address.trim(),
         company_phone: data.company_phone.trim(),
+        company_email: cleanText(data.company_email),
+        contact_names: cleanText(data.contact_names),
         total,
         previous_balance,
         grand_total,

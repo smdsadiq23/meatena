@@ -42,6 +42,8 @@ type InvoiceProfile = {
   company_activity_ar?: string | null;
   company_address: string;
   company_phone: string;
+  company_email?: string | null;
+  contact_names?: string | null;
   is_default?: boolean;
 };
 
@@ -56,6 +58,8 @@ type InvoiceProfileForm = {
   companyActivityAr: string;
   companyAddress: string;
   companyPhone: string;
+  companyEmail: string;
+  contactNames: string;
 };
 
 const defaultInvoiceProfile: InvoiceProfile = {
@@ -68,6 +72,8 @@ const defaultInvoiceProfile: InvoiceProfile = {
   company_activity_ar: "",
   company_address: "Kuwait",
   company_phone: "",
+  company_email: "almajad.albasat.co@gmail.com",
+  contact_names: "Abdul Basit, Zahoor Ellahi",
   is_default: true,
 };
 
@@ -83,6 +89,8 @@ function profileToForm(profile: InvoiceProfile): InvoiceProfileForm {
     companyActivityAr: profile.company_activity_ar ?? "",
     companyAddress: profile.company_address ?? "",
     companyPhone: profile.company_phone ?? "",
+    companyEmail: profile.company_email ?? "",
+    contactNames: profile.contact_names ?? "",
   };
 }
 
@@ -262,6 +270,8 @@ export default function Invoice() {
       company_activity_ar: profileForm.companyActivityAr.trim() || undefined,
       company_address: profileForm.companyAddress.trim(),
       company_phone: profileForm.companyPhone.trim(),
+      company_email: profileForm.companyEmail.trim() || undefined,
+      contact_names: profileForm.contactNames.trim() || undefined,
       is_default: true,
     };
 
@@ -386,6 +396,8 @@ export default function Invoice() {
           company_activity_ar: selectedProfile.company_activity_ar?.trim() || undefined,
           company_address: selectedProfile.company_address.trim(),
           company_phone: selectedProfile.company_phone.trim(),
+          company_email: selectedProfile.company_email?.trim() || undefined,
+          contact_names: selectedProfile.contact_names?.trim() || undefined,
           items: items.map((item) => ({
             product_id: item.productId ? Number(item.productId) : undefined,
             weight: Number(item.weight),
@@ -472,6 +484,11 @@ export default function Invoice() {
               <div className="mt-1 text-sm text-slate-600">
                 {selectedProfile.company_address} | {selectedProfile.company_phone}
               </div>
+              {selectedProfile.company_email || selectedProfile.contact_names ? (
+                <div className="mt-1 text-sm text-slate-600">
+                  {[selectedProfile.company_email, selectedProfile.contact_names].filter(Boolean).join(" | ")}
+                </div>
+              ) : null}
             </div>
             <div className="grid gap-2 sm:grid-cols-3">
               <button type="button" className="btn-secondary" onClick={startNewProfile}>
@@ -497,6 +514,8 @@ export default function Invoice() {
                   ["companyActivityAr", "Company activity Arabic"],
                   ["companyAddress", "Company address"],
                   ["companyPhone", "Company phone"],
+                  ["companyEmail", "Company email"],
+                  ["contactNames", "Contact names"],
                 ].map(([key, placeholder]) => (
                   <input
                     key={key}

@@ -77,6 +77,8 @@ export const ARABIC_LABELS: Record<string, string> = {
   "Company activity Arabic": "نشاط الشركة بالعربية",
   "Company address": "عنوان الشركة",
   "Company phone": "هاتف الشركة",
+  "Company email": "البريد الإلكتروني للشركة",
+  "Contact names": "أسماء جهات الاتصال",
   "Save Profile": "حفظ الملف",
   Cancel: "إلغاء",
   Customer: "العميل",

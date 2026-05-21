@@ -32,6 +32,12 @@ export class InvoiceProfile {
   @Column({ type: 'varchar' })
   company_phone: string;
 
+  @Column({ type: 'varchar', nullable: true })
+  company_email: string | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  contact_names: string | null;
+
   @Column({ type: 'boolean', default: false })
   is_default: boolean;
 

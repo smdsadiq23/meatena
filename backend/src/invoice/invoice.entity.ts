@@ -41,6 +41,12 @@ export class Invoice {
   @Column({ type: 'varchar', nullable: true })
   company_phone: string | null;
 
+  @Column({ type: 'varchar', nullable: true })
+  company_email: string | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  contact_names: string | null;
+
   @Column('decimal', { precision: 10, scale: 3, default: 0 })
   total: number;
 

@@ -35,10 +35,20 @@ export class InvoiceProfileService implements OnModuleInit {
         company_activity_ar varchar NULL,
         company_address varchar NOT NULL,
         company_phone varchar NOT NULL,
+        company_email varchar NULL,
+        contact_names varchar NULL,
         is_default boolean NOT NULL DEFAULT false,
         created_at varchar NOT NULL,
         updated_at varchar NOT NULL
       )
+    `);
+    await this.dataSource.query(`
+      ALTER TABLE invoice_profile
+      ADD COLUMN IF NOT EXISTS company_email varchar NULL
+    `);
+    await this.dataSource.query(`
+      ALTER TABLE invoice_profile
+      ADD COLUMN IF NOT EXISTS contact_names varchar NULL
     `);
 
     const count = await this.profileRepo.count();
@@ -49,6 +59,8 @@ export class InvoiceProfileService implements OnModuleInit {
         company_name: 'Meatena Butchery Operations',
         company_address: 'Kuwait',
         company_phone: '00000000',
+        company_email: 'almajad.albasat.co@gmail.com',
+        contact_names: 'Abdul Basit, Zahoor Ellahi',
         is_default: true,
       });
     }
@@ -90,6 +102,8 @@ export class InvoiceProfileService implements OnModuleInit {
       company_activity_ar: clean(data.company_activity_ar),
       company_address: data.company_address.trim(),
       company_phone: data.company_phone.trim(),
+      company_email: clean(data.company_email),
+      contact_names: clean(data.contact_names),
       is_default: shouldDefault,
       created_at: now,
       updated_at: now,
@@ -118,6 +132,8 @@ export class InvoiceProfileService implements OnModuleInit {
       company_activity_ar: clean(data.company_activity_ar),
       company_address: data.company_address.trim(),
       company_phone: data.company_phone.trim(),
+      company_email: clean(data.company_email),
+      contact_names: clean(data.contact_names),
       is_default: data.is_default ?? profile.is_default,
       updated_at: new Date().toISOString(),
     });

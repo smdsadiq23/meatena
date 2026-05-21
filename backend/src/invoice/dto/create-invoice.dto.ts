@@ -69,6 +69,16 @@ export class CreateInvoiceDto {
   @MinLength(1)
   company_phone: string;
 
+  @ApiProperty({ example: 'almajad.albasat.co@gmail.com', required: false })
+  @IsOptional()
+  @IsString()
+  company_email?: string;
+
+  @ApiProperty({ example: 'Abdul Basit, Zahoor Ellahi', required: false })
+  @IsOptional()
+  @IsString()
+  contact_names?: string;
+
   @ApiProperty({ type: [CreateInvoiceItemDto] })
   @IsArray()
   @ArrayMinSize(1)
