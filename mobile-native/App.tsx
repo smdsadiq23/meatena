@@ -8,6 +8,7 @@ import {
 } from '@react-native-documents/picker';
 import {
   Alert,
+  Image,
   Linking,
   Platform,
   RefreshControl,
@@ -21,6 +22,8 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+
+const meatenaLogo = require('./assets/logo.png');
 
 type Role = 'admin' | 'staff';
 type Language = 'en' | 'ar';
@@ -1812,13 +1815,11 @@ export default function App() {
         <StatusBar barStyle="dark-content" />
         <ScrollView contentContainerStyle={styles.loginContainer}>
           <View style={styles.brandCard}>
-            <View style={styles.logoBox}>
-              <Text style={styles.logoText}>M</Text>
-            </View>
+            <Image source={meatenaLogo} style={styles.logoBox} resizeMode="cover" />
             <View style={styles.flex}>
-              <Text style={styles.kicker}>{t('Meatena Native')}</Text>
+              <Text style={styles.kicker}>{t('Meatena')}</Text>
               <Text style={styles.title}>{t('Butchery Operations')}</Text>
-              <Text style={styles.muted}>Bare React Native app, separate from Expo.</Text>
+              <Text style={styles.muted}>Cloud connected operations app.</Text>
             </View>
             <LanguageToggle language={language} onChange={setLanguage} />
           </View>
@@ -1881,11 +1882,9 @@ export default function App() {
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="dark-content" />
       <View style={styles.header}>
-        <View style={styles.logoSmall}>
-          <Text style={styles.logoSmallText}>M</Text>
-        </View>
+        <Image source={meatenaLogo} style={styles.logoSmall} resizeMode="cover" />
         <View style={styles.flex}>
-          <Text style={styles.kicker}>{t('Meatena Native')}</Text>
+          <Text style={styles.kicker}>{t('Meatena')}</Text>
           <Text style={styles.headerTitle}>{t('Butchery Operations')}</Text>
           <Text style={styles.muted}>
             {user.username} | {user.role}
@@ -3254,30 +3253,14 @@ const styles = StyleSheet.create({
     padding: 18,
   },
   logoBox: {
-    alignItems: 'center',
-    backgroundColor: '#e71932',
     borderRadius: 18,
     height: 70,
-    justifyContent: 'center',
     width: 70,
   },
-  logoText: {
-    color: 'white',
-    fontSize: 36,
-    fontWeight: '900',
-  },
   logoSmall: {
-    alignItems: 'center',
-    backgroundColor: '#e71932',
     borderRadius: 14,
     height: 48,
-    justifyContent: 'center',
     width: 48,
-  },
-  logoSmallText: {
-    color: 'white',
-    fontSize: 26,
-    fontWeight: '900',
   },
   flex: {
     flex: 1,

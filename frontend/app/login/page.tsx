@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { API, getHomePathForRole, parseToken, setToken } from "../../lib/auth";
@@ -80,10 +81,22 @@ export default function LoginPage() {
             {language === "en" ? "عربي" : "EN"}
           </button>
         </div>
-        <p className="soft-label">{t("Secure Access")}</p>
-        <h1 className="mt-3 text-3xl font-black tracking-tight text-slate-950">
-          {t("Sign in to Meatena")}
-        </h1>
+        <div className="flex items-center gap-4">
+          <Image
+            src="/falcon.svg"
+            alt="Meatena falcon"
+            width={64}
+            height={64}
+            className="h-16 w-16 rounded-2xl shadow-lg shadow-red-100"
+            priority
+          />
+          <div>
+            <p className="soft-label">{t("Secure Access")}</p>
+            <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950">
+              {t("Sign in to Meatena")}
+            </h1>
+          </div>
+        </div>
         <p className="mt-3 text-sm leading-6 text-slate-600">
           {t("Use your staff or admin account to open the billing workspace.")}
         </p>
