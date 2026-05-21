@@ -81,21 +81,19 @@ export default function LoginPage() {
             {language === "en" ? "عربي" : "EN"}
           </button>
         </div>
-        <div className="flex items-center gap-4">
+        <div>
           <Image
-            src="/falcon.svg"
-            alt="Meatena falcon"
-            width={64}
-            height={64}
-            className="h-16 w-16 rounded-2xl shadow-lg shadow-red-100"
+            src="/logo.png"
+            alt="Meatena logo"
+            width={260}
+            height={160}
+            className="mb-5 h-auto w-44 object-contain"
             priority
           />
-          <div>
-            <p className="soft-label">{t("Secure Access")}</p>
-            <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950">
-              {t("Sign in to Meatena")}
-            </h1>
-          </div>
+          <p className="soft-label">{t("Secure Access")}</p>
+          <h1 className="mt-3 text-3xl font-black tracking-tight text-slate-950">
+            {t("Sign in to Meatena")}
+          </h1>
         </div>
         <p className="mt-3 text-sm leading-6 text-slate-600">
           {t("Use your staff or admin account to open the billing workspace.")}

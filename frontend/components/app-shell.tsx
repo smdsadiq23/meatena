@@ -416,24 +416,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <aside className="border-b border-white/10 bg-[linear-gradient(180deg,#191919_0%,#111111_68%,#2b1113_100%)] px-5 py-6 text-white lg:sticky lg:top-0 lg:h-screen lg:w-76 lg:overflow-y-auto lg:border-b-0 lg:border-r">
         <Link href="/dashboard" className="mb-5 block">
           <div className="rounded-2xl border border-white/10 bg-black/20 p-3">
-            <div className="flex items-center gap-3">
-              <Image
-                src="/falcon.svg"
-                alt="Meatena falcon"
-                width={58}
-                height={58}
-                className="h-14 w-14 rounded-2xl"
-                priority
-              />
-              <div className="min-w-0">
-                <p className="text-xs font-black uppercase tracking-[0.24em] text-white/45">
-                  {t("Meatena")}
-                </p>
-                <p className="truncate text-lg font-black text-white">
-                  {t("Butchery Operations")}
-                </p>
-              </div>
-            </div>
+            <Image
+              src="/logo.png"
+              alt="Meatena logo"
+              width={520}
+              height={320}
+              className="h-auto w-full object-contain"
+              priority
+            />
+            <p className="mt-2 text-xs font-semibold uppercase tracking-[0.14em] text-white/50">
+              {t("Butchery Operations")}
+            </p>
           </div>
         </Link>
 
