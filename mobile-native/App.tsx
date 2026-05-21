@@ -317,13 +317,19 @@ type InvoiceProfileForm = {
   contactNames: string;
 };
 
+const CLOUD_API = process.env.CLOUD_API_URL ?? 'http://20.121.115.100/api';
 const LAN_API = process.env.LAN_API_URL ?? 'http://192.168.29.204:3003';
-const DEFAULT_API = Platform.OS === 'android' ? LAN_API : 'http://localhost:3003';
+const DEFAULT_API = CLOUD_API;
 const SERVER_PRESETS = [
   {
-    label: Platform.OS === 'android' ? 'This Mac LAN' : 'This device',
-    value: DEFAULT_API,
-    caption: Platform.OS === 'android' ? 'Use this for a real phone on the same Wi-Fi' : 'Local simulator',
+    label: 'Cloud server',
+    value: CLOUD_API,
+    caption: 'Use this APK anywhere with internet',
+  },
+  {
+    label: 'This Mac LAN',
+    value: LAN_API,
+    caption: 'Use this only for local development on the same Wi-Fi',
   },
   {
     label: 'Android emulator',
@@ -336,7 +342,7 @@ const SERVER_PRESETS = [
     caption: 'Type your server IP manually',
   },
   {
-    label: 'Localhost',
+    label: Platform.OS === 'ios' ? 'iOS simulator' : 'Localhost',
     value: 'http://localhost:3003',
     caption: 'Web/iOS simulator only',
   },
@@ -636,7 +642,15 @@ function normalizeServerUrl(value: string) {
   try {
     const parsed = new URL(withProtocol);
 
-    if (!parsed.port) {
+    const isLocalHost =
+      parsed.hostname === 'localhost' ||
+      parsed.hostname === '127.0.0.1' ||
+      parsed.hostname === '10.0.2.2' ||
+      parsed.hostname.startsWith('192.168.') ||
+      parsed.hostname.startsWith('10.') ||
+      parsed.hostname.startsWith('172.');
+
+    if (!parsed.port && isLocalHost) {
       parsed.port = '3003';
     }
 
