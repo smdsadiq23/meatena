@@ -292,6 +292,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const contentRef = useRef<HTMLDivElement>(null);
   const isLoginPage = pathname === "/login";
   const authState = useSyncExternalStore(subscribeToAuthState, getAuthSnapshot, () => EMPTY_AUTH_STATE);
+  const [authReady, setAuthReady] = useState(false);
   const [language, setLanguage] = useState<Language>("en");
 
   const authUser = authState?.authUser ?? null;
@@ -299,6 +300,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const t = (text: string) => translate(language, text);
 
   useEffect(() => {
+    setAuthReady(true);
+
     const storedLanguage = window.localStorage.getItem("language");
     if (storedLanguage === "ar" || storedLanguage === "en") {
       setLanguage(storedLanguage);
@@ -348,6 +351,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }, [isLoginPage, language, pathname]);
 
   useEffect(() => {
+    if (!authReady) {
+      return;
+    }
+
     if (!authState) {
       return;
     }
@@ -370,7 +377,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     if (!canAccess(requiredRoles, authUser?.role)) {
       router.replace(getHomePathForRole(authUser?.role));
     }
-  }, [authState, authUser?.role, isLoginPage, pathname, router, validToken]);
+  }, [authReady, authState, authUser?.role, isLoginPage, pathname, router, validToken]);
 
   const navGroups = useMemo(() => {
     const filterGroups = (groups: NavGroup[]) =>
@@ -399,7 +406,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     return filterGroups(baseNavGroups);
   }, [authUser?.role]);
 
-  if (!authState || (isLoginPage && validToken) || (!isLoginPage && !validToken)) {
+  if (!authReady || !authState || (isLoginPage && validToken) || (!isLoginPage && !validToken)) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background px-6 text-center text-sm font-semibold text-slate-600">
         {t("Loading secure workspace...")}
