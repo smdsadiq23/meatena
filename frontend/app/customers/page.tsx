@@ -509,7 +509,7 @@ function CustomerRow({
 
       <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:justify-start lg:justify-end">
         <Link
-          className="inline-flex min-h-11 items-center justify-center rounded-2xl bg-slate-950 px-4 py-2 text-sm font-bold text-white shadow-sm transition hover:bg-slate-800"
+          className="inline-flex min-h-11 items-center justify-center rounded-2xl bg-slate-950 px-4 py-2 text-sm font-bold !text-white shadow-sm transition hover:bg-slate-800"
           href={`/statement?customer=${customer.id}`}
         >
           Statement
