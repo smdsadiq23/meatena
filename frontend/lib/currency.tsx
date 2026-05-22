@@ -108,8 +108,8 @@ export function Money({
 
   return (
     <span className={`inline-flex min-w-0 max-w-full flex-col leading-[1.08] tracking-normal ${className}`}>
-      <span className="truncate">{formatKwd(value)}</span>
-      <span className={`mt-1 truncate text-[0.52em] font-extrabold leading-none tracking-normal opacity-70 ${usdClassName}`}>
+      <span className="block max-w-full whitespace-normal break-words">{formatKwd(value)}</span>
+      <span className={`mt-1 block max-w-full whitespace-normal break-words text-[0.52em] font-extrabold leading-none tracking-normal opacity-70 ${usdClassName}`}>
         {formatUsd(value)}
       </span>
     </span>

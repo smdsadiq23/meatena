@@ -851,9 +851,9 @@ function CloseCard({
   };
 
   return (
-    <div className={`rounded-3xl px-5 py-5 ${classes[tone]}`}>
+    <div className={`rounded-3xl px-5 py-5 [container-type:inline-size] ${classes[tone]}`}>
       <p className="text-xs font-bold uppercase tracking-[0.14em] opacity-70">{label}</p>
-      <p className="mt-2 text-3xl font-black"><Money value={value} /></p>
+      <p className="mt-2 max-w-full text-[clamp(1.75rem,12cqw,2.7rem)] font-black leading-none tracking-normal"><Money value={value} /></p>
     </div>
   );
 }

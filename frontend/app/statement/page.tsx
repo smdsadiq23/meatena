@@ -396,9 +396,9 @@ function MetricCard({
         : "bg-[linear-gradient(135deg,#e11d2e_0%,#7f1d1d_100%)] text-white";
 
   return (
-    <div className={`rounded-[24px] p-5 shadow-lg ${toneClass}`}>
+    <div className={`rounded-[24px] p-5 shadow-lg [container-type:inline-size] ${toneClass}`}>
       <p className="text-xs font-semibold uppercase tracking-[0.16em] opacity-75">{label}</p>
-      <p className="mt-4 text-3xl font-black tracking-tight"><Money value={value} /></p>
+      <p className="mt-4 max-w-full text-[clamp(1.75rem,12cqw,2.7rem)] font-black leading-none tracking-normal"><Money value={value} /></p>
     </div>
   );
 }

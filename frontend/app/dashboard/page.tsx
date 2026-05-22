@@ -102,11 +102,11 @@ export default function Dashboard() {
 
       <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
         {cards.map((card) => (
-          <div key={card.title} className={`rounded-[28px] p-6 shadow-xl ${card.classes}`}>
+          <div key={card.title} className={`rounded-[28px] p-6 shadow-xl [container-type:inline-size] ${card.classes}`}>
             <h2 className="text-sm font-semibold uppercase tracking-[0.16em] opacity-80">
               {card.title}
             </h2>
-            <p className="mt-6 text-4xl font-black tracking-tight">
+            <p className="mt-6 max-w-full text-[clamp(2rem,13cqw,3rem)] font-black leading-none tracking-normal">
               {card.money ? <Money value={card.value} /> : String(card.value)}
             </p>
           </div>
@@ -114,29 +114,29 @@ export default function Dashboard() {
       </div>
 
       <div className="grid gap-5 md:grid-cols-3">
-        <div className="rounded-[28px] bg-gray-800 p-6 text-white shadow-xl">
+        <div className="rounded-[28px] bg-gray-800 p-6 text-white shadow-xl [container-type:inline-size]">
           <h3 className="text-sm font-semibold uppercase tracking-[0.16em] opacity-80">
             {t("Sales")}
           </h3>
-          <p className="mt-6 text-4xl font-black tracking-tight">
+          <p className="mt-6 max-w-full text-[clamp(2rem,11cqw,3rem)] font-black leading-none tracking-normal">
             <Money value={profitData.sales ?? 0} />
           </p>
         </div>
 
-        <div className="rounded-[28px] bg-red-600 p-6 text-white shadow-xl">
+        <div className="rounded-[28px] bg-red-600 p-6 text-white shadow-xl [container-type:inline-size]">
           <h3 className="text-sm font-semibold uppercase tracking-[0.16em] opacity-80">
             {t("Expenses")}
           </h3>
-          <p className="mt-6 text-4xl font-black tracking-tight">
+          <p className="mt-6 max-w-full text-[clamp(2rem,11cqw,3rem)] font-black leading-none tracking-normal">
             <Money value={profitData.expenseTotal ?? 0} />
           </p>
         </div>
 
-        <div className="rounded-[28px] bg-green-600 p-6 text-white shadow-xl">
+        <div className="rounded-[28px] bg-green-600 p-6 text-white shadow-xl [container-type:inline-size]">
           <h3 className="text-sm font-semibold uppercase tracking-[0.16em] opacity-80">
             {t("Profit")}
           </h3>
-          <p className="mt-6 text-4xl font-black tracking-tight">
+          <p className="mt-6 max-w-full text-[clamp(2rem,11cqw,3rem)] font-black leading-none tracking-normal">
             <Money value={profitData.profit ?? 0} />
           </p>
         </div>
