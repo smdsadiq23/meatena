@@ -483,8 +483,8 @@ function CustomerRow({
   }, [customer.id]);
 
   return (
-    <div className="flex items-center justify-between rounded-3xl border border-black/8 bg-white px-5 py-4 text-left transition hover:border-red-100 hover:bg-red-50/40">
-      <div>
+    <div className="grid gap-5 rounded-3xl border border-black/8 bg-white px-5 py-4 text-left transition hover:border-red-100 hover:bg-red-50/40 lg:grid-cols-[minmax(220px,1fr)_170px_minmax(260px,auto)] lg:items-center">
+      <div className="min-w-0">
         <p className="text-lg font-bold text-slate-950">{customer.name}</p>
         <p className="mt-1 text-sm text-slate-600">{customer.mobile || "No mobile"}</p>
         <p className="mt-1 text-xs text-slate-500">{customer.address || "No address"}</p>
@@ -496,47 +496,45 @@ function CustomerRow({
         </p>
       </div>
 
-      <div className="flex items-center gap-3">
-        <div className="text-right">
-          <div
-            className={`text-lg font-black ${balance > 0 ? "text-red-500" : "text-green-600"}`}
-          >
-            <Money value={balance} />
-          </div>
-          <div className="text-xs font-medium uppercase tracking-[0.2em] text-slate-500">
-            {balance > 0 ? "Due" : "Clear"}
-          </div>
+      <div className="rounded-2xl bg-slate-50 px-4 py-3 text-left lg:text-right">
+        <div
+          className={`text-xl font-black leading-tight ${balance > 0 ? "text-red-500" : "text-green-600"}`}
+        >
+          <Money value={balance} />
         </div>
+        <div className="mt-1 text-xs font-black uppercase tracking-[0.2em] text-slate-500">
+          {balance > 0 ? "Due" : "Clear"}
+        </div>
+      </div>
 
-        <div className="flex gap-2">
-          <Link
-            className="rounded-2xl bg-slate-950 px-3 py-2 text-sm font-semibold text-white"
-            href={`/statement?customer=${customer.id}`}
-          >
-            Statement
-          </Link>
-          {followup ? <FollowUpActions followup={followup} compact /> : null}
-          <button
-            className="rounded-2xl bg-amber-400 px-3 py-2 text-sm font-semibold text-slate-950"
-            onClick={(event) => {
-              event.stopPropagation();
-              onEdit(customer);
-            }}
-            disabled={actionsDisabled}
-          >
-            Edit
-          </button>
-          <button
-            className="rounded-2xl bg-red-600 px-3 py-2 text-sm font-semibold text-white"
-            onClick={(event) => {
-              event.stopPropagation();
-              onDelete(customer.id);
-            }}
-            disabled={actionsDisabled}
-          >
-            Delete
-          </button>
-        </div>
+      <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:justify-start lg:justify-end">
+        <Link
+          className="inline-flex min-h-11 items-center justify-center rounded-2xl bg-slate-950 px-4 py-2 text-sm font-bold text-white shadow-sm transition hover:bg-slate-800"
+          href={`/statement?customer=${customer.id}`}
+        >
+          Statement
+        </Link>
+        {followup ? <FollowUpActions followup={followup} compact /> : null}
+        <button
+          className="inline-flex min-h-11 items-center justify-center rounded-2xl bg-amber-400 px-4 py-2 text-sm font-bold text-slate-950 transition hover:bg-amber-300 disabled:opacity-50"
+          onClick={(event) => {
+            event.stopPropagation();
+            onEdit(customer);
+          }}
+          disabled={actionsDisabled}
+        >
+          Edit
+        </button>
+        <button
+          className="inline-flex min-h-11 items-center justify-center rounded-2xl bg-red-600 px-4 py-2 text-sm font-bold text-white transition hover:bg-red-500 disabled:opacity-50"
+          onClick={(event) => {
+            event.stopPropagation();
+            onDelete(customer.id);
+          }}
+          disabled={actionsDisabled}
+        >
+          Delete
+        </button>
       </div>
     </div>
   );
