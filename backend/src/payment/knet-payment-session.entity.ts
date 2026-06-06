@@ -8,6 +8,9 @@ export class KnetPaymentSession {
   @Column()
   invoice_id: number;
 
+  @Column({ type: 'simple-json', nullable: true })
+  invoice_ids: number[] | null;
+
   @Column()
   customer_id: number;
 

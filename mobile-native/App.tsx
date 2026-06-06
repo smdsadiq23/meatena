@@ -747,6 +747,7 @@ export default function App() {
   const [voidForm, setVoidForm] = useState(emptyVoidForm);
   const [paymentAmount, setPaymentAmount] = useState('');
   const [paymentInvoiceId, setPaymentInvoiceId] = useState<number | null>(null);
+  const [paymentInvoiceIds, setPaymentInvoiceIds] = useState<number[]>([]);
   const [selectedInvoiceDetail, setSelectedInvoiceDetail] = useState<InvoiceDetail | null>(null);
   const [invoiceDetailLoading, setInvoiceDetailLoading] = useState(false);
   const [lastKnetUrl, setLastKnetUrl] = useState('');
@@ -766,6 +767,14 @@ export default function App() {
   const remainingCredit = creditLimit > 0 ? creditLimit - projectedBalance : null;
   const isCreditLimitExceeded = invoiceForm.type === 'credit' && creditLimit > 0 && projectedBalance > creditLimit;
   const unpaidInvoices = invoices.filter(invoice => Number(invoice.outstanding_amount ?? 0) > 0);
+  const customerUnpaidInvoices = unpaidInvoices.filter(
+    invoice => !selectedCustomerId || invoice.customer_id === selectedCustomerId
+  );
+  const selectedPaymentInvoices = customerUnpaidInvoices.filter(invoice => paymentInvoiceIds.includes(invoice.id));
+  const selectedPaymentTotal = selectedPaymentInvoices.reduce(
+    (sum, invoice) => sum + Number(invoice.outstanding_amount ?? invoice.total ?? 0),
+    0
+  );
   const isAdmin = user?.role === 'admin';
   const navGroups: Array<{
     key: string;
@@ -1350,9 +1359,28 @@ export default function App() {
     }
   }
 
+  function togglePaymentInvoice(invoice: Invoice) {
+    setLastKnetUrl('');
+    setPaymentInvoiceIds(current => {
+      const nextIds = current.includes(invoice.id)
+        ? current.filter(id => id !== invoice.id)
+        : [...current, invoice.id];
+      const nextInvoices = customerUnpaidInvoices.filter(item => nextIds.includes(item.id));
+      const nextAmount = nextInvoices.reduce(
+        (sum, item) => sum + Number(item.outstanding_amount ?? item.total ?? 0),
+        0
+      );
+
+      setPaymentAmount(nextIds.length ? nextAmount.toFixed(3) : '');
+      setPaymentInvoiceId(nextIds.length === 1 ? nextIds[0] : null);
+
+      return nextIds;
+    });
+  }
+
   async function createOnlinePaymentLink(kind: 'knet' | 'card') {
-    if (!paymentInvoiceId || !paymentAmount.trim()) {
-      setStatus('Select invoice and enter payment amount.');
+    if (!paymentInvoiceIds.length || !selectedPaymentTotal) {
+      setStatus('Select one or more invoices before creating a payment link.');
       return;
     }
 
@@ -1363,8 +1391,9 @@ export default function App() {
       const response = await apiFetch(`/payments/${kind}`, {
         method: 'POST',
         body: JSON.stringify({
-          invoice_id: paymentInvoiceId,
-          amount: Number(paymentAmount),
+          invoice_id: paymentInvoiceIds.length === 1 ? paymentInvoiceIds[0] : undefined,
+          invoice_ids: paymentInvoiceIds,
+          amount: Number(selectedPaymentTotal.toFixed(3)),
         }),
       });
 
@@ -1372,6 +1401,7 @@ export default function App() {
       const url = data.url || data.payment_url || '';
       setLastKnetUrl(url);
       setLastPaymentKind(kind);
+      setPaymentAmount(selectedPaymentTotal.toFixed(3));
       setStatus(url ? `${kind === 'card' ? 'Card' : 'KNET'} link ready.` : `${kind === 'card' ? 'Card' : 'KNET'} link created.`);
     } catch (error) {
       setStatus(error instanceof Error ? error.message : `Could not create ${kind === 'card' ? 'card' : 'KNET'} link.`);
@@ -1386,12 +1416,12 @@ export default function App() {
       return;
     }
 
-    const amount = currencyInline(paymentAmount);
-    const invoice = invoices.find(item => item.id === paymentInvoiceId);
+    const amount = currencyInline(selectedPaymentTotal || Number(paymentAmount));
+    const labels = selectedPaymentInvoices.map(invoice => invoiceLabel(invoice)).join(', ');
     const phone = compactPhone(selectedCustomer?.mobile);
-    const message = `Hello ${selectedCustomer?.name ?? ''}, please pay ${amount} for invoice ${
-      invoice ? invoiceLabel(invoice) : ''
-    }: ${lastKnetUrl}`;
+    const message = `Hello ${selectedCustomer?.name ?? ''}, please pay ${amount} for invoice${
+      selectedPaymentInvoices.length === 1 ? '' : 's'
+    } ${labels}: ${lastKnetUrl}`;
     const url = phone
       ? `https://wa.me/${phone}?text=${encodeURIComponent(message)}`
       : `https://wa.me/?text=${encodeURIComponent(message)}`;
@@ -2251,8 +2281,36 @@ export default function App() {
       <View style={styles.card}>
         <Text style={styles.kicker}>Collections</Text>
         <Text style={styles.screenTitle}>Payments</Text>
-        <CustomerPicker customers={customers} value={selectedCustomerId} onChange={setSelectedCustomerId} />
-        <InvoicePicker invoices={unpaidInvoices} value={paymentInvoiceId} onChange={setPaymentInvoiceId} />
+        <CustomerPicker
+          customers={customers}
+          value={selectedCustomerId}
+          onChange={value => {
+            setSelectedCustomerId(value);
+            setPaymentInvoiceId(null);
+            setPaymentInvoiceIds([]);
+            setPaymentAmount('');
+            setLastKnetUrl('');
+          }}
+        />
+        <InvoiceMultiPicker
+          invoices={customerUnpaidInvoices}
+          values={paymentInvoiceIds}
+          onToggle={togglePaymentInvoice}
+          onClear={() => {
+            setPaymentInvoiceId(null);
+            setPaymentInvoiceIds([]);
+            setPaymentAmount('');
+            setLastKnetUrl('');
+          }}
+        />
+        {paymentInvoiceIds.length ? (
+          <View style={styles.infoBox}>
+            <Text style={styles.infoTitle}>
+              {paymentInvoiceIds.length} invoice{paymentInvoiceIds.length === 1 ? '' : 's'} selected
+            </Text>
+            <Text style={styles.infoText}>{currencyInline(selectedPaymentTotal)}</Text>
+          </View>
+        ) : null}
         <TextInput
           style={styles.input}
           value={paymentAmount}
@@ -2260,7 +2318,11 @@ export default function App() {
           placeholder="Payment amount"
           keyboardType="decimal-pad"
         />
-        <PrimaryButton title="Record Cash Payment" onPress={recordCashPayment} disabled={busy} />
+        <PrimaryButton
+          title={paymentInvoiceIds.length > 1 ? 'Cash needs one invoice' : 'Record Cash Payment'}
+          onPress={recordCashPayment}
+          disabled={busy || paymentInvoiceIds.length > 1}
+        />
         <SecondaryButton title="Create KNET Link" onPress={() => createOnlinePaymentLink('knet')} disabled={busy} />
         <SecondaryButton title="Create Card Link" onPress={() => createOnlinePaymentLink('card')} disabled={busy} />
         {lastKnetUrl ? (
@@ -3102,28 +3164,40 @@ function SupplierPicker({
   );
 }
 
-function InvoicePicker({
+function InvoiceMultiPicker({
   invoices,
-  value,
-  onChange,
+  values,
+  onToggle,
+  onClear,
 }: {
   invoices: Invoice[];
-  value: number | null;
-  onChange: (value: number) => void;
+  values: number[];
+  onToggle: (invoice: Invoice) => void;
+  onClear: () => void;
 }) {
   const { t } = useLanguage();
   return (
     <View>
-      <Text style={styles.subhead}>{t('Select invoice')}</Text>
+      <View style={styles.sectionHeaderRow}>
+        <Text style={styles.subhead}>{t('Select invoices')}</Text>
+        {values.length ? (
+          <TouchableOpacity onPress={onClear}>
+            <Text style={styles.linkText}>{t('Clear')}</Text>
+          </TouchableOpacity>
+        ) : null}
+      </View>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.selectorRow}>
         {invoices.map(invoice => (
           <Pill
             key={invoice.id}
             label={`${invoiceLabel(invoice)} | ${currencyInline(invoice.outstanding_amount)}`}
-            active={value === invoice.id}
-            onPress={() => onChange(invoice.id)}
+            active={values.includes(invoice.id)}
+            onPress={() => onToggle(invoice)}
           />
         ))}
+        {!invoices.length ? (
+          <Text style={styles.mutedText}>{t('No unpaid invoices')}</Text>
+        ) : null}
       </ScrollView>
     </View>
   );
@@ -3448,6 +3522,42 @@ const styles = StyleSheet.create({
   },
   stackItem: {
     gap: 8,
+  },
+  sectionHeaderRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  linkText: {
+    color: '#e71932',
+    fontSize: 12,
+    fontWeight: '900',
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+  },
+  mutedText: {
+    color: '#777',
+    fontSize: 13,
+    fontWeight: '800',
+    paddingVertical: 14,
+  },
+  infoBox: {
+    backgroundColor: '#fff5f5',
+    borderColor: '#ffd0d0',
+    borderRadius: 18,
+    borderWidth: 1,
+    gap: 4,
+    padding: 14,
+  },
+  infoTitle: {
+    color: '#101827',
+    fontSize: 15,
+    fontWeight: '900',
+  },
+  infoText: {
+    color: '#15803d',
+    fontSize: 15,
+    fontWeight: '900',
   },
   pill: {
     alignItems: 'center',

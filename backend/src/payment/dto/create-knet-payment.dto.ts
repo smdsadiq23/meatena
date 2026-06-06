@@ -1,13 +1,23 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsInt, IsNumber, Min } from 'class-validator';
+import { ArrayMinSize, IsArray, IsInt, IsNumber, IsOptional, Min } from 'class-validator';
 
 export class CreateKnetPaymentDto {
-  @ApiProperty({ example: 10 })
+  @ApiPropertyOptional({ example: 10 })
+  @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  invoice_id: number;
+  invoice_id?: number;
+
+  @ApiPropertyOptional({ example: [10, 11] })
+  @IsOptional()
+  @IsArray()
+  @ArrayMinSize(1)
+  @Type(() => Number)
+  @IsInt({ each: true })
+  @Min(1, { each: true })
+  invoice_ids?: number[];
 
   @ApiProperty({ example: 10.5 })
   @Type(() => Number)

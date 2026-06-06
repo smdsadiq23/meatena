@@ -26,6 +26,7 @@ type Invoice = {
 type KnetLinkResponse = {
   url: string;
   invoiceId: number;
+  invoiceIds?: number[];
   gatewayInvoiceId?: number;
   sessionId?: number;
 };
@@ -70,6 +71,7 @@ export default function Payment() {
   const [payments, setPayments] = useState<PaymentRecord[]>([]);
   const [customerId, setCustomerId] = useState("");
   const [invoiceId, setInvoiceId] = useState("");
+  const [selectedInvoiceIds, setSelectedInvoiceIds] = useState<number[]>([]);
   const [balance, setBalance] = useState(0);
   const [amount, setAmount] = useState("");
   const [knetUrl, setKnetUrl] = useState("");
@@ -140,8 +142,21 @@ export default function Payment() {
       .sort((a, b) => b.id - a.id);
   }, [customerId, invoices]);
 
-  const selectedInvoice = customerInvoices.find(
-    (invoice) => String(invoice.id) === invoiceId
+  const selectedInvoices = useMemo(
+    () =>
+      customerInvoices.filter((invoice) =>
+        selectedInvoiceIds.includes(invoice.id)
+      ),
+    [customerInvoices, selectedInvoiceIds]
+  );
+  const selectedOnlineAmount = useMemo(
+    () =>
+      selectedInvoices.reduce(
+        (sum, invoice) =>
+          sum + Number(invoice.outstanding_amount ?? invoice.total),
+        0
+      ),
+    [selectedInvoices]
   );
 
   const selectedCustomer = customers.find((customer) => String(customer.id) === customerId);
@@ -150,13 +165,37 @@ export default function Payment() {
     [customers]
   );
   const recentPayments = useMemo(() => payments.slice(0, 12), [payments]);
-  const selectedInvoiceLabel = selectedInvoice?.invoice_number ?? `#${selectedInvoice?.id ?? ""}`;
+  const selectedOnlineLabels = selectedInvoices.map(
+    (invoice) => invoice.invoice_number ?? `Invoice #${invoice.id}`
+  );
 
   const changeCustomer = (nextCustomerId: string) => {
     setCustomerId(nextCustomerId);
     setInvoiceId("");
+    setSelectedInvoiceIds([]);
     setKnetUrl("");
     setBalance(0);
+  };
+
+  const toggleOnlineInvoice = (invoice: Invoice) => {
+    setKnetUrl("");
+    setSelectedInvoiceIds((current) => {
+      const exists = current.includes(invoice.id);
+      const nextIds = exists
+        ? current.filter((id) => id !== invoice.id)
+        : [...current, invoice.id];
+      const nextInvoices = customerInvoices.filter((item) =>
+        nextIds.includes(item.id)
+      );
+      const nextAmount = nextInvoices.reduce(
+        (sum, item) => sum + Number(item.outstanding_amount ?? item.total),
+        0
+      );
+
+      setAmount(nextIds.length ? nextAmount.toFixed(3) : "");
+
+      return nextIds;
+    });
   };
 
   const submitPayment = async () => {
@@ -214,15 +253,9 @@ export default function Payment() {
       return;
     }
 
-    if (!selectedInvoice) {
+    if (!selectedInvoices.length) {
       setStatusType("error");
-      setStatus("Select an invoice before creating a KNET link.");
-      return;
-    }
-
-    if (selectedInvoice.payment_status === "paid") {
-      setStatusType("error");
-      setStatus("This invoice is already paid.");
+      setStatus("Select one or more invoices before creating a payment link.");
       return;
     }
 
@@ -234,8 +267,9 @@ export default function Payment() {
       const payload = await fetchJsonOrThrow<KnetLinkResponse>(`/payments/${kind}`, {
         method: "POST",
         body: JSON.stringify({
-          invoice_id: selectedInvoice.id,
-          amount: Number(selectedInvoice.outstanding_amount ?? selectedInvoice.total),
+          invoice_id: selectedInvoiceIds.length === 1 ? selectedInvoiceIds[0] : undefined,
+          invoice_ids: selectedInvoiceIds,
+          amount: Number(selectedOnlineAmount.toFixed(3)),
         }),
       });
 
@@ -243,7 +277,9 @@ export default function Payment() {
       setOnlineLinkKind(kind);
       setStatusType("success");
       setStatus(
-        `${kind === "card" ? "Card" : "KNET"} link created for invoice ${selectedInvoiceLabel || `#${payload.invoiceId}`}.`
+        `${kind === "card" ? "Card" : "KNET"} link created for ${selectedInvoices.length} invoice${
+          selectedInvoices.length === 1 ? "" : "s"
+        }.`
       );
       window.open(payload.url, "_blank", "noopener,noreferrer");
     } catch (error) {
@@ -274,17 +310,17 @@ export default function Payment() {
   };
 
   const shareKnetViaWhatsApp = () => {
-    if (!knetUrl || !selectedInvoice || !selectedCustomer) {
+    if (!knetUrl || !selectedInvoices.length || !selectedCustomer) {
       return;
     }
 
     const phone = normalizeWhatsAppNumber(selectedCustomer.mobile);
-    const amountDue = formatDualCurrency(
-      selectedInvoice.outstanding_amount ?? selectedInvoice.total
-    );
+    const amountDue = formatDualCurrency(selectedOnlineAmount);
     const message = [
       `Hello ${selectedCustomer.name},`,
-      `Please pay ${amountDue} for invoice ${selectedInvoiceLabel}.`,
+      `Please pay ${amountDue} for invoice${
+        selectedInvoices.length === 1 ? "" : "s"
+      } ${selectedOnlineLabels.join(", ")}.`,
       knetUrl,
       "Thank you.",
     ].join("\n");
@@ -444,23 +480,62 @@ export default function Payment() {
             ))}
           </select>
 
-          <select
-            className="field"
-            value={invoiceId}
-            onChange={(e) => {
-              setInvoiceId(e.target.value);
-              setKnetUrl("");
-            }}
-            disabled={!customerId}
-          >
-            <option value="">Select invoice</option>
-            {customerInvoices.map((invoice) => (
-              <option key={invoice.id} value={invoice.id}>
-                {invoice.invoice_number ?? `Invoice #${invoice.id}`} - Due{" "}
-                {formatDualCurrency(invoice.outstanding_amount ?? invoice.total)}
-              </option>
-            ))}
-          </select>
+          <div className="rounded-3xl border border-slate-100 bg-slate-50 p-4">
+            <div className="flex items-center justify-between gap-3">
+              <p className="soft-label">Select invoices to send</p>
+              {selectedInvoiceIds.length ? (
+                <button
+                  className="text-xs font-black uppercase tracking-[0.14em] text-red-600"
+                  onClick={() => {
+                    setSelectedInvoiceIds([]);
+                    setKnetUrl("");
+                    setAmount("");
+                  }}
+                  type="button"
+                >
+                  Clear
+                </button>
+              ) : null}
+            </div>
+
+            <div className="mt-3 space-y-2">
+              {customerInvoices.map((invoice) => {
+                const selected = selectedInvoiceIds.includes(invoice.id);
+
+                return (
+                  <button
+                    key={invoice.id}
+                    type="button"
+                    className={`grid w-full gap-2 rounded-2xl border px-4 py-3 text-left transition md:grid-cols-[1fr_auto] md:items-center ${
+                      selected
+                        ? "border-red-500 bg-red-50 text-slate-950"
+                        : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"
+                    }`}
+                    onClick={() => toggleOnlineInvoice(invoice)}
+                    disabled={!customerId}
+                  >
+                    <span>
+                      <span className="block text-sm font-black">
+                        {invoice.invoice_number ?? `Invoice #${invoice.id}`}
+                      </span>
+                      <span className="mt-1 block text-xs font-semibold text-slate-500">
+                        {new Date(invoice.date).toLocaleDateString()} ·{" "}
+                        {invoice.payment_status ?? "unpaid"}
+                      </span>
+                    </span>
+                    <span className="text-sm font-black">
+                      {formatDualCurrency(invoice.outstanding_amount ?? invoice.total)}
+                    </span>
+                  </button>
+                );
+              })}
+              {customerId && !customerInvoices.length ? (
+                <div className="rounded-2xl bg-white p-4 text-sm font-semibold text-slate-500">
+                  No unpaid invoices for this customer.
+                </div>
+              ) : null}
+            </div>
+          </div>
 
           <div className="rounded-3xl bg-slate-50 p-5">
             <p className="soft-label">Selected</p>
@@ -468,8 +543,10 @@ export default function Payment() {
               {selectedCustomer?.name ?? "No customer selected"}
             </p>
             <p className="mt-1 text-sm text-slate-600">
-              {selectedInvoice
-                ? `${selectedInvoice.invoice_number ?? `Invoice #${selectedInvoice.id}`} - ${selectedInvoice.payment_status ?? "unpaid"} - due ${formatDualCurrency(selectedInvoice.outstanding_amount ?? selectedInvoice.total)}`
+              {selectedInvoices.length
+                ? `${selectedInvoices.length} invoice${
+                    selectedInvoices.length === 1 ? "" : "s"
+                  } selected - due ${formatDualCurrency(selectedOnlineAmount)}`
                 : "No invoice selected"}
             </p>
           </div>
@@ -478,14 +555,14 @@ export default function Payment() {
             <button
               className="btn-primary w-full"
               onClick={() => createOnlinePaymentLink("knet")}
-              disabled={Boolean(onlineLoading) || !selectedInvoice || knetAvailability?.configured === false}
+              disabled={Boolean(onlineLoading) || !selectedInvoices.length || knetAvailability?.configured === false}
             >
               {onlineLoading === "knet" ? "Creating Link..." : "Debit / KNET Link"}
             </button>
             <button
               className="btn-secondary w-full"
               onClick={() => createOnlinePaymentLink("card")}
-              disabled={Boolean(onlineLoading) || !selectedInvoice || knetAvailability?.configured === false}
+              disabled={Boolean(onlineLoading) || !selectedInvoices.length || knetAvailability?.configured === false}
             >
               {onlineLoading === "card" ? "Creating Link..." : "Credit / Debit Card Link"}
             </button>

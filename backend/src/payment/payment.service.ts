@@ -39,6 +39,10 @@ export class PaymentService implements OnModuleInit {
       ALTER TABLE knet_payment_session
       ADD COLUMN IF NOT EXISTS payment_method varchar NOT NULL DEFAULT 'knet'
     `);
+    await this.dataSource.query(`
+      ALTER TABLE knet_payment_session
+      ADD COLUMN IF NOT EXISTS invoice_ids text
+    `);
   }
 
   async create(data: CreatePaymentDto, user?: { sub: number }) {
@@ -77,35 +81,53 @@ export class PaymentService implements OnModuleInit {
     const amount = roundMoney(data.amount);
 
     return this.dataSource.transaction(async (manager) => {
-      const invoice = await this.validateInvoicePaymentRequest(
-        data.invoice_id,
-        amount,
-        manager,
-        { requireInvoiceAmountMatch: true },
+      const invoices = await this.validateOnlineInvoiceSelection(data, manager);
+      const invoiceIds = invoices.map((invoice) => invoice.id);
+      const firstInvoice = invoices[0];
+      const outstandingAmounts = await Promise.all(
+        invoices.map((invoice) =>
+          this.getInvoiceRemainingAmount(invoice.id, manager),
+        ),
       );
+      const expectedAmount = roundMoney(
+        outstandingAmounts.reduce((sum, item) => sum + item, 0),
+      );
+
+      if (amount !== expectedAmount) {
+        throw new BadRequestException(
+          'Payment amount must match the selected invoices outstanding amount',
+        );
+      }
+
       const customer = await manager.getRepository(Customer).findOne({
-        where: { id: invoice.customer_id },
+        where: { id: firstInvoice.customer_id },
       });
 
       if (!customer) {
         throw new NotFoundException('Customer not found');
       }
 
+      const invoiceReference =
+        invoiceIds.length === 1
+          ? String(firstInvoice.id)
+          : `multi:${invoiceIds.join(',')}`;
+
       const checkout =
         method === 'card'
           ? await this.myFatoorahService.createCardPayment({
               amount,
               customerName: customer.name,
-              invoiceReference: String(invoice.id),
+              invoiceReference,
             })
           : await this.myFatoorahService.createKnetPayment({
               amount,
               customerName: customer.name,
-              invoiceReference: String(invoice.id),
+              invoiceReference,
             });
       const now = new Date().toISOString();
       const session = await manager.getRepository(KnetPaymentSession).save({
-        invoice_id: invoice.id,
+        invoice_id: firstInvoice.id,
+        invoice_ids: invoiceIds,
         customer_id: customer.id,
         created_by: user?.sub ?? null,
         amount,
@@ -123,7 +145,8 @@ export class PaymentService implements OnModuleInit {
 
       return {
         url: checkout.url,
-        invoiceId: invoice.id,
+        invoiceId: firstInvoice.id,
+        invoiceIds,
         gatewayInvoiceId: checkout.invoiceId,
         sessionId: session.id,
       };
@@ -163,40 +186,30 @@ export class PaymentService implements OnModuleInit {
 
     const verifiedPayment =
       await this.myFatoorahService.verifyPayment(paymentId);
-    const invoice_id = Number(verifiedPayment.customerReference);
+    const invoiceIds = this.parseGatewayInvoiceReference(
+      verifiedPayment.customerReference,
+    );
 
-    if (!Number.isInteger(invoice_id) || invoice_id <= 0) {
+    if (!invoiceIds.length) {
       throw new BadRequestException(
         'Invalid invoice reference from MyFatoorah',
       );
     }
 
-    const invoice = await this.invoiceRepo.findOne({
-      where: { id: invoice_id },
-    });
-
-    if (!invoice) {
-      throw new NotFoundException('Invoice not found for verified payment');
-    }
-
     const session = await this.knetSessionRepo.findOne({
-      where: { invoice_id: invoice.id },
+      where: { invoice_id: invoiceIds[0] },
       order: { id: 'DESC' },
     });
 
-    const result = await this.recordPayment(
-      {
-        customer_id: invoice.customer_id,
-        invoice_id: invoice.id,
-        amount: verifiedPayment.amount,
-        mode: verifiedPayment.paymentMode,
-        reference: verifiedPayment.paymentId,
-        created_by: session?.created_by ?? null,
-      },
-      { allowOverpayment: true, requireInvoiceAmountMatch: true },
+    const result = await this.recordOnlineInvoicePayments(
+      invoiceIds,
+      verifiedPayment.amount,
+      verifiedPayment.paymentMode,
+      verifiedPayment.paymentId,
+      session?.created_by ?? null,
     );
 
-    await this.markKnetSession(invoice.id, {
+    await this.markKnetSession(invoiceIds[0], {
       payment_id: verifiedPayment.paymentId,
       status: 'paid',
       error_message: null,
@@ -232,10 +245,12 @@ export class PaymentService implements OnModuleInit {
 
     const verifiedPayment =
       await this.myFatoorahService.verifyPayment(paymentId);
-    const invoice_id = Number(verifiedPayment.customerReference);
+    const invoiceIds = this.parseGatewayInvoiceReference(
+      verifiedPayment.customerReference,
+    );
     const invoice =
-      Number.isInteger(invoice_id) && invoice_id > 0
-        ? await this.invoiceRepo.findOne({ where: { id: invoice_id } })
+      invoiceIds.length > 0
+        ? await this.invoiceRepo.findOne({ where: { id: invoiceIds[0] } })
         : null;
 
     await this.markKnetSession(invoice?.id ?? null, {
@@ -249,6 +264,7 @@ export class PaymentService implements OnModuleInit {
       paymentId: verifiedPayment.paymentId,
       amount: verifiedPayment.amount,
       invoice_id: invoice?.id ?? null,
+      invoice_ids: invoiceIds,
       customer_id: invoice?.customer_id ?? null,
       method: verifiedPayment.paymentMethod,
     };
@@ -405,7 +421,7 @@ export class PaymentService implements OnModuleInit {
           options,
         );
 
-        if (invoice.customer_id !== customer_id) {
+        if (invoice && invoice.customer_id !== customer_id) {
           throw new BadRequestException(
             'Invoice does not belong to the provided customer',
           );
@@ -575,6 +591,189 @@ export class PaymentService implements OnModuleInit {
     return payments
       .filter((payment) => payment.status !== 'reversed')
       .reduce((sum, payment) => roundMoney(sum + Number(payment.amount)), 0);
+  }
+
+  private async getInvoiceRemainingAmount(
+    invoice_id: number,
+    manager: EntityManager,
+  ) {
+    const invoice = await manager
+      .getRepository(Invoice)
+      .findOne({ where: { id: invoice_id } });
+
+    if (!invoice) {
+      throw new NotFoundException('Invoice not found');
+    }
+
+    const paidAmount = await this.getInvoicePaidAmount(invoice_id, manager);
+
+    return roundMoney(Number(invoice.total) - paidAmount);
+  }
+
+  private async validateOnlineInvoiceSelection(
+    data: CreateKnetPaymentDto,
+    manager: EntityManager,
+  ) {
+    const invoiceIds = [
+      ...(data.invoice_ids ?? []),
+      ...(data.invoice_id ? [data.invoice_id] : []),
+    ];
+    const uniqueInvoiceIds = Array.from(new Set(invoiceIds));
+
+    if (!uniqueInvoiceIds.length) {
+      throw new BadRequestException('Select at least one invoice');
+    }
+
+    const invoices = await Promise.all(
+      uniqueInvoiceIds.map(async (invoiceId) => {
+        const remaining = await this.getInvoiceRemainingAmount(invoiceId, manager);
+        const invoice = await this.validateInvoicePaymentRequest(
+          invoiceId,
+          remaining,
+          manager,
+          { requireInvoiceAmountMatch: false },
+        );
+
+        if (remaining <= 0) {
+          throw new BadRequestException(`Invoice #${invoiceId} is already paid`);
+        }
+
+        return invoice;
+      }),
+    );
+    const customerId = invoices[0].customer_id;
+    const mixedCustomerInvoice = invoices.find(
+      (invoice) => invoice.customer_id !== customerId,
+    );
+
+    if (mixedCustomerInvoice) {
+      throw new BadRequestException(
+        'All selected invoices must belong to the same customer',
+      );
+    }
+
+    return invoices;
+  }
+
+  private parseGatewayInvoiceReference(reference?: string) {
+    const value = reference?.trim();
+
+    if (!value) {
+      return [];
+    }
+
+    const rawIds = value.startsWith('multi:')
+      ? value.slice('multi:'.length).split(',')
+      : [value];
+
+    return rawIds
+      .map((item) => Number(item))
+      .filter((item) => Number.isInteger(item) && item > 0);
+  }
+
+  private async recordOnlineInvoicePayments(
+    invoiceIds: number[],
+    amount: number,
+    mode: 'knet' | 'card',
+    reference: string,
+    createdBy: number | null,
+  ) {
+    return this.dataSource.transaction(async (manager) => {
+      const existingPayments = await manager
+        .getRepository(Payment)
+        .createQueryBuilder('payment')
+        .where('payment.reference = :reference', { reference })
+        .orWhere('payment.reference LIKE :referencePrefix', {
+          referencePrefix: `${reference}:%`,
+        })
+        .getMany();
+
+      if (existingPayments.length) {
+        const customerId = existingPayments[0].customer_id;
+
+        return {
+          message: 'Payment already recorded',
+          payment: existingPayments[0],
+          payments: existingPayments,
+          new_balance: await this.ledgerService.getBalance(customerId, manager),
+        };
+      }
+
+      const invoices = await Promise.all(
+        invoiceIds.map((invoiceId) =>
+          manager.getRepository(Invoice).findOne({ where: { id: invoiceId } }),
+        ),
+      );
+
+      if (invoices.some((invoice) => !invoice)) {
+        throw new NotFoundException('Invoice not found for verified payment');
+      }
+
+      const resolvedInvoices = invoices as Invoice[];
+      const customerId = resolvedInvoices[0].customer_id;
+      const mixedCustomerInvoice = resolvedInvoices.find(
+        (invoice) => invoice.customer_id !== customerId,
+      );
+
+      if (mixedCustomerInvoice) {
+        throw new BadRequestException(
+          'All selected invoices must belong to the same customer',
+        );
+      }
+
+      const outstandingAmounts = await Promise.all(
+        resolvedInvoices.map((invoice) =>
+          this.getInvoiceRemainingAmount(invoice.id, manager),
+        ),
+      );
+      const expectedAmount = roundMoney(
+        outstandingAmounts.reduce((sum, item) => sum + item, 0),
+      );
+
+      if (roundMoney(amount) !== expectedAmount) {
+        throw new BadRequestException(
+          'Verified payment amount does not match selected invoice balances',
+        );
+      }
+
+      const date = new Date().toISOString();
+      const payments: Payment[] = [];
+
+      for (const [index, invoice] of resolvedInvoices.entries()) {
+        const payment = await manager.getRepository(Payment).save({
+          customer_id: customerId,
+          invoice_id: invoice.id,
+          amount: outstandingAmounts[index],
+          mode,
+          reference: index === 0 ? reference : `${reference}:${invoice.id}`,
+          date,
+          created_by: createdBy,
+          status: 'active',
+        });
+
+        await this.ledgerService.addEntry(
+          {
+            customer_id: customerId,
+            type: 'payment',
+            amount: -outstandingAmounts[index],
+            reference_id: payment.id,
+            date,
+          },
+          manager,
+        );
+
+        payments.push(payment);
+      }
+
+      return {
+        message: `Payment recorded for ${resolvedInvoices.length} invoice${
+          resolvedInvoices.length === 1 ? '' : 's'
+        }`,
+        payment: payments[0],
+        payments,
+        new_balance: await this.ledgerService.getBalance(customerId, manager),
+      };
+    });
   }
 
   findAll() {
