@@ -5,6 +5,7 @@ import {
   Get,
   Param,
   ParseIntPipe,
+  Patch,
   Post,
   UseGuards,
 } from '@nestjs/common';
@@ -19,6 +20,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { UserRole } from '../user/user-role.enum';
 import { CreateProductDto } from './dto/create-product.dto';
+import { UpdateProductDto } from './dto/update-product.dto';
 import { ProductService } from './product.service';
 
 @ApiTags('products')
@@ -49,6 +51,13 @@ export class ProductController {
   @Get('low-stock')
   findLowStock() {
     return this.service.findLowStock();
+  }
+
+  @ApiOkResponse({ description: 'Product updated successfully.' })
+  @Roles(UserRole.Admin)
+  @Patch(':id')
+  update(@Param('id', ParseIntPipe) id: number, @Body() body: UpdateProductDto) {
+    return this.service.update(id, body);
   }
 
   @ApiOkResponse({ description: 'Product deleted successfully.' })

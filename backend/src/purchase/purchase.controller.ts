@@ -4,6 +4,7 @@ import {
   Get,
   Param,
   ParseIntPipe,
+  Patch,
   Post,
   Req,
   Res,
@@ -28,6 +29,7 @@ import { UserRole } from '../user/user-role.enum';
 import type { JwtUser } from '../auth/jwt.strategy';
 import type { Response } from 'express';
 import { CreatePurchaseDto } from './dto/create-purchase.dto';
+import { UpdatePurchaseDto } from './dto/update-purchase.dto';
 import { generatePurchasePDF } from './purchase-pdf.service';
 import { PurchaseService } from './purchase.service';
 
@@ -75,6 +77,34 @@ export class PurchaseController {
   @Get()
   findAll() {
     return this.service.findAll();
+  }
+
+  @ApiOkResponse({ description: 'Get purchase details.' })
+  @Get(':id')
+  getOne(@Param('id', ParseIntPipe) id: number) {
+    return this.service.getPurchaseDetail(id);
+  }
+
+  @ApiOkResponse({ description: 'Purchase updated successfully.' })
+  @Patch(':id')
+  async update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() body: UpdatePurchaseDto,
+    @Req() req: Request & { user: JwtUser },
+  ) {
+    const result = await this.service.update(id, body);
+    await this.auditService.record({
+      user: req.user,
+      action: 'purchase.update',
+      entity: 'purchase',
+      entity_id: id,
+      metadata: {
+        supplier_id: result.purchase.supplier_id,
+        total: result.purchase.total,
+        item_count: result.items.length,
+      },
+    });
+    return result;
   }
 
   @ApiCreatedResponse({ description: 'Delivery receipt uploaded.' })

@@ -10,6 +10,7 @@ import { StockMovement } from '../inventory/stock-movement.entity';
 import { InvoiceItem } from '../invoice/invoice-item.entity';
 import { PurchaseItem } from '../purchase/purchase-item.entity';
 import { CreateProductDto } from './dto/create-product.dto';
+import { UpdateProductDto } from './dto/update-product.dto';
 import { Product } from './product.entity';
 
 @Injectable()
@@ -49,6 +50,32 @@ export class ProductService {
       .andWhere('product.low_stock_kg > 0')
       .orderBy('product.name', 'ASC')
       .getMany();
+  }
+
+  async update(id: number, data: UpdateProductDto) {
+    const product = await this.repo.findOne({ where: { id } });
+
+    if (!product) {
+      throw new NotFoundException('Product not found');
+    }
+
+    if (data.name !== undefined) {
+      product.name = data.name.trim();
+    }
+
+    if (data.sku !== undefined) {
+      product.sku = data.sku.trim() || null;
+    }
+
+    if (data.price_per_kg !== undefined) {
+      product.price_per_kg = roundMoney(data.price_per_kg);
+    }
+
+    if (data.low_stock_kg !== undefined) {
+      product.low_stock_kg = roundMoney(data.low_stock_kg);
+    }
+
+    return this.repo.save(product);
   }
 
   async remove(id: number) {

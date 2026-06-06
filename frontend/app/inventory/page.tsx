@@ -58,6 +58,7 @@ type ReorderSuggestionResponse = {
 
 const emptyProduct = { name: "", sku: "", price_per_kg: "0", low_stock_kg: "0" };
 const emptyAdjustment = { product_id: "", type: "wastage", quantity_kg: "", note: "" };
+const emptyEditProduct = { id: 0, name: "", sku: "", price_per_kg: "", low_stock_kg: "" };
 
 export default function InventoryPage() {
   const isAdmin = getAuthUser()?.role === "admin";
@@ -66,6 +67,7 @@ export default function InventoryPage() {
   const [summary, setSummary] = useState<InventorySummary | null>(null);
   const [reorder, setReorder] = useState<ReorderSuggestionResponse | null>(null);
   const [product, setProduct] = useState(emptyProduct);
+  const [editingProduct, setEditingProduct] = useState(emptyEditProduct);
   const [adjustment, setAdjustment] = useState(emptyAdjustment);
   const [status, setStatus] = useState("");
   const [statusType, setStatusType] = useState<"success" | "error">("success");
@@ -217,6 +219,53 @@ export default function InventoryPage() {
     }
   };
 
+  const startEditProduct = (item: StockItem) => {
+    setEditingProduct({
+      id: item.id,
+      name: item.name,
+      sku: item.sku || "",
+      price_per_kg: Number(item.price_per_kg).toFixed(3),
+      low_stock_kg: Number(item.low_stock_kg).toFixed(3),
+    });
+    setStatus("");
+  };
+
+  const updateProduct = async () => {
+    if (!editingProduct.id) {
+      return;
+    }
+
+    if (!editingProduct.name.trim()) {
+      setStatusType("error");
+      setStatus("Product name is required.");
+      return;
+    }
+
+    setLoading(true);
+    setStatus("");
+
+    try {
+      await fetchJsonOrThrow(`/products/${editingProduct.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          name: editingProduct.name.trim(),
+          sku: editingProduct.sku.trim() || undefined,
+          price_per_kg: Number(editingProduct.price_per_kg),
+          low_stock_kg: Number(editingProduct.low_stock_kg || 0),
+        }),
+      });
+      setEditingProduct(emptyEditProduct);
+      setStatusType("success");
+      setStatus("Product pricing updated.");
+      await loadInventory(true);
+    } catch (error) {
+      setStatusType("error");
+      setStatus(error instanceof Error ? error.message : "Could not update product.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <section className="panel p-6 md:p-8">
@@ -281,6 +330,58 @@ export default function InventoryPage() {
           <div className="space-y-3">
             {stock.map((item) => (
               <div key={item.id} className="rounded-3xl border border-black/8 bg-white p-4">
+                {editingProduct.id === item.id ? (
+                  <div className="space-y-3">
+                    <div className="grid gap-3 md:grid-cols-[1.2fr_0.8fr_0.8fr_0.8fr]">
+                      <input
+                        className="field"
+                        placeholder="Product name"
+                        value={editingProduct.name}
+                        onChange={(event) =>
+                          setEditingProduct((current) => ({ ...current, name: event.target.value }))
+                        }
+                      />
+                      <input
+                        className="field"
+                        placeholder="SKU"
+                        value={editingProduct.sku}
+                        onChange={(event) =>
+                          setEditingProduct((current) => ({ ...current, sku: event.target.value }))
+                        }
+                      />
+                      <input
+                        className="field"
+                        placeholder="Selling price"
+                        value={editingProduct.price_per_kg}
+                        onChange={(event) =>
+                          setEditingProduct((current) => ({
+                            ...current,
+                            price_per_kg: event.target.value,
+                          }))
+                        }
+                      />
+                      <input
+                        className="field"
+                        placeholder="Low stock kg"
+                        value={editingProduct.low_stock_kg}
+                        onChange={(event) =>
+                          setEditingProduct((current) => ({
+                            ...current,
+                            low_stock_kg: event.target.value,
+                          }))
+                        }
+                      />
+                    </div>
+                    <div className="flex flex-wrap gap-3">
+                      <button className="btn-primary px-5" onClick={() => void updateProduct()} disabled={loading}>
+                        Save Product
+                      </button>
+                      <button className="btn-secondary px-5" onClick={() => setEditingProduct(emptyEditProduct)}>
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
                 <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                   <div className="flex items-start justify-between gap-3">
                     <div>
@@ -288,13 +389,22 @@ export default function InventoryPage() {
                     <p className="mt-1 text-sm text-slate-500">{item.sku || "No SKU"}</p>
                     </div>
                     {isAdmin ? (
-                      <button
-                        className="rounded-2xl border border-red-100 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
-                        onClick={() => void deleteProduct(item)}
-                        disabled={loading}
-                      >
-                        Delete
-                      </button>
+                      <div className="flex gap-2">
+                        <button
+                          className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                          onClick={() => startEditProduct(item)}
+                          disabled={loading}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          className="rounded-2xl border border-red-100 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+                          onClick={() => void deleteProduct(item)}
+                          disabled={loading}
+                        >
+                          Delete
+                        </button>
+                      </div>
                     ) : null}
                   </div>
                   <div className="grid grid-cols-3 gap-4 text-sm md:text-right">
@@ -314,6 +424,7 @@ export default function InventoryPage() {
                     </div>
                   </div>
                 </div>
+                )}
               </div>
             ))}
           </div>

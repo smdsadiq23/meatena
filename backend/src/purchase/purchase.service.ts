@@ -12,6 +12,7 @@ import { InventoryService } from '../inventory/inventory.service';
 import { Product } from '../product/product.entity';
 import { Supplier } from '../supplier/supplier.entity';
 import { CreatePurchaseDto } from './dto/create-purchase.dto';
+import { UpdatePurchaseDto } from './dto/update-purchase.dto';
 import { PurchaseItem } from './purchase-item.entity';
 import { Purchase } from './purchase.entity';
 
@@ -109,6 +110,132 @@ export class PurchaseService {
 
   findAll() {
     return this.purchaseRepo.find({ order: { date: 'DESC', id: 'DESC' } });
+  }
+
+  async getPurchaseDetail(id: number) {
+    const purchase = await this.getPurchaseById(id);
+    const items = await this.getItemsByPurchase(id);
+
+    return { ...purchase, items };
+  }
+
+  update(id: number, data: UpdatePurchaseDto) {
+    return this.dataSource.transaction(async (manager) => {
+      const purchaseRepo = manager.getRepository(Purchase);
+      const itemRepo = manager.getRepository(PurchaseItem);
+      const supplierRepo = manager.getRepository(Supplier);
+      const productRepo = manager.getRepository(Product);
+
+      const purchase = await purchaseRepo.findOne({ where: { id } });
+
+      if (!purchase) {
+        throw new NotFoundException('Purchase not found');
+      }
+
+      if (!data.supplier_id) {
+        throw new BadRequestException('Supplier is required');
+      }
+
+      if (!data.items?.length) {
+        throw new BadRequestException('At least one purchase item is required');
+      }
+
+      const [oldSupplier, nextSupplier, oldItems] = await Promise.all([
+        supplierRepo.findOne({ where: { id: purchase.supplier_id } }),
+        supplierRepo.findOne({ where: { id: data.supplier_id } }),
+        itemRepo.find({ where: { purchase_id: id } }),
+      ]);
+
+      if (!oldSupplier) {
+        throw new NotFoundException('Original supplier not found');
+      }
+
+      if (!nextSupplier) {
+        throw new NotFoundException('Supplier not found');
+      }
+
+      let total = 0;
+      const calculatedItems = data.items.map((item) => {
+        const amount = roundMoney(item.weight * item.cost_per_kg);
+        total = roundMoney(total + amount);
+
+        return {
+          product_id: item.product_id,
+          weight: roundMoney(item.weight),
+          cost_per_kg: roundMoney(item.cost_per_kg),
+          amount,
+        };
+      });
+
+      for (const item of calculatedItems) {
+        const product = await productRepo.findOne({ where: { id: item.product_id } });
+
+        if (!product) {
+          throw new NotFoundException(`Product ${item.product_id} not found`);
+        }
+      }
+
+      const editDate = new Date().toISOString();
+
+      for (const oldItem of oldItems) {
+        await this.inventoryService.applyMovement(
+          {
+            product_id: oldItem.product_id,
+            type: 'adjustment',
+            quantity_kg: -Number(oldItem.weight),
+            reference_type: 'purchase_edit',
+            reference_id: purchase.id,
+            note: `Reverse purchase #${purchase.id} before edit`,
+            date: editDate,
+          },
+          manager,
+        );
+      }
+
+      await itemRepo.delete({ purchase_id: id });
+
+      for (const item of calculatedItems) {
+        await itemRepo.save({
+          purchase_id: purchase.id,
+          ...item,
+        });
+
+        await this.inventoryService.applyMovement(
+          {
+            product_id: item.product_id,
+            type: 'purchase',
+            quantity_kg: item.weight,
+            reference_type: 'purchase_edit',
+            reference_id: purchase.id,
+            note: `Apply edited purchase #${purchase.id}`,
+            date: editDate,
+          },
+          manager,
+        );
+      }
+
+      if (oldSupplier.id === nextSupplier.id) {
+        oldSupplier.balance = roundMoney(
+          Number(oldSupplier.balance) - Number(purchase.total) + total,
+        );
+        await supplierRepo.save(oldSupplier);
+      } else {
+        oldSupplier.balance = roundMoney(Number(oldSupplier.balance) - Number(purchase.total));
+        nextSupplier.balance = roundMoney(Number(nextSupplier.balance) + total);
+        await supplierRepo.save([oldSupplier, nextSupplier]);
+      }
+
+      purchase.supplier_id = data.supplier_id;
+      purchase.invoice_no = data.invoice_no?.trim() || null;
+      purchase.total = total;
+      const savedPurchase = await purchaseRepo.save(purchase);
+
+      return {
+        message: 'Purchase updated',
+        purchase: savedPurchase,
+        items: await itemRepo.find({ where: { purchase_id: id } }),
+      };
+    });
   }
 
   async uploadReceipt(id: number, file: UploadedReceiptFile | undefined) {
