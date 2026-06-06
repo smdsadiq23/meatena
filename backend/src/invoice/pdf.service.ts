@@ -99,8 +99,8 @@ export function generateInvoicePDF(
   const col = {
     desc: startX,
     piece: 150,
-    weight: 220,
-    price: 320,
+    weight: 215,
+    price: 315,
     amount: 420,
   };
 
@@ -124,7 +124,7 @@ export function generateInvoicePDF(
       : 'Counter item';
 
     doc.text(description, col.desc, y, { width: 110 });
-    doc.text('1', col.piece, y);
+    doc.text(String(item.pieces ?? 1), col.piece, y);
     doc.text(Number(item.weight).toFixed(3), col.weight, y);
     doc.text(dualCurrency(item.price_per_kg, kwdToUsdRate), col.price, y, { width: 95 });
     doc.text(dualCurrency(item.amount, kwdToUsdRate), col.amount, y, { width: 120 });

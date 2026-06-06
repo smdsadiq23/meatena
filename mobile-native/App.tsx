@@ -206,6 +206,7 @@ type InvoiceLineItem = {
   id: number;
   product_id?: number | null;
   product_name?: string;
+  pieces?: number | string | null;
   weight: number | string;
   price_per_kg: number | string;
   amount: number | string;
@@ -279,6 +280,7 @@ type DashboardData = {
 
 type InvoiceItemForm = {
   productId: number | null;
+  pieces: string;
   weight: string;
   price: string;
 };
@@ -582,7 +584,7 @@ function TextInput(props: TextInputProps) {
 }
 
 const emptySupplierForm = { name: '', mobile: '', address: '' };
-const emptyPurchaseForm = { supplierId: '', invoiceNo: '', weight: '', costPerKg: '' };
+const emptyPurchaseForm = { supplierId: '', invoiceNo: '', pieces: '', weight: '', costPerKg: '' };
 const emptyExpenseForm = { title: '', category: 'misc', amount: '' };
 const emptyShiftForm = { countedCash: '', countedKnet: '', notes: '' };
 const emptyUserForm = { username: '', password: '', role: 'staff' as Role };
@@ -730,7 +732,7 @@ export default function App() {
   const [selectedSupplierId, setSelectedSupplierId] = useState<number | null>(null);
   const [invoiceForm, setInvoiceForm] = useState(emptyInvoiceForm);
   const [invoiceItems, setInvoiceItems] = useState<InvoiceItemForm[]>([
-    { productId: null, weight: '', price: '' },
+    { productId: null, pieces: '', weight: '', price: '' },
   ]);
   const [supplierForm, setSupplierForm] = useState(emptySupplierForm);
   const [purchaseForm, setPurchaseForm] = useState(emptyPurchaseForm);
@@ -1141,7 +1143,7 @@ export default function App() {
   }
 
   function addInvoiceItem() {
-    setInvoiceItems(current => [...current, { productId: null, weight: '', price: '' }]);
+    setInvoiceItems(current => [...current, { productId: null, pieces: '', weight: '', price: '' }]);
   }
 
   function removeInvoiceItem(index: number) {
@@ -1150,7 +1152,7 @@ export default function App() {
 
   function resetInvoiceForm() {
     setInvoiceForm(emptyInvoiceForm);
-    setInvoiceItems([{ productId: selectedProductId, weight: '', price: String(selectedProduct?.price_per_kg ?? '') }]);
+    setInvoiceItems([{ productId: selectedProductId, pieces: '', weight: '', price: String(selectedProduct?.price_per_kg ?? '') }]);
   }
 
   function editSelectedProfile() {
@@ -1228,6 +1230,7 @@ export default function App() {
     const validItems = invoiceItems
       .map(item => ({
         product_id: item.productId,
+        pieces: item.pieces ? Number(item.pieces) : undefined,
         weight: Number(item.weight),
         price_per_kg: Number(item.price),
       }))
@@ -1284,7 +1287,7 @@ export default function App() {
         ...current,
         invoiceNumber: '',
       }));
-      setInvoiceItems([{ productId: selectedProductId, weight: '', price: String(selectedProduct?.price_per_kg ?? '') }]);
+      setInvoiceItems([{ productId: selectedProductId, pieces: '', weight: '', price: String(selectedProduct?.price_per_kg ?? '') }]);
       await loadData();
     } catch (error) {
       setStatus(error instanceof Error ? error.message : 'Could not create invoice.');
@@ -1546,6 +1549,7 @@ export default function App() {
           items: [
             {
               product_id: selectedProductId,
+              pieces: purchaseForm.pieces ? Number(purchaseForm.pieces) : undefined,
               weight: Number(purchaseForm.weight),
               cost_per_kg: Number(purchaseForm.costPerKg || 0),
             },
@@ -2146,6 +2150,13 @@ export default function App() {
                 <View style={styles.twoColsEven}>
                   <TextInput
                     style={[styles.input, styles.flex]}
+                    value={item.pieces}
+                    onChangeText={value => updateInvoiceItem(index, { pieces: value })}
+                    placeholder="Pieces"
+                    keyboardType="number-pad"
+                  />
+                  <TextInput
+                    style={[styles.input, styles.flex]}
                     value={item.weight}
                     onChangeText={value => updateInvoiceItem(index, { weight: value })}
                     placeholder="Weight kg"
@@ -2403,6 +2414,13 @@ export default function App() {
         />
         <TextInput
           style={styles.input}
+          value={purchaseForm.pieces}
+          onChangeText={value => setPurchaseForm(current => ({ ...current, pieces: value }))}
+          placeholder="Pieces"
+          keyboardType="number-pad"
+        />
+        <TextInput
+          style={styles.input}
           value={purchaseForm.weight}
           onChangeText={value => setPurchaseForm(current => ({ ...current, weight: value }))}
           placeholder="Weight kg"
@@ -2607,7 +2625,7 @@ export default function App() {
           <Row
             key={item.id}
             title={item.product_name || (item.product_id ? `Product #${item.product_id}` : 'Custom item')}
-            subtitle={`${money(item.weight)} kg x ${currencyInline(item.price_per_kg)}`}
+            subtitle={`${item.pieces ?? 1} pcs | ${money(item.weight)} kg x ${currencyInline(item.price_per_kg)}`}
             right={currency(item.amount)}
           />
         ))}

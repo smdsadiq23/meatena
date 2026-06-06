@@ -36,6 +36,7 @@ type PurchaseDetail = Purchase & {
     id: number;
     purchase_id: number;
     product_id: number;
+    pieces?: number | string | null;
     weight: number | string;
     cost_per_kg: number | string;
     amount: number | string;
@@ -44,11 +45,12 @@ type PurchaseDetail = Purchase & {
 
 type PurchaseItem = {
   product_id: string;
+  pieces: string;
   weight: string;
   cost_per_kg: string;
 };
 
-const emptyItem = { product_id: "", weight: "", cost_per_kg: "" };
+const emptyItem = { product_id: "", pieces: "", weight: "", cost_per_kg: "" };
 
 export default function PurchasesPage() {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
@@ -153,6 +155,7 @@ export default function PurchasesPage() {
           invoice_no: invoiceNo || undefined,
           items: items.map((item) => ({
             product_id: Number(item.product_id),
+            pieces: item.pieces ? Number(item.pieces) : undefined,
             weight: Number(item.weight),
             cost_per_kg: Number(item.cost_per_kg || 0),
           })),
@@ -203,6 +206,7 @@ export default function PurchasesPage() {
         detail.items.length
           ? detail.items.map((item) => ({
               product_id: String(item.product_id),
+              pieces: item.pieces ? String(item.pieces) : "",
               weight: String(item.weight),
               cost_per_kg: String(item.cost_per_kg),
             }))
@@ -238,6 +242,7 @@ export default function PurchasesPage() {
           invoice_no: editInvoiceNo || undefined,
           items: editItems.map((item) => ({
             product_id: Number(item.product_id),
+            pieces: item.pieces ? Number(item.pieces) : undefined,
             weight: Number(item.weight),
             cost_per_kg: Number(item.cost_per_kg || 0),
           })),
@@ -310,13 +315,14 @@ export default function PurchasesPage() {
 
         <div className="mt-5 space-y-3">
           {items.map((item, index) => (
-            <div key={index} className="grid gap-3 md:grid-cols-[1.4fr_1fr_1fr_auto]">
+            <div key={index} className="grid gap-3 md:grid-cols-[1.3fr_0.7fr_1fr_1fr_auto]">
               <select className="field" value={item.product_id} onChange={(e) => updateItem(index, "product_id", e.target.value)}>
                 <option value="">Select product</option>
                 {products.map((product) => (
                   <option key={product.id} value={product.id}>{product.name}</option>
                 ))}
               </select>
+              <input className="field" placeholder="Pieces" value={item.pieces} onChange={(e) => updateItem(index, "pieces", e.target.value)} />
               <input className="field" placeholder="Weight kg" value={item.weight} onChange={(e) => updateItem(index, "weight", e.target.value)} />
               <input className="field" placeholder="Cost per kg" value={item.cost_per_kg} onChange={(e) => updateItem(index, "cost_per_kg", e.target.value)} />
               <button className="h-[58px] w-[58px] rounded-2xl bg-red-600 font-semibold text-white" onClick={() => setItems((current) => current.length === 1 ? [emptyItem] : current.filter((_, itemIndex) => itemIndex !== index))}>X</button>
@@ -356,13 +362,14 @@ export default function PurchasesPage() {
 
                   <div className="space-y-3">
                     {editItems.map((item, index) => (
-                      <div key={index} className="grid gap-3 md:grid-cols-[1.4fr_1fr_1fr_auto]">
+                      <div key={index} className="grid gap-3 md:grid-cols-[1.3fr_0.7fr_1fr_1fr_auto]">
                         <select className="field bg-white" value={item.product_id} onChange={(e) => updateItem(index, "product_id", e.target.value, "edit")}>
                           <option value="">Select product</option>
                           {products.map((product) => (
                             <option key={product.id} value={product.id}>{product.name}</option>
                           ))}
                         </select>
+                        <input className="field bg-white" placeholder="Pieces" value={item.pieces} onChange={(e) => updateItem(index, "pieces", e.target.value, "edit")} />
                         <input className="field bg-white" placeholder="Weight kg" value={item.weight} onChange={(e) => updateItem(index, "weight", e.target.value, "edit")} />
                         <input className="field bg-white" placeholder="Cost per kg" value={item.cost_per_kg} onChange={(e) => updateItem(index, "cost_per_kg", e.target.value, "edit")} />
                         <button className="h-[58px] w-[58px] rounded-2xl bg-red-600 font-semibold text-white" onClick={() => setEditItems((current) => current.length === 1 ? [emptyItem] : current.filter((_, itemIndex) => itemIndex !== index))}>X</button>

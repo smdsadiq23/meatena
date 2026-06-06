@@ -13,6 +13,12 @@ export class CreateInvoiceItemDto {
   @Min(0.001)
   weight: number;
 
+  @ApiProperty({ example: 12, required: false })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  pieces?: number;
+
   @ApiProperty({ example: 3.15 })
   @IsNumber({ maxDecimalPlaces: 3 })
   @Min(0)

@@ -14,6 +14,9 @@ export class InvoiceItem {
   @Column('decimal', { precision: 10, scale: 3 })
   weight: number;
 
+  @Column({ type: 'int', nullable: true })
+  pieces: number | null;
+
   @Column('decimal', { precision: 10, scale: 3 })
   price_per_kg: number;
 

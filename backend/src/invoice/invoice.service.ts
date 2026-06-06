@@ -121,6 +121,7 @@ export class InvoiceService {
         return {
           product_id: item.product_id ?? null,
           weight: roundMoney(item.weight),
+          pieces: item.pieces ?? null,
           price_per_kg: roundMoney(item.price_per_kg),
           amount,
         };

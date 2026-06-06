@@ -56,6 +56,7 @@ export class PurchaseService {
         return {
           product_id: item.product_id,
           weight: roundMoney(item.weight),
+          pieces: item.pieces ?? null,
           cost_per_kg: roundMoney(item.cost_per_kg),
           amount,
         };
@@ -162,6 +163,7 @@ export class PurchaseService {
         return {
           product_id: item.product_id,
           weight: roundMoney(item.weight),
+          pieces: item.pieces ?? null,
           cost_per_kg: roundMoney(item.cost_per_kg),
           amount,
         };

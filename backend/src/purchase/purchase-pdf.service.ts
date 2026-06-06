@@ -64,13 +64,15 @@ export function generatePurchasePDF(
   let y = doc.y;
   const col = {
     product: startX,
-    weight: 245,
-    cost: 335,
-    amount: 445,
+    pieces: 220,
+    weight: 285,
+    cost: 370,
+    amount: 470,
   };
 
   doc.font('Helvetica-Bold').fontSize(10);
   doc.text('Product', col.product, y);
+  doc.text('Pieces', col.pieces, y);
   doc.text('Weight', col.weight, y);
   doc.text('Cost / kg', col.cost, y);
   doc.text('Amount', col.amount, y);
@@ -85,11 +87,12 @@ export function generatePurchasePDF(
       productNameById.get(item.product_id) ?? `Product #${item.product_id}`,
       col.product,
       y,
-      { width: 190 },
+      { width: 180 },
     );
+    doc.text(String(item.pieces ?? '-'), col.pieces, y);
     doc.text(Number(item.weight).toFixed(3), col.weight, y);
     doc.text(dualCurrency(item.cost_per_kg, kwdToUsdRate), col.cost, y, { width: 95 });
-    doc.text(dualCurrency(item.amount, kwdToUsdRate), col.amount, y, { width: 115 });
+    doc.text(dualCurrency(item.amount, kwdToUsdRate), col.amount, y, { width: 90 });
     y += 28;
   });
 
@@ -98,7 +101,7 @@ export function generatePurchasePDF(
 
   doc.font('Helvetica-Bold');
   doc.text('TOTAL', col.cost, y);
-  doc.text(dualCurrency(purchase.total, kwdToUsdRate), col.amount, y, { width: 115 });
+  doc.text(dualCurrency(purchase.total, kwdToUsdRate), col.amount, y, { width: 90 });
 
   doc.moveDown(4);
   doc

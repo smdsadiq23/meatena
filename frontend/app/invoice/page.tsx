@@ -26,6 +26,7 @@ type Product = {
 
 type InvoiceItem = {
   productId: string;
+  pieces: string;
   weight: string;
   price: string;
   amount: number;
@@ -113,7 +114,7 @@ export default function Invoice() {
   const [statusType, setStatusType] = useState<"success" | "error">("success");
   const [loading, setLoading] = useState(false);
   const [items, setItems] = useState<InvoiceItem[]>([
-    { productId: "", weight: "", price: DEFAULT_PRICE, amount: 0 },
+    { productId: "", pieces: "", weight: "", price: DEFAULT_PRICE, amount: 0 },
   ]);
   const firstInputRef = useRef<HTMLInputElement>(null);
   const weightRefs = useRef<Array<HTMLInputElement | null>>([]);
@@ -175,7 +176,7 @@ export default function Invoice() {
 
   const updateItem = (
     index: number,
-    field: "productId" | "weight" | "price",
+    field: "productId" | "pieces" | "weight" | "price",
     value: string
   ) => {
     const nextItems = [...items];
@@ -196,14 +197,14 @@ export default function Invoice() {
   const addRow = () => {
     setItems((current) => [
       ...current,
-      { productId: "", weight: "", price: DEFAULT_PRICE, amount: 0 },
+      { productId: "", pieces: "", weight: "", price: DEFAULT_PRICE, amount: 0 },
     ]);
   };
 
   const removeRow = (index: number) => {
     setItems((current) =>
       current.length === 1
-        ? [{ productId: "", weight: "", price: DEFAULT_PRICE, amount: 0 }]
+        ? [{ productId: "", pieces: "", weight: "", price: DEFAULT_PRICE, amount: 0 }]
         : current.filter((_, itemIndex) => itemIndex !== index)
     );
   };
@@ -329,7 +330,7 @@ export default function Invoice() {
   }
 
   const resetForm = () => {
-    setItems([{ productId: "", weight: "", price: DEFAULT_PRICE, amount: 0 }]);
+    setItems([{ productId: "", pieces: "", weight: "", price: DEFAULT_PRICE, amount: 0 }]);
     setInvoiceId(null);
     setInvoiceNumber("");
     setDraftInvoiceNumber("");
@@ -400,6 +401,7 @@ export default function Invoice() {
           contact_names: selectedProfile.contact_names?.trim() || undefined,
           items: items.map((item) => ({
             product_id: item.productId ? Number(item.productId) : undefined,
+            pieces: item.pieces ? Number(item.pieces) : undefined,
             weight: Number(item.weight),
             price_per_kg: Number(item.price),
           })),
@@ -412,7 +414,7 @@ export default function Invoice() {
       setStatus(
         `${t("Invoice")} ${data.invoice.invoice_number ?? draftInvoiceNumber.trim()} ${t("created successfully.")}`
       );
-      setItems([{ productId: "", weight: "", price: DEFAULT_PRICE, amount: 0 }]);
+      setItems([{ productId: "", pieces: "", weight: "", price: DEFAULT_PRICE, amount: 0 }]);
       setDraftInvoiceNumber("");
       fetchJson<Product[]>("/inventory/stock").then(setProducts).catch(() => undefined);
       setTimeout(() => {
@@ -631,8 +633,9 @@ export default function Invoice() {
         <section className="panel xl:col-span-2 p-5 md:p-6">
           <h2 className="mb-3 text-xl font-bold text-slate-950">{t("Billing")}</h2>
 
-          <div className="mb-2 grid grid-cols-[1.4fr_1fr_1fr_1fr_auto] gap-2 text-sm font-bold uppercase tracking-[0.14em] text-slate-600">
+          <div className="mb-2 grid grid-cols-[1.4fr_0.7fr_1fr_1fr_1fr_auto] gap-2 text-sm font-bold uppercase tracking-[0.14em] text-slate-600">
             <div>{t("Product")}</div>
+            <div>{t("Pieces")}</div>
             <div>{t("Weight")}</div>
             <div>{t("Price")}</div>
             <div>{t("Amount")}</div>
@@ -641,7 +644,7 @@ export default function Invoice() {
 
           <div className="space-y-2">
             {items.map((item, index) => (
-              <div key={index} className="grid grid-cols-[1.4fr_1fr_1fr_1fr_auto] gap-2">
+              <div key={index} className="grid grid-cols-[1.4fr_0.7fr_1fr_1fr_1fr_auto] gap-2">
                 <select
                   className="field"
                   value={item.productId}
@@ -654,6 +657,13 @@ export default function Invoice() {
                     </option>
                   ))}
                 </select>
+
+                <input
+                  className="field"
+                  placeholder="pcs"
+                  value={item.pieces}
+                  onChange={(e) => updateItem(index, "pieces", e.target.value)}
+                />
 
                 <input
                   ref={(element) => {

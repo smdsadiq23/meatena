@@ -14,6 +14,9 @@ export class PurchaseItem {
   @Column('decimal', { precision: 12, scale: 3 })
   weight: number;
 
+  @Column({ type: 'int', nullable: true })
+  pieces: number | null;
+
   @Column('decimal', { precision: 12, scale: 3 })
   cost_per_kg: number;
 
