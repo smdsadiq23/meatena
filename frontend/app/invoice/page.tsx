@@ -188,6 +188,8 @@ export default function Invoice() {
   const remainingCredit =
     creditLimit > 0 ? Math.max(creditLimit - projectedBalance, 0) : null;
   const isCreditLimitExceeded = creditLimit > 0 && projectedBalance > creditLimit;
+  const activeInvoiceNumber = draftInvoiceNumber.trim() || t("Not entered");
+  const activeCustomerName = selectedCustomer?.name ?? t("No customer selected");
 
   const updateItem = (
     index: number,
@@ -651,6 +653,26 @@ export default function Invoice() {
 
         <section className="panel xl:col-span-2 p-5 md:p-6">
           <h2 className="mb-3 text-xl font-bold text-slate-950">{t("Billing")}</h2>
+          <div className="mb-5 grid gap-3 md:grid-cols-3">
+            <div className="rounded-3xl bg-slate-50 p-4">
+              <p className="soft-label">{t("Invoice number")}</p>
+              <p className="mt-2 truncate text-lg font-black text-slate-950">
+                {activeInvoiceNumber}
+              </p>
+            </div>
+            <div className="rounded-3xl bg-slate-50 p-4">
+              <p className="soft-label">{t("Customer")}</p>
+              <p className="mt-2 truncate text-lg font-black text-slate-950">
+                {activeCustomerName}
+              </p>
+            </div>
+            <div className="rounded-3xl bg-rose-50 p-4">
+              <p className="soft-label text-rose-700">{t("Balance")}</p>
+              <div className="mt-2 text-lg font-black text-rose-700">
+                <Money value={customerId ? balance : 0} className="items-start" />
+              </div>
+            </div>
+          </div>
           <div className="mb-4 flex flex-wrap items-center gap-3">
             <p className="soft-label">{t("Billing Currency")}</p>
             {(["KWD", "USD"] as const).map((currency) => (

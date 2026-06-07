@@ -2185,6 +2185,20 @@ export default function App() {
 
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>Billing</Text>
+          <View style={styles.lineItem}>
+            <Text style={styles.subhead}>Billing context</Text>
+            <View style={styles.lineItemHeader}>
+              <View style={styles.flex}>
+                <Text style={styles.rowTitle}>
+                  {invoiceForm.invoiceNumber.trim() || 'Invoice number not entered'}
+                </Text>
+                <Text style={styles.rowSubtitle}>
+                  {selectedCustomer?.name ?? 'No customer selected'}
+                </Text>
+              </View>
+              <MoneyText value={currency(selectedCustomerId ? customerBalance : 0)} />
+            </View>
+          </View>
           <Text style={styles.subhead}>Billing currency</Text>
           <View style={styles.twoCols}>
             <Pill label="KWD" active={invoiceCurrency === 'KWD'} onPress={() => setInvoiceCurrency('KWD')} />
