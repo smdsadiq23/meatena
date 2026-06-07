@@ -27,6 +27,7 @@ const meatenaLogo = require('./assets/brand-icon.png');
 
 type Role = 'admin' | 'staff';
 type Language = 'en' | 'ar';
+type TransactionCurrency = 'KWD' | 'USD';
 type Screen =
   | 'dashboard'
   | 'billing'
@@ -83,6 +84,8 @@ type Purchase = {
   id: number;
   supplier_id: number;
   invoice_no?: string | null;
+  transaction_currency?: TransactionCurrency;
+  exchange_rate?: number | string;
   total_amount?: number | string;
   receipt_original_name?: string | null;
   receipt_file_name?: string | null;
@@ -733,10 +736,12 @@ export default function App() {
   const [selectedProductId, setSelectedProductId] = useState<number | null>(null);
   const [selectedSupplierId, setSelectedSupplierId] = useState<number | null>(null);
   const [invoiceForm, setInvoiceForm] = useState(emptyInvoiceForm);
+  const [invoiceCurrency, setInvoiceCurrency] = useState<TransactionCurrency>('KWD');
   const [invoiceItems, setInvoiceItems] = useState<InvoiceItemForm[]>([
     { productId: null, pieces: '', weight: '', price: '' },
   ]);
   const [supplierForm, setSupplierForm] = useState(emptySupplierForm);
+  const [purchaseCurrency, setPurchaseCurrency] = useState<TransactionCurrency>('KWD');
   const [purchaseForm, setPurchaseForm] = useState(emptyPurchaseForm);
   const [expenseForm, setExpenseForm] = useState(emptyExpenseForm);
   const [shiftForm, setShiftForm] = useState(emptyShiftForm);
@@ -762,7 +767,15 @@ export default function App() {
     invoiceProfiles.find(profile => profile.is_default) ??
     invoiceProfiles[0] ??
     defaultInvoiceProfile;
-  const invoiceTotal = invoiceItems.reduce((sum, item) => sum + Number(item.weight || 0) * Number(item.price || 0), 0);
+  const toBaseKwd = (value: number, selectedCurrency: TransactionCurrency) =>
+    selectedCurrency === 'USD' ? value / currencyRate : value;
+  const displayUnitPrice = (value: number, selectedCurrency: TransactionCurrency) =>
+    selectedCurrency === 'USD' ? value * currencyRate : value;
+  const invoiceTotal = invoiceItems.reduce(
+    (sum, item) =>
+      sum + Number(item.weight || 0) * toBaseKwd(Number(item.price || 0), invoiceCurrency),
+    0,
+  );
   const customerBalance = Number(selectedCustomer?.balance ?? 0);
   const creditLimit = Number(selectedCustomer?.credit_limit ?? 0);
   const projectedBalance = customerBalance + invoiceTotal;
@@ -1146,7 +1159,10 @@ export default function App() {
         const next = { ...item, ...patch };
         if (patch.productId !== undefined) {
           const product = products.find(record => record.id === patch.productId);
-          next.price = String(product?.price_per_kg ?? next.price);
+          next.price =
+            product?.price_per_kg !== undefined
+              ? displayUnitPrice(Number(product.price_per_kg), invoiceCurrency).toFixed(3)
+              : next.price;
         }
         return next;
       }),
@@ -1277,6 +1293,8 @@ export default function App() {
         body: JSON.stringify({
           customer_id: selectedCustomerId,
           type: invoiceForm.type,
+          transaction_currency: invoiceCurrency,
+          exchange_rate: currencyRate,
           invoice_number: invoiceForm.invoiceNumber.trim(),
           invoice_title: selectedProfile.invoice_title.trim(),
           invoice_title_ar: selectedProfile.invoice_title_ar?.trim() || undefined,
@@ -1298,6 +1316,7 @@ export default function App() {
         ...current,
         invoiceNumber: '',
       }));
+      setInvoiceCurrency('KWD');
       setInvoiceItems([{ productId: selectedProductId, pieces: '', weight: '', price: String(selectedProduct?.price_per_kg ?? '') }]);
       await loadData();
     } catch (error) {
@@ -1578,6 +1597,8 @@ export default function App() {
         body: JSON.stringify({
           supplier_id: selectedSupplierId,
           invoice_no: purchaseForm.invoiceNo.trim() || undefined,
+          transaction_currency: purchaseCurrency,
+          exchange_rate: currencyRate,
           items: [
             {
               product_id: selectedProductId,
@@ -1589,6 +1610,7 @@ export default function App() {
         }),
       });
       setPurchaseForm(emptyPurchaseForm);
+      setPurchaseCurrency('KWD');
       setStatus('Purchase recorded and stock updated.');
       await loadData();
     } catch (error) {
@@ -2163,8 +2185,15 @@ export default function App() {
 
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>Billing</Text>
+          <Text style={styles.subhead}>Billing currency</Text>
+          <View style={styles.twoCols}>
+            <Pill label="KWD" active={invoiceCurrency === 'KWD'} onPress={() => setInvoiceCurrency('KWD')} />
+            <Pill label="USD" active={invoiceCurrency === 'USD'} onPress={() => setInvoiceCurrency('USD')} />
+          </View>
+          <Text style={styles.mutedDark}>1 KWD = {currencyRate.toFixed(3)} USD</Text>
           {invoiceItems.map((item, index) => {
-            const lineAmount = Number(item.weight || 0) * Number(item.price || 0);
+            const lineAmount =
+              Number(item.weight || 0) * toBaseKwd(Number(item.price || 0), invoiceCurrency);
             return (
               <View key={index} style={styles.lineItem}>
                 <View style={styles.lineItemHeader}>
@@ -2198,7 +2227,7 @@ export default function App() {
                     style={[styles.input, styles.flex]}
                     value={item.price}
                     onChangeText={value => updateInvoiceItem(index, { price: value })}
-                    placeholder="Price"
+                    placeholder={`Price ${invoiceCurrency}`}
                     keyboardType="decimal-pad"
                   />
                 </View>
@@ -2471,6 +2500,12 @@ export default function App() {
         <Text style={styles.screenTitle}>Purchase Entry</Text>
         <SupplierPicker suppliers={suppliers} value={selectedSupplierId} onChange={setSelectedSupplierId} />
         <ProductPicker products={products} value={selectedProductId} onChange={setSelectedProductId} />
+        <Text style={styles.subhead}>Purchase currency</Text>
+        <View style={styles.twoCols}>
+          <Pill label="KWD" active={purchaseCurrency === 'KWD'} onPress={() => setPurchaseCurrency('KWD')} />
+          <Pill label="USD" active={purchaseCurrency === 'USD'} onPress={() => setPurchaseCurrency('USD')} />
+        </View>
+        <Text style={styles.mutedDark}>1 KWD = {currencyRate.toFixed(3)} USD</Text>
         <TextInput
           style={styles.input}
           value={purchaseForm.invoiceNo}
@@ -2495,7 +2530,7 @@ export default function App() {
           style={styles.input}
           value={purchaseForm.costPerKg}
           onChangeText={value => setPurchaseForm(current => ({ ...current, costPerKg: value }))}
-          placeholder="Cost per kg"
+          placeholder={`Cost per kg ${purchaseCurrency}`}
           keyboardType="decimal-pad"
         />
         <PrimaryButton title="Record Purchase" onPress={recordPurchase} disabled={busy} />

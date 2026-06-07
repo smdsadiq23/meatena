@@ -8,7 +8,7 @@ import {
   fetchJsonOrThrow,
   getErrorMessage,
 } from "../../lib/auth";
-import { Money } from "../../lib/currency";
+import { Money, useCurrencyRate } from "../../lib/currency";
 
 type Supplier = {
   id: number;
@@ -24,6 +24,8 @@ type Purchase = {
   id: number;
   supplier_id: number;
   invoice_no?: string;
+  transaction_currency?: "KWD" | "USD";
+  exchange_rate?: number | string;
   total: number;
   date: string;
   receipt_original_name?: string | null;
@@ -53,16 +55,20 @@ type PurchaseItem = {
 const emptyItem = { product_id: "", pieces: "", weight: "", cost_per_kg: "" };
 
 export default function PurchasesPage() {
+  const currencyRate = useCurrencyRate();
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [purchases, setPurchases] = useState<Purchase[]>([]);
   const [supplierId, setSupplierId] = useState("");
   const [invoiceNo, setInvoiceNo] = useState("");
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
+  const [purchaseCurrency, setPurchaseCurrency] = useState<"KWD" | "USD">("KWD");
   const [items, setItems] = useState<PurchaseItem[]>([emptyItem]);
   const [editingPurchaseId, setEditingPurchaseId] = useState<number | null>(null);
   const [editSupplierId, setEditSupplierId] = useState("");
   const [editInvoiceNo, setEditInvoiceNo] = useState("");
+  const [editPurchaseCurrency, setEditPurchaseCurrency] = useState<"KWD" | "USD">("KWD");
+  const [editExchangeRate, setEditExchangeRate] = useState(currencyRate);
   const [editItems, setEditItems] = useState<PurchaseItem[]>([emptyItem]);
   const [status, setStatus] = useState("");
   const [statusType, setStatusType] = useState<"success" | "error">("success");
@@ -110,13 +116,22 @@ export default function PurchasesPage() {
       });
   }, []);
 
+  const toBaseKwd = (value: number, currency: "KWD" | "USD", rate = currencyRate) =>
+    currency === "USD" ? value / rate : value;
+
   const total = items.reduce(
-    (sum, item) => sum + Number(item.weight || 0) * Number(item.cost_per_kg || 0),
+    (sum, item) =>
+      sum +
+      Number(item.weight || 0) *
+        toBaseKwd(Number(item.cost_per_kg || 0), purchaseCurrency),
     0
   );
 
   const editTotal = editItems.reduce(
-    (sum, item) => sum + Number(item.weight || 0) * Number(item.cost_per_kg || 0),
+    (sum, item) =>
+      sum +
+      Number(item.weight || 0) *
+        toBaseKwd(Number(item.cost_per_kg || 0), editPurchaseCurrency, editExchangeRate),
     0
   );
 
@@ -153,6 +168,8 @@ export default function PurchasesPage() {
         body: JSON.stringify({
           supplier_id: Number(supplierId),
           invoice_no: invoiceNo || undefined,
+          transaction_currency: purchaseCurrency,
+          exchange_rate: currencyRate,
           items: items.map((item) => ({
             product_id: Number(item.product_id),
             pieces: item.pieces ? Number(item.pieces) : undefined,
@@ -177,6 +194,7 @@ export default function PurchasesPage() {
 
       setInvoiceNo("");
       setReceiptFile(null);
+      setPurchaseCurrency("KWD");
       setItems([emptyItem]);
       setStatusType("success");
       setStatus(
@@ -202,13 +220,19 @@ export default function PurchasesPage() {
       setEditingPurchaseId(purchase.id);
       setEditSupplierId(String(detail.supplier_id));
       setEditInvoiceNo(detail.invoice_no || "");
+      setEditPurchaseCurrency(detail.transaction_currency ?? "KWD");
+      setEditExchangeRate(Number(detail.exchange_rate ?? currencyRate));
       setEditItems(
         detail.items.length
           ? detail.items.map((item) => ({
               product_id: String(item.product_id),
               pieces: item.pieces ? String(item.pieces) : "",
               weight: String(item.weight),
-              cost_per_kg: String(item.cost_per_kg),
+              cost_per_kg: String(
+                detail.transaction_currency === "USD"
+                  ? Number(item.cost_per_kg) * Number(detail.exchange_rate ?? currencyRate)
+                  : item.cost_per_kg
+              ),
             }))
           : [emptyItem]
       );
@@ -240,6 +264,8 @@ export default function PurchasesPage() {
         body: JSON.stringify({
           supplier_id: Number(editSupplierId),
           invoice_no: editInvoiceNo || undefined,
+          transaction_currency: editPurchaseCurrency,
+          exchange_rate: editExchangeRate,
           items: editItems.map((item) => ({
             product_id: Number(item.product_id),
             pieces: item.pieces ? Number(item.pieces) : undefined,
@@ -251,6 +277,8 @@ export default function PurchasesPage() {
       setEditingPurchaseId(null);
       setEditSupplierId("");
       setEditInvoiceNo("");
+      setEditPurchaseCurrency("KWD");
+      setEditExchangeRate(currencyRate);
       setEditItems([emptyItem]);
       setStatusType("success");
       setStatus("Purchase updated. Stock and supplier balance were recalculated.");
@@ -297,6 +325,22 @@ export default function PurchasesPage() {
           </select>
           <input className="field" placeholder="Supplier invoice no." value={invoiceNo} onChange={(e) => setInvoiceNo(e.target.value)} />
         </div>
+        <div className="mt-4 flex flex-wrap items-center gap-3">
+          <p className="soft-label">Purchase Currency</p>
+          {(["KWD", "USD"] as const).map((currency) => (
+            <button
+              key={currency}
+              type="button"
+              className={purchaseCurrency === currency ? "btn-primary px-5" : "btn-secondary px-5"}
+              onClick={() => setPurchaseCurrency(currency)}
+            >
+              {currency}
+            </button>
+          ))}
+          <span className="text-sm font-semibold text-slate-500">
+            Rate: 1 KWD = {currencyRate.toFixed(3)} USD
+          </span>
+        </div>
 
         <div className="mt-4 rounded-3xl border border-dashed border-black/15 bg-slate-50 p-5">
           <p className="soft-label">Delivery Receipt</p>
@@ -324,7 +368,7 @@ export default function PurchasesPage() {
               </select>
               <input className="field" placeholder="Pieces" value={item.pieces} onChange={(e) => updateItem(index, "pieces", e.target.value)} />
               <input className="field" placeholder="Weight kg" value={item.weight} onChange={(e) => updateItem(index, "weight", e.target.value)} />
-              <input className="field" placeholder="Cost per kg" value={item.cost_per_kg} onChange={(e) => updateItem(index, "cost_per_kg", e.target.value)} />
+              <input className="field" placeholder={`Cost per kg (${purchaseCurrency})`} value={item.cost_per_kg} onChange={(e) => updateItem(index, "cost_per_kg", e.target.value)} />
               <button className="h-[58px] w-[58px] rounded-2xl bg-red-600 font-semibold text-white" onClick={() => setItems((current) => current.length === 1 ? [emptyItem] : current.filter((_, itemIndex) => itemIndex !== index))}>X</button>
             </div>
           ))}
@@ -335,6 +379,9 @@ export default function PurchasesPage() {
           <div className="text-right">
             <p className="soft-label">Purchase Total</p>
             <p className="text-3xl font-black text-green-600"><Money value={total} /></p>
+            <p className="mt-1 text-sm font-bold text-slate-500">
+              Entering prices in {purchaseCurrency}
+            </p>
           </div>
         </div>
 
@@ -359,6 +406,25 @@ export default function PurchasesPage() {
                     </select>
                     <input className="field bg-white" placeholder="Supplier invoice no." value={editInvoiceNo} onChange={(e) => setEditInvoiceNo(e.target.value)} />
                   </div>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <p className="soft-label">Purchase Currency</p>
+                    {(["KWD", "USD"] as const).map((currency) => (
+                      <button
+                        key={currency}
+                        type="button"
+                        className={editPurchaseCurrency === currency ? "btn-primary px-5" : "btn-secondary px-5"}
+                        onClick={() => {
+                          setEditPurchaseCurrency(currency);
+                          setEditExchangeRate(currencyRate);
+                        }}
+                      >
+                        {currency}
+                      </button>
+                    ))}
+                    <span className="text-sm font-semibold text-slate-500">
+                      Rate: 1 KWD = {editExchangeRate.toFixed(3)} USD
+                    </span>
+                  </div>
 
                   <div className="space-y-3">
                     {editItems.map((item, index) => (
@@ -371,7 +437,7 @@ export default function PurchasesPage() {
                         </select>
                         <input className="field bg-white" placeholder="Pieces" value={item.pieces} onChange={(e) => updateItem(index, "pieces", e.target.value, "edit")} />
                         <input className="field bg-white" placeholder="Weight kg" value={item.weight} onChange={(e) => updateItem(index, "weight", e.target.value, "edit")} />
-                        <input className="field bg-white" placeholder="Cost per kg" value={item.cost_per_kg} onChange={(e) => updateItem(index, "cost_per_kg", e.target.value, "edit")} />
+                        <input className="field bg-white" placeholder={`Cost per kg (${editPurchaseCurrency})`} value={item.cost_per_kg} onChange={(e) => updateItem(index, "cost_per_kg", e.target.value, "edit")} />
                         <button className="h-[58px] w-[58px] rounded-2xl bg-red-600 font-semibold text-white" onClick={() => setEditItems((current) => current.length === 1 ? [emptyItem] : current.filter((_, itemIndex) => itemIndex !== index))}>X</button>
                       </div>
                     ))}
@@ -398,7 +464,12 @@ export default function PurchasesPage() {
                 <div className="grid gap-3 text-sm md:grid-cols-[1fr_1fr_0.8fr_1fr_1fr_auto_auto] md:items-center">
                   <div className="font-bold text-slate-950">Purchase #{purchase.id}</div>
                   <div>{supplierNameById.get(purchase.supplier_id) ?? `Supplier #${purchase.supplier_id}`}</div>
-                  <div><Money value={purchase.total} /></div>
+                  <div>
+                    <Money value={purchase.total} />
+                    <p className="mt-1 text-xs font-black uppercase tracking-[0.12em] text-slate-400">
+                      Entered {purchase.transaction_currency ?? "KWD"}
+                    </p>
+                  </div>
                   <div className="text-slate-500">{new Date(purchase.date).toLocaleString()}</div>
                   <div>
                     {purchase.receipt_file_name ? (

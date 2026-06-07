@@ -14,6 +14,12 @@ export class Purchase {
   @Column({ type: 'varchar', nullable: true })
   invoice_no: string | null;
 
+  @Column({ type: 'varchar', default: 'KWD' })
+  transaction_currency: 'KWD' | 'USD';
+
+  @Column('decimal', { precision: 12, scale: 6, default: 3.25 })
+  exchange_rate: number;
+
   @Column('decimal', { precision: 12, scale: 3, default: 0 })
   total: number;
 

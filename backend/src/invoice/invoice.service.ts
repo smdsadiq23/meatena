@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Injectable,
   NotFoundException,
+  OnModuleInit,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { mkdir, writeFile } from 'node:fs/promises';
@@ -62,7 +63,7 @@ function inDateRange(value: string, start: Date, end: Date) {
 }
 
 @Injectable()
-export class InvoiceService {
+export class InvoiceService implements OnModuleInit {
   private readonly deliveryReceiptDirectory = join(
     process.cwd(),
     'uploads',
@@ -87,8 +88,26 @@ export class InvoiceService {
     private inventoryService: InventoryService,
   ) {}
 
+  async onModuleInit() {
+    await this.dataSource.query(`
+      ALTER TABLE invoice
+      ADD COLUMN IF NOT EXISTS transaction_currency varchar NOT NULL DEFAULT 'KWD'
+    `);
+    await this.dataSource.query(`
+      ALTER TABLE invoice
+      ADD COLUMN IF NOT EXISTS exchange_rate numeric(12, 6) NOT NULL DEFAULT 3.25
+    `);
+  }
+
   async create(data: CreateInvoiceDto) {
     const { customer_id, items, type } = data;
+    const transactionCurrency = data.transaction_currency ?? 'KWD';
+    const exchangeRate = Number(data.exchange_rate ?? process.env.KWD_TO_USD_RATE ?? 3.25);
+
+    if (!Number.isFinite(exchangeRate) || exchangeRate <= 0) {
+      throw new BadRequestException('Exchange rate must be greater than zero');
+    }
+
     return this.dataSource.transaction(async (manager) => {
       const invoice_number = data.invoice_number.trim();
       const existingInvoiceNumber = await manager
@@ -115,14 +134,19 @@ export class InvoiceService {
 
       let total = 0;
       const calculatedItems = items.map((item) => {
-        const amount = roundMoney(item.weight * item.price_per_kg);
+        const pricePerKg = roundMoney(
+          transactionCurrency === 'USD'
+            ? item.price_per_kg / exchangeRate
+            : item.price_per_kg,
+        );
+        const amount = roundMoney(item.weight * pricePerKg);
         total = roundMoney(total + amount);
 
         return {
           product_id: item.product_id ?? null,
           weight: roundMoney(item.weight),
           pieces: item.pieces ?? null,
-          price_per_kg: roundMoney(item.price_per_kg),
+          price_per_kg: pricePerKg,
           amount,
         };
       });
@@ -165,6 +189,8 @@ export class InvoiceService {
         customer_id,
         date,
         type,
+        transaction_currency: transactionCurrency,
+        exchange_rate: roundMoney(exchangeRate),
         invoice_number,
         invoice_title: data.invoice_title.trim(),
         invoice_title_ar: cleanText(data.invoice_title_ar),

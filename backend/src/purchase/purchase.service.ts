@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Injectable,
   NotFoundException,
+  OnModuleInit,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { mkdir, writeFile } from 'node:fs/promises';
@@ -24,7 +25,7 @@ type UploadedReceiptFile = {
 };
 
 @Injectable()
-export class PurchaseService {
+export class PurchaseService implements OnModuleInit {
   private readonly receiptDirectory = join(
     process.cwd(),
     'uploads',
@@ -38,7 +39,25 @@ export class PurchaseService {
     private readonly inventoryService: InventoryService,
   ) {}
 
+  async onModuleInit() {
+    await this.dataSource.query(`
+      ALTER TABLE purchase
+      ADD COLUMN IF NOT EXISTS transaction_currency varchar NOT NULL DEFAULT 'KWD'
+    `);
+    await this.dataSource.query(`
+      ALTER TABLE purchase
+      ADD COLUMN IF NOT EXISTS exchange_rate numeric(12, 6) NOT NULL DEFAULT 3.25
+    `);
+  }
+
   create(data: CreatePurchaseDto) {
+    const transactionCurrency = data.transaction_currency ?? 'KWD';
+    const exchangeRate = Number(data.exchange_rate ?? process.env.KWD_TO_USD_RATE ?? 3.25);
+
+    if (!Number.isFinite(exchangeRate) || exchangeRate <= 0) {
+      throw new BadRequestException('Exchange rate must be greater than zero');
+    }
+
     return this.dataSource.transaction(async (manager) => {
       const supplier = await manager
         .getRepository(Supplier)
@@ -50,14 +69,19 @@ export class PurchaseService {
 
       let total = 0;
       const calculatedItems = data.items.map((item) => {
-        const amount = roundMoney(item.weight * item.cost_per_kg);
+        const costPerKg = roundMoney(
+          transactionCurrency === 'USD'
+            ? item.cost_per_kg / exchangeRate
+            : item.cost_per_kg,
+        );
+        const amount = roundMoney(item.weight * costPerKg);
         total = roundMoney(total + amount);
 
         return {
           product_id: item.product_id,
           weight: roundMoney(item.weight),
           pieces: item.pieces ?? null,
-          cost_per_kg: roundMoney(item.cost_per_kg),
+          cost_per_kg: costPerKg,
           amount,
         };
       });
@@ -76,6 +100,8 @@ export class PurchaseService {
       const purchase = await manager.getRepository(Purchase).save({
         supplier_id: data.supplier_id,
         invoice_no: data.invoice_no?.trim() || null,
+        transaction_currency: transactionCurrency,
+        exchange_rate: roundMoney(exchangeRate),
         date,
         total,
       });
@@ -121,6 +147,13 @@ export class PurchaseService {
   }
 
   update(id: number, data: UpdatePurchaseDto) {
+    const transactionCurrency = data.transaction_currency ?? 'KWD';
+    const exchangeRate = Number(data.exchange_rate ?? process.env.KWD_TO_USD_RATE ?? 3.25);
+
+    if (!Number.isFinite(exchangeRate) || exchangeRate <= 0) {
+      throw new BadRequestException('Exchange rate must be greater than zero');
+    }
+
     return this.dataSource.transaction(async (manager) => {
       const purchaseRepo = manager.getRepository(Purchase);
       const itemRepo = manager.getRepository(PurchaseItem);
@@ -157,14 +190,19 @@ export class PurchaseService {
 
       let total = 0;
       const calculatedItems = data.items.map((item) => {
-        const amount = roundMoney(item.weight * item.cost_per_kg);
+        const costPerKg = roundMoney(
+          transactionCurrency === 'USD'
+            ? item.cost_per_kg / exchangeRate
+            : item.cost_per_kg,
+        );
+        const amount = roundMoney(item.weight * costPerKg);
         total = roundMoney(total + amount);
 
         return {
           product_id: item.product_id,
           weight: roundMoney(item.weight),
           pieces: item.pieces ?? null,
-          cost_per_kg: roundMoney(item.cost_per_kg),
+          cost_per_kg: costPerKg,
           amount,
         };
       });
@@ -229,6 +267,8 @@ export class PurchaseService {
 
       purchase.supplier_id = data.supplier_id;
       purchase.invoice_no = data.invoice_no?.trim() || null;
+      purchase.transaction_currency = transactionCurrency;
+      purchase.exchange_rate = roundMoney(exchangeRate);
       purchase.total = total;
       const savedPurchase = await purchaseRepo.save(purchase);
 

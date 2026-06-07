@@ -3,7 +3,9 @@ import { Type } from 'class-transformer';
 import {
   ArrayMinSize,
   IsArray,
+  IsIn,
   IsInt,
+  IsNumber,
   IsOptional,
   IsString,
   Min,
@@ -21,6 +23,16 @@ export class CreatePurchaseDto {
   @IsOptional()
   @IsString()
   invoice_no?: string;
+
+  @ApiProperty({ example: 'KWD', enum: ['KWD', 'USD'], required: false })
+  @IsOptional()
+  @IsIn(['KWD', 'USD'])
+  transaction_currency?: 'KWD' | 'USD';
+
+  @ApiProperty({ example: 3.25, required: false })
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 6 })
+  exchange_rate?: number;
 
   @ApiProperty({ type: [CreatePurchaseItemDto] })
   @IsArray()

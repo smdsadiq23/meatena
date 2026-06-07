@@ -6,7 +6,7 @@ import {
   fetchJson,
   fetchJsonOrThrow,
 } from "../../lib/auth";
-import { formatDualCurrency, Money } from "../../lib/currency";
+import { formatDualCurrency, Money, useCurrencyRate } from "../../lib/currency";
 import { useLanguage } from "../../lib/use-language";
 const DEFAULT_PRICE = "3.150";
 
@@ -98,6 +98,7 @@ function profileToForm(profile: InvoiceProfile): InvoiceProfileForm {
 
 export default function Invoice() {
   const { t } = useLanguage();
+  const currencyRate = useCurrencyRate();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [customerId, setCustomerId] = useState("");
@@ -105,6 +106,7 @@ export default function Invoice() {
   const [invoiceId, setInvoiceId] = useState<number | null>(null);
   const [invoiceNumber, setInvoiceNumber] = useState("");
   const [draftInvoiceNumber, setDraftInvoiceNumber] = useState("");
+  const [invoiceCurrency, setInvoiceCurrency] = useState<"KWD" | "USD">("KWD");
   const [invoiceProfiles, setInvoiceProfiles] = useState<InvoiceProfile[]>([]);
   const [selectedProfileId, setSelectedProfileId] = useState<number | null>(null);
   const [profileForm, setProfileForm] = useState<InvoiceProfileForm>(
@@ -173,7 +175,14 @@ export default function Invoice() {
   }, [items.length]);
 
   const selectedCustomer = customers.find((customer) => String(customer.id) === customerId);
-  const total = items.reduce((sum, item) => sum + item.amount, 0);
+  const toBaseKwd = (value: number) =>
+    invoiceCurrency === "USD" ? value / currencyRate : value;
+  const displayProductPrice = (price: number) =>
+    invoiceCurrency === "USD" ? price * currencyRate : price;
+  const total = items.reduce(
+    (sum, item) => sum + Number(item.weight || 0) * toBaseKwd(Number(item.price || 0)),
+    0
+  );
   const creditLimit = Number(selectedCustomer?.credit_limit ?? 0);
   const projectedBalance = balance + total;
   const remainingCredit =
@@ -191,12 +200,13 @@ export default function Invoice() {
     if (field === "productId") {
       const product = products.find((item) => String(item.id) === value);
       if (product) {
-        nextItems[index].price = Number(product.price_per_kg).toFixed(3);
+        nextItems[index].price = displayProductPrice(Number(product.price_per_kg)).toFixed(3);
       }
     }
 
     nextItems[index].amount =
-      Number(nextItems[index].weight || 0) * Number(nextItems[index].price || 0);
+      Number(nextItems[index].weight || 0) *
+      toBaseKwd(Number(nextItems[index].price || 0));
     setItems(nextItems);
   };
 
@@ -340,6 +350,7 @@ export default function Invoice() {
     setInvoiceId(null);
     setInvoiceNumber("");
     setDraftInvoiceNumber("");
+    setInvoiceCurrency("KWD");
     setStatus("");
     setStatusType("success");
   };
@@ -394,6 +405,8 @@ export default function Invoice() {
         body: JSON.stringify({
           customer_id: Number(customerId),
           type: "credit",
+          transaction_currency: invoiceCurrency,
+          exchange_rate: currencyRate,
           invoice_number: draftInvoiceNumber.trim(),
           invoice_title: selectedProfile.invoice_title.trim(),
           invoice_title_ar: selectedProfile.invoice_title_ar?.trim() || undefined,
@@ -638,6 +651,22 @@ export default function Invoice() {
 
         <section className="panel xl:col-span-2 p-5 md:p-6">
           <h2 className="mb-3 text-xl font-bold text-slate-950">{t("Billing")}</h2>
+          <div className="mb-4 flex flex-wrap items-center gap-3">
+            <p className="soft-label">{t("Billing Currency")}</p>
+            {(["KWD", "USD"] as const).map((currency) => (
+              <button
+                key={currency}
+                type="button"
+                className={invoiceCurrency === currency ? "btn-primary px-5" : "btn-secondary px-5"}
+                onClick={() => setInvoiceCurrency(currency)}
+              >
+                {currency}
+              </button>
+            ))}
+            <span className="text-sm font-semibold text-slate-500">
+              1 KWD = {currencyRate.toFixed(3)} USD
+            </span>
+          </div>
 
           <div className="mb-2 grid grid-cols-[1.4fr_0.7fr_1fr_1fr_1fr_auto] gap-2 text-sm font-bold uppercase tracking-[0.14em] text-slate-600">
             <div>{t("Product")}</div>
@@ -689,13 +718,19 @@ export default function Invoice() {
                 <input
                   id={`price-${index}`}
                   className="field"
+                  placeholder={`${t("Price")} (${invoiceCurrency})`}
                   value={item.price}
                   onChange={(e) => updateItem(index, "price", e.target.value)}
                   onKeyDown={(e) => onPriceKeyDown(e, index)}
                 />
 
                 <div className="rounded-2xl bg-slate-100 px-4 py-4 text-lg font-bold text-slate-950">
-                  <Money value={item.amount} />
+                  <Money
+                    value={
+                      Number(item.weight || 0) *
+                      toBaseKwd(Number(item.price || 0))
+                    }
+                  />
                 </div>
 
                 <button
@@ -718,6 +753,9 @@ export default function Invoice() {
               <div className="text-3xl font-bold text-green-600">
                 <Money value={total} />
               </div>
+              <p className="mt-1 text-sm font-bold text-slate-500">
+                {t("Entering prices in")} {invoiceCurrency}
+              </p>
             </div>
           </div>
 

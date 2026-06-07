@@ -5,6 +5,7 @@ import {
   IsArray,
   IsIn,
   IsInt,
+  IsNumber,
   IsOptional,
   IsString,
   MinLength,
@@ -23,6 +24,16 @@ export class CreateInvoiceDto {
   @ApiProperty({ example: 'credit', enum: ['cash', 'credit'] })
   @IsIn(['cash', 'credit'])
   type: 'cash' | 'credit';
+
+  @ApiProperty({ example: 'KWD', enum: ['KWD', 'USD'], required: false })
+  @IsOptional()
+  @IsIn(['KWD', 'USD'])
+  transaction_currency?: 'KWD' | 'USD';
+
+  @ApiProperty({ example: 3.25, required: false })
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 6 })
+  exchange_rate?: number;
 
   @ApiProperty({ example: 'INV-2026-001' })
   @IsString()
