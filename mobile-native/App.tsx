@@ -67,6 +67,7 @@ type Product = {
   sku?: string | null;
   price_per_kg: number | string;
   stock_kg: number | string;
+  stock_pieces?: number | string;
   low_stock?: boolean;
 };
 
@@ -114,6 +115,7 @@ type InventorySummary = {
   totals?: {
     productCount?: number;
     totalStockKg?: number | string;
+    totalStockPieces?: number | string;
     stockValue?: number | string;
     estimatedRetailValue?: number | string;
     lowStockCount?: number;
@@ -2375,6 +2377,7 @@ export default function App() {
         <Text style={styles.screenTitle}>Stock Lookup</Text>
         <View style={styles.metricGrid}>
           <Metric label="Stock KG" value={money(inventorySummary?.totals?.totalStockKg)} />
+          <Metric label="Pieces" value={String(inventorySummary?.totals?.totalStockPieces ?? 0)} />
           <Metric label="Low Stock" value={String(inventorySummary?.totals?.lowStockCount ?? 0)} />
         </View>
         {isAdmin ? (
@@ -2437,8 +2440,8 @@ export default function App() {
           <Row
             key={product.id}
             title={product.name}
-            subtitle={`Price ${currencyInline(product.price_per_kg)} | SKU ${product.sku || '-'}`}
-            right={`${money(product.stock_kg)} kg`}
+            subtitle={`Pieces ${product.stock_pieces ?? 0} | Weight ${money(product.stock_kg)} kg | Price ${currencyInline(product.price_per_kg)} | SKU ${product.sku || '-'}`}
+            right={`${product.stock_pieces ?? 0} pcs\n${money(product.stock_kg)} kg`}
             danger={Boolean(product.low_stock)}
             onPress={() => setSelectedProductId(product.id)}
           />

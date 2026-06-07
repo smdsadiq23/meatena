@@ -6,7 +6,10 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, Repository } from 'typeorm';
 import { roundMoney } from '../common/utils/money';
+import { Invoice } from '../invoice/invoice.entity';
+import { InvoiceItem } from '../invoice/invoice-item.entity';
 import { Product } from '../product/product.entity';
+import { PurchaseItem } from '../purchase/purchase-item.entity';
 import { CreateStockAdjustmentDto } from './dto/create-stock-adjustment.dto';
 import { StockMovement } from './stock-movement.entity';
 
@@ -27,15 +30,48 @@ export class InventoryService {
     private readonly productRepo: Repository<Product>,
     @InjectRepository(StockMovement)
     private readonly movementRepo: Repository<StockMovement>,
+    @InjectRepository(PurchaseItem)
+    private readonly purchaseItemRepo: Repository<PurchaseItem>,
+    @InjectRepository(InvoiceItem)
+    private readonly invoiceItemRepo: Repository<InvoiceItem>,
     private readonly dataSource: DataSource,
   ) {}
 
   async listStock() {
     const products = await this.productRepo.find({ order: { name: 'ASC' } });
+    const [purchasedPieces, soldPieces] = await Promise.all([
+      this.purchaseItemRepo
+        .createQueryBuilder('item')
+        .select('item.product_id', 'product_id')
+        .addSelect('COALESCE(SUM(item.pieces), 0)', 'pieces')
+        .groupBy('item.product_id')
+        .getRawMany<{ product_id: number | string; pieces: string }>(),
+      this.invoiceItemRepo
+        .createQueryBuilder('item')
+        .innerJoin(Invoice, 'invoice', 'invoice.id = item.invoice_id')
+        .select('item.product_id', 'product_id')
+        .addSelect('COALESCE(SUM(item.pieces), 0)', 'pieces')
+        .where('item.product_id IS NOT NULL')
+        .andWhere("invoice.status != 'void'")
+        .groupBy('item.product_id')
+        .getRawMany<{ product_id: number | string; pieces: string }>(),
+    ]);
+    const purchasedPiecesByProduct = new Map(
+      purchasedPieces.map((item) => [
+        Number(item.product_id),
+        Number(item.pieces),
+      ]),
+    );
+    const soldPiecesByProduct = new Map(
+      soldPieces.map((item) => [Number(item.product_id), Number(item.pieces)]),
+    );
 
     return products.map((product) => ({
       ...product,
       stock_kg: Number(product.stock_kg),
+      stock_pieces:
+        (purchasedPiecesByProduct.get(product.id) ?? 0) -
+        (soldPiecesByProduct.get(product.id) ?? 0),
       low_stock_kg: Number(product.low_stock_kg),
       low_stock:
         Number(product.low_stock_kg) > 0 &&
@@ -47,6 +83,7 @@ export class InventoryService {
     const stock = await this.listStock();
 
     let totalStockKg = 0;
+    let totalStockPieces = 0;
     let estimatedRetailValue = 0;
     let lowStockCount = 0;
     let outOfStockCount = 0;
@@ -54,6 +91,7 @@ export class InventoryService {
     const lowStockItems = stock
       .filter((item) => {
         totalStockKg = roundMoney(totalStockKg + Number(item.stock_kg));
+        totalStockPieces += Number(item.stock_pieces ?? 0);
         estimatedRetailValue = roundMoney(
           estimatedRetailValue +
             Number(item.stock_kg) * Number(item.price_per_kg),
@@ -76,6 +114,7 @@ export class InventoryService {
       totals: {
         productCount: stock.length,
         totalStockKg,
+        totalStockPieces,
         estimatedRetailValue,
         lowStockCount,
         outOfStockCount,

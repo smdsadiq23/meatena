@@ -22,6 +22,7 @@ type Product = {
   name: string;
   price_per_kg: number;
   stock_kg: number;
+  stock_pieces?: number;
 };
 
 type InvoiceItem = {
@@ -118,6 +119,7 @@ export default function Invoice() {
   ]);
   const firstInputRef = useRef<HTMLInputElement>(null);
   const weightRefs = useRef<Array<HTMLInputElement | null>>([]);
+  const previousItemCountRef = useRef(items.length);
 
   useEffect(() => {
     fetchJson<Customer[]>("/customers")
@@ -161,10 +163,14 @@ export default function Invoice() {
   }, []);
 
   useEffect(() => {
-    const emptyIndex = items.findIndex((item) => !item.weight);
-    const indexToFocus = emptyIndex === -1 ? items.length - 1 : emptyIndex;
-    weightRefs.current[indexToFocus]?.focus();
-  }, [items]);
+    if (items.length <= previousItemCountRef.current) {
+      previousItemCountRef.current = items.length;
+      return;
+    }
+
+    weightRefs.current[items.length - 1]?.focus();
+    previousItemCountRef.current = items.length;
+  }, [items.length]);
 
   const selectedCustomer = customers.find((customer) => String(customer.id) === customerId);
   const total = items.reduce((sum, item) => sum + item.amount, 0);
@@ -653,7 +659,8 @@ export default function Invoice() {
                   <option value="">{t("Counter item")}</option>
                   {products.map((product) => (
                     <option key={product.id} value={product.id}>
-                      {product.name} ({Number(product.stock_kg).toFixed(3)} kg)
+                      {product.name} ({Number(product.stock_pieces ?? 0)} pcs /{" "}
+                      {Number(product.stock_kg).toFixed(3)} kg)
                     </option>
                   ))}
                 </select>

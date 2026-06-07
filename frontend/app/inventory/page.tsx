@@ -10,6 +10,7 @@ type StockItem = {
   sku?: string;
   price_per_kg: number;
   stock_kg: number;
+  stock_pieces?: number;
   low_stock_kg: number;
   low_stock: boolean;
 };
@@ -28,6 +29,7 @@ type InventorySummary = {
   totals: {
     productCount: number;
     totalStockKg: number;
+    totalStockPieces?: number;
     estimatedRetailValue: number;
     lowStockCount: number;
     outOfStockCount: number;
@@ -303,6 +305,9 @@ export default function InventoryPage() {
             <p className="mt-3 text-3xl font-black">
               {Number(summary.totals.totalStockKg).toFixed(3)}
             </p>
+            <p className="mt-1 text-sm font-black text-emerald-700">
+              {Number(summary.totals.totalStockPieces ?? 0)} pcs
+            </p>
           </div>
           <div className="rounded-3xl bg-blue-50 p-5 text-blue-800">
             <p className="soft-label text-blue-700">Retail Value</p>
@@ -407,10 +412,18 @@ export default function InventoryPage() {
                       </div>
                     ) : null}
                   </div>
-                  <div className="grid grid-cols-3 gap-4 text-sm md:text-right">
+                  <div className="grid grid-cols-4 gap-4 text-sm md:text-right">
                     <div>
-                      <p className="soft-label">Stock</p>
-                      <p className="font-black text-slate-950">{Number(item.stock_kg).toFixed(3)}</p>
+                      <p className="soft-label">Pieces</p>
+                      <p className="font-black text-slate-950">
+                        {Number(item.stock_pieces ?? 0)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="soft-label">Weight</p>
+                      <p className="font-black text-slate-950">
+                        {Number(item.stock_kg).toFixed(3)} kg
+                      </p>
                     </div>
                     <div>
                       <p className="soft-label">Price</p>
