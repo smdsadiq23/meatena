@@ -62,6 +62,40 @@ const emptyProduct = { name: "", sku: "", price_per_kg: "0", low_stock_kg: "0" }
 const emptyAdjustment = { product_id: "", type: "wastage", quantity_kg: "", note: "" };
 const emptyEditProduct = { id: 0, name: "", sku: "", price_per_kg: "", low_stock_kg: "" };
 
+function EditIcon() {
+  return (
+    <svg aria-hidden="true" className="h-5 w-5" fill="none" viewBox="0 0 24 24">
+      <path
+        d="M5 19h4l10-10a2.8 2.8 0 0 0-4-4L5 15v4Z"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="2"
+      />
+      <path
+        d="M13.5 6.5 17.5 10.5"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeWidth="2"
+      />
+    </svg>
+  );
+}
+
+function TrashIcon() {
+  return (
+    <svg aria-hidden="true" className="h-5 w-5" fill="none" viewBox="0 0 24 24">
+      <path
+        d="M4 7h16M10 11v6M14 11v6M6 7l1 14h10l1-14M9 7V4h6v3"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="2"
+      />
+    </svg>
+  );
+}
+
 export default function InventoryPage() {
   const isAdmin = getAuthUser()?.role === "admin";
   const [stock, setStock] = useState<StockItem[]>([]);
@@ -332,7 +366,7 @@ export default function InventoryPage() {
             <h2 className="text-xl font-bold text-slate-950">Current Stock</h2>
             <span className="status-pill bg-black/5 text-slate-700">{stock.length} items</span>
           </div>
-          <div className="mb-2 hidden grid-cols-[minmax(210px,1.4fr)_100px_160px_160px_90px_190px] gap-4 px-5 text-xs font-black uppercase tracking-[0.16em] text-slate-400 md:grid">
+          <div className="mb-2 hidden grid-cols-[minmax(210px,1.4fr)_100px_160px_160px_90px_112px] gap-4 px-5 text-xs font-black uppercase tracking-[0.16em] text-slate-400 md:grid">
             <span>Item</span>
             <span className="text-right">Pieces</span>
             <span className="text-right">Weight</span>
@@ -395,7 +429,7 @@ export default function InventoryPage() {
                     </div>
                   </div>
                 ) : (
-                <div className="grid gap-4 md:grid-cols-[minmax(210px,1.4fr)_100px_160px_160px_90px_190px] md:items-center">
+                <div className="grid gap-4 md:grid-cols-[minmax(210px,1.4fr)_100px_160px_160px_90px_112px] md:items-center">
                   <div className="min-w-0">
                     <p className="break-words text-lg font-bold leading-tight text-slate-950">
                       {item.name}
@@ -431,18 +465,22 @@ export default function InventoryPage() {
                   {isAdmin ? (
                     <div className="flex flex-wrap gap-2 md:justify-end">
                       <button
-                        className="h-11 min-w-20 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                        aria-label={`Edit ${item.name}`}
+                        className="grid h-11 w-11 place-items-center rounded-2xl border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
                         onClick={() => startEditProduct(item)}
                         disabled={loading}
+                        title="Edit"
                       >
-                        Edit
+                        <EditIcon />
                       </button>
                       <button
-                        className="h-11 min-w-24 rounded-2xl border border-red-100 bg-red-50 px-4 text-sm font-semibold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+                        aria-label={`Delete ${item.name}`}
+                        className="grid h-11 w-11 place-items-center rounded-2xl border border-red-100 bg-red-50 text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
                         onClick={() => void deleteProduct(item)}
                         disabled={loading}
+                        title="Delete"
                       >
-                        Delete
+                        <TrashIcon />
                       </button>
                     </div>
                   ) : (
