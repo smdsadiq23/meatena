@@ -387,54 +387,58 @@ export default function InventoryPage() {
                     </div>
                   </div>
                 ) : (
-                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                    <p className="text-lg font-bold text-slate-950">{item.name}</p>
-                    <p className="mt-1 text-sm text-slate-500">{item.sku || "No SKU"}</p>
-                    </div>
-                    {isAdmin ? (
-                      <div className="flex gap-2">
-                        <button
-                          className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
-                          onClick={() => startEditProduct(item)}
-                          disabled={loading}
-                        >
-                          Edit
-                        </button>
-                        <button
-                          className="rounded-2xl border border-red-100 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
-                          onClick={() => void deleteProduct(item)}
-                          disabled={loading}
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    ) : null}
+                <div className="grid gap-4 md:grid-cols-[minmax(170px,1.1fr)_190px_90px_150px_150px_80px] md:items-center">
+                  <div className="min-w-0">
+                    <p className="break-words text-lg font-bold leading-tight text-slate-950">
+                      {item.name}
+                    </p>
+                    <p className="mt-2 break-words text-sm font-semibold text-slate-500">
+                      {item.sku || "No SKU"}
+                    </p>
                   </div>
-                  <div className="grid grid-cols-4 gap-4 text-sm md:text-right">
-                    <div>
-                      <p className="soft-label">Pieces</p>
-                      <p className="font-black text-slate-950">
-                        {Number(item.stock_pieces ?? 0)}
-                      </p>
+                  {isAdmin ? (
+                    <div className="flex flex-wrap gap-2 md:flex-nowrap">
+                      <button
+                        className="h-12 min-w-20 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                        onClick={() => startEditProduct(item)}
+                        disabled={loading}
+                      >
+                        Edit
+                      </button>
+                      <button
+                        className="h-12 min-w-24 rounded-2xl border border-red-100 bg-red-50 px-4 text-sm font-semibold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+                        onClick={() => void deleteProduct(item)}
+                        disabled={loading}
+                      >
+                        Delete
+                      </button>
                     </div>
-                    <div>
-                      <p className="soft-label">Weight</p>
-                      <p className="font-black text-slate-950">
-                        {Number(item.stock_kg).toFixed(3)} kg
-                      </p>
-                    </div>
-                    <div>
-                      <p className="soft-label">Price</p>
-                      <p className="font-bold text-slate-950"><Money value={item.price_per_kg} /></p>
-                    </div>
-                    <div>
-                      <p className="soft-label">Alert</p>
-                      <p className={item.low_stock ? "font-bold text-red-600" : "font-bold text-emerald-700"}>
-                        {item.low_stock ? "Low" : "OK"}
-                      </p>
-                    </div>
+                  ) : (
+                    <div className="hidden md:block" />
+                  )}
+                  <div className="text-left md:text-right">
+                    <p className="soft-label">Pieces</p>
+                    <p className="text-lg font-black tabular-nums text-slate-950">
+                      {Number(item.stock_pieces ?? 0)}
+                    </p>
+                  </div>
+                  <div className="text-left md:text-right">
+                    <p className="soft-label">Weight</p>
+                    <p className="whitespace-nowrap text-lg font-black tabular-nums text-slate-950">
+                      {Number(item.stock_kg).toFixed(3)} kg
+                    </p>
+                  </div>
+                  <div className="text-left md:text-right">
+                    <p className="soft-label">Price</p>
+                    <p className="text-base font-black text-slate-950">
+                      <Money value={item.price_per_kg} className="items-start md:items-end" />
+                    </p>
+                  </div>
+                  <div className="text-left md:text-right">
+                    <p className="soft-label">Alert</p>
+                    <p className={item.low_stock ? "text-lg font-black text-red-600" : "text-lg font-black text-emerald-700"}>
+                      {item.low_stock ? "Low" : "OK"}
+                    </p>
                   </div>
                 </div>
                 )}
