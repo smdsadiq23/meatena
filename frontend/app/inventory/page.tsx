@@ -326,15 +326,23 @@ export default function InventoryPage() {
         </section>
       ) : null}
 
-      <div className={isAdmin ? "grid gap-6 xl:grid-cols-[1.2fr_0.8fr]" : "grid gap-6"}>
+      <div className={isAdmin ? "grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]" : "grid gap-6"}>
         <section className="panel p-6">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-xl font-bold text-slate-950">Current Stock</h2>
             <span className="status-pill bg-black/5 text-slate-700">{stock.length} items</span>
           </div>
+          <div className="mb-2 hidden grid-cols-[minmax(210px,1.4fr)_100px_160px_160px_90px_190px] gap-4 px-5 text-xs font-black uppercase tracking-[0.16em] text-slate-400 md:grid">
+            <span>Item</span>
+            <span className="text-right">Pieces</span>
+            <span className="text-right">Weight</span>
+            <span className="text-right">Price</span>
+            <span className="text-right">Alert</span>
+            <span className="text-right">Actions</span>
+          </div>
           <div className="space-y-3">
             {stock.map((item) => (
-              <div key={item.id} className="rounded-3xl border border-black/8 bg-white p-4">
+              <div key={item.id} className="rounded-3xl border border-black/8 bg-white px-5 py-4">
                 {editingProduct.id === item.id ? (
                   <div className="space-y-3">
                     <div className="grid gap-3 md:grid-cols-[1.2fr_0.8fr_0.8fr_0.8fr]">
@@ -387,7 +395,7 @@ export default function InventoryPage() {
                     </div>
                   </div>
                 ) : (
-                <div className="grid gap-4 md:grid-cols-[minmax(170px,1.1fr)_190px_90px_150px_150px_80px] md:items-center">
+                <div className="grid gap-4 md:grid-cols-[minmax(210px,1.4fr)_100px_160px_160px_90px_190px] md:items-center">
                   <div className="min-w-0">
                     <p className="break-words text-lg font-bold leading-tight text-slate-950">
                       {item.name}
@@ -396,17 +404,41 @@ export default function InventoryPage() {
                       {item.sku || "No SKU"}
                     </p>
                   </div>
+                  <div className="text-left md:text-right">
+                    <p className="soft-label md:hidden">Pieces</p>
+                    <p className="text-lg font-black tabular-nums text-slate-950">
+                      {Number(item.stock_pieces ?? 0)}
+                    </p>
+                  </div>
+                  <div className="text-left md:text-right">
+                    <p className="soft-label md:hidden">Weight</p>
+                    <p className="whitespace-nowrap text-lg font-black tabular-nums text-slate-950">
+                      {Number(item.stock_kg).toFixed(3)} kg
+                    </p>
+                  </div>
+                  <div className="text-left md:text-right">
+                    <p className="soft-label md:hidden">Price</p>
+                    <p className="text-base font-black text-slate-950">
+                      <Money value={item.price_per_kg} className="items-start md:items-end" />
+                    </p>
+                  </div>
+                  <div className="text-left md:text-right">
+                    <p className="soft-label md:hidden">Alert</p>
+                    <p className={item.low_stock ? "text-lg font-black text-red-600" : "text-lg font-black text-emerald-700"}>
+                      {item.low_stock ? "Low" : "OK"}
+                    </p>
+                  </div>
                   {isAdmin ? (
-                    <div className="flex flex-wrap gap-2 md:flex-nowrap">
+                    <div className="flex flex-wrap gap-2 md:justify-end">
                       <button
-                        className="h-12 min-w-20 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                        className="h-11 min-w-20 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
                         onClick={() => startEditProduct(item)}
                         disabled={loading}
                       >
                         Edit
                       </button>
                       <button
-                        className="h-12 min-w-24 rounded-2xl border border-red-100 bg-red-50 px-4 text-sm font-semibold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+                        className="h-11 min-w-24 rounded-2xl border border-red-100 bg-red-50 px-4 text-sm font-semibold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
                         onClick={() => void deleteProduct(item)}
                         disabled={loading}
                       >
@@ -416,30 +448,6 @@ export default function InventoryPage() {
                   ) : (
                     <div className="hidden md:block" />
                   )}
-                  <div className="text-left md:text-right">
-                    <p className="soft-label">Pieces</p>
-                    <p className="text-lg font-black tabular-nums text-slate-950">
-                      {Number(item.stock_pieces ?? 0)}
-                    </p>
-                  </div>
-                  <div className="text-left md:text-right">
-                    <p className="soft-label">Weight</p>
-                    <p className="whitespace-nowrap text-lg font-black tabular-nums text-slate-950">
-                      {Number(item.stock_kg).toFixed(3)} kg
-                    </p>
-                  </div>
-                  <div className="text-left md:text-right">
-                    <p className="soft-label">Price</p>
-                    <p className="text-base font-black text-slate-950">
-                      <Money value={item.price_per_kg} className="items-start md:items-end" />
-                    </p>
-                  </div>
-                  <div className="text-left md:text-right">
-                    <p className="soft-label">Alert</p>
-                    <p className={item.low_stock ? "text-lg font-black text-red-600" : "text-lg font-black text-emerald-700"}>
-                      {item.low_stock ? "Low" : "OK"}
-                    </p>
-                  </div>
                 </div>
                 )}
               </div>
