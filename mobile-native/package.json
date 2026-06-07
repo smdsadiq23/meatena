@@ -5,7 +5,8 @@
   "scripts": {
     "android": "react-native run-android",
     "android:8084": "react-native run-android --port 8084",
-    "android:apk": "cd android && ./gradlew :app:assembleDebug",
+    "android:debug-apk": "cd android && ./gradlew :app:assembleDebug",
+    "android:apk": "cd android && ./gradlew :app:assembleRelease",
     "android:standalone": "cd android && ./gradlew :app:assembleRelease",
     "android:install-apk": "adb install -r android/app/build/outputs/apk/debug/app-debug.apk",
     "android:install-standalone": "adb install -r android/app/build/outputs/apk/release/app-release.apk",
