@@ -366,17 +366,16 @@ export default function InventoryPage() {
             <h2 className="text-xl font-bold text-slate-950">Current Stock</h2>
             <span className="status-pill bg-black/5 text-slate-700">{stock.length} items</span>
           </div>
-          <div className="mb-2 hidden grid-cols-[minmax(210px,1.4fr)_100px_160px_160px_90px_112px] gap-4 px-5 text-xs font-black uppercase tracking-[0.16em] text-slate-400 md:grid">
+          <div className="mb-2 hidden grid-cols-[minmax(210px,1.4fr)_100px_160px_160px_90px] gap-4 px-5 pr-28 text-xs font-black uppercase tracking-[0.16em] text-slate-400 md:grid">
             <span>Item</span>
             <span className="text-right">Pieces</span>
             <span className="text-right">Weight</span>
             <span className="text-right">Price</span>
             <span className="text-right">Alert</span>
-            <span className="text-right">Actions</span>
           </div>
           <div className="space-y-3">
             {stock.map((item) => (
-              <div key={item.id} className="rounded-3xl border border-black/8 bg-white px-5 py-4">
+              <div key={item.id} className="relative rounded-3xl border border-black/8 bg-white px-5 py-4">
                 {editingProduct.id === item.id ? (
                   <div className="space-y-3">
                     <div className="grid gap-3 md:grid-cols-[1.2fr_0.8fr_0.8fr_0.8fr]">
@@ -429,7 +428,7 @@ export default function InventoryPage() {
                     </div>
                   </div>
                 ) : (
-                <div className="grid gap-4 md:grid-cols-[minmax(210px,1.4fr)_100px_160px_160px_90px_112px] md:items-center">
+                <div className="grid gap-4 md:grid-cols-[minmax(210px,1.4fr)_100px_160px_160px_90px] md:items-center md:pr-28">
                   <div className="min-w-0">
                     <p className="break-words text-lg font-bold leading-tight text-slate-950">
                       {item.name}
@@ -463,7 +462,7 @@ export default function InventoryPage() {
                     </p>
                   </div>
                   {isAdmin ? (
-                    <div className="flex flex-wrap gap-2 md:justify-end">
+                    <div className="flex flex-wrap gap-2 md:absolute md:right-5 md:top-1/2 md:-translate-y-1/2">
                       <button
                         aria-label={`Edit ${item.name}`}
                         className="grid h-11 w-11 place-items-center rounded-2xl border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
