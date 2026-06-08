@@ -311,6 +311,8 @@ export default function Payment() {
 
   const shareKnetViaWhatsApp = () => {
     if (!knetUrl || !selectedInvoices.length || !selectedCustomer) {
+      setStatusType("error");
+      setStatus("Create a payment link first, then share it on WhatsApp.");
       return;
     }
 
@@ -568,30 +570,48 @@ export default function Payment() {
             </button>
           </div>
 
-          {knetUrl ? (
-            <div className="space-y-3 rounded-3xl border border-emerald-100 bg-emerald-50 p-4">
+          <div
+            className={`space-y-3 rounded-3xl border p-4 ${
+              knetUrl
+                ? "border-emerald-100 bg-emerald-50"
+                : "border-slate-100 bg-slate-50"
+            }`}
+          >
+            {knetUrl ? (
+              <>
               <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">
                 {onlineLinkKind === "card" ? "Card checkout" : "KNET checkout"}
               </p>
               <p className="break-all text-sm font-semibold text-emerald-800">{knetUrl}</p>
+              </>
+            ) : (
+              <>
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">
+                  WhatsApp sharing
+                </p>
+                <p className="text-sm font-semibold text-slate-600">
+                  Create a debit, credit, or KNET payment link first, then send it to the
+                  customer on WhatsApp.
+                </p>
+              </>
+            )}
               <div className="grid gap-3 sm:grid-cols-3">
-                <button className="btn-secondary" onClick={copyKnetLink}>
+                <button className="btn-secondary" onClick={copyKnetLink} disabled={!knetUrl}>
                   Copy Link
                 </button>
                 <button className="btn-secondary" onClick={shareKnetViaWhatsApp}>
                   WhatsApp
                 </button>
-                <a
+                <button
                   className="btn-secondary text-center"
-                  href={knetUrl}
-                  target="_blank"
-                  rel="noreferrer"
+                  disabled={!knetUrl}
+                  onClick={() => window.open(knetUrl, "_blank", "noopener,noreferrer")}
+                  type="button"
                 >
                   Open Link
-                </a>
+                </button>
               </div>
-            </div>
-          ) : null}
+          </div>
         </div>
       </section>
       </div>

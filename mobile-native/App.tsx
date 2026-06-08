@@ -2410,11 +2410,18 @@ export default function App() {
         <SecondaryButton title="Create KNET Link" onPress={() => createOnlinePaymentLink('knet')} disabled={busy} />
         <SecondaryButton title="Create Card Link" onPress={() => createOnlinePaymentLink('card')} disabled={busy} />
         {lastKnetUrl ? (
-          <>
+          <View style={styles.infoBox}>
+            <Text style={styles.infoTitle}>{lastPaymentKind === 'card' ? 'Card' : 'KNET'} link ready</Text>
+            <Text style={styles.infoText}>{lastKnetUrl}</Text>
             <SecondaryButton title={`Open ${lastPaymentKind === 'card' ? 'Card' : 'KNET'} Link`} onPress={() => Linking.openURL(lastKnetUrl)} />
-            <SecondaryButton title="Share on WhatsApp" onPress={shareKnetWhatsApp} />
-          </>
-        ) : null}
+          </View>
+        ) : (
+          <View style={styles.infoBox}>
+            <Text style={styles.infoTitle}>WhatsApp sharing</Text>
+            <Text style={styles.infoText}>Create a debit, credit, or KNET payment link first.</Text>
+          </View>
+        )}
+        <SecondaryButton title="Share on WhatsApp" onPress={shareKnetWhatsApp} disabled={busy} />
         <Text style={styles.subhead}>Recent payments</Text>
         {payments.slice(0, 8).map(payment => (
           <View key={payment.id} style={styles.stackItem}>
