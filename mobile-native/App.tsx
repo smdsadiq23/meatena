@@ -762,6 +762,7 @@ export default function App() {
 
   const selectedCustomer = customers.find(customer => customer.id === selectedCustomerId) ?? null;
   const selectedProduct = products.find(product => product.id === selectedProductId) ?? null;
+  const selectedSupplier = suppliers.find(supplier => supplier.id === selectedSupplierId) ?? null;
   const selectedProfile =
     invoiceProfiles.find(profile => profile.id === selectedProfileId) ??
     invoiceProfiles.find(profile => profile.is_default) ??
@@ -1476,6 +1477,40 @@ export default function App() {
     } finally {
       setBusy(false);
     }
+  }
+
+  async function deleteSelectedSupplier() {
+    if (!selectedSupplier) {
+      setStatus('Select a supplier to delete.');
+      return;
+    }
+
+    Alert.alert(
+      'Delete supplier',
+      `Delete ${selectedSupplier.name}? Suppliers with purchases, payments, or balances cannot be deleted.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            setBusy(true);
+            setStatus('');
+
+            try {
+              await apiFetch(`/suppliers/${selectedSupplier.id}`, { method: 'DELETE' });
+              setSelectedSupplierId(null);
+              setStatus('Supplier deleted.');
+              await loadData();
+            } catch (error) {
+              setStatus(error instanceof Error ? error.message : 'Could not delete supplier.');
+            } finally {
+              setBusy(false);
+            }
+          },
+        },
+      ],
+    );
   }
 
   async function createCustomer() {
@@ -2628,13 +2663,17 @@ export default function App() {
         <SecondaryButton title="Record Supplier Payment" onPress={recordSupplierPayment} disabled={busy} />
         <Text style={styles.subhead}>Supplier directory</Text>
         {suppliers.map(supplier => (
-          <Row
-            key={supplier.id}
-            title={supplier.name}
-            subtitle={`${supplier.mobile || 'No mobile'} | ${supplier.address || 'No address'}`}
-            right={supplier.balance !== undefined ? currency(supplier.balance) : undefined}
-            onPress={() => setSelectedSupplierId(supplier.id)}
-          />
+          <View key={supplier.id} style={styles.stackItem}>
+            <Row
+              title={supplier.name}
+              subtitle={`${supplier.mobile || 'No mobile'} | ${supplier.address || 'No address'}`}
+              right={supplier.balance !== undefined ? currency(supplier.balance) : undefined}
+              onPress={() => setSelectedSupplierId(supplier.id)}
+            />
+            {selectedSupplierId === supplier.id ? (
+              <SecondaryButton title="Delete Supplier" onPress={deleteSelectedSupplier} disabled={busy} />
+            ) : null}
+          </View>
         ))}
       </View>
     );

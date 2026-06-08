@@ -152,6 +152,33 @@ export default function SuppliersPage() {
     }
   };
 
+  const deleteSupplier = async (supplier: Supplier) => {
+    if (
+      !window.confirm(
+        `Delete supplier "${supplier.name}"? Suppliers with purchases, payments, or balances cannot be deleted.`
+      )
+    ) {
+      return;
+    }
+
+    setLoading(true);
+    setStatus("");
+
+    try {
+      const response = await fetchJsonOrThrow<{ message: string }>(`/suppliers/${supplier.id}`, {
+        method: "DELETE",
+      });
+      setStatusType("success");
+      setStatus(response.message);
+      await loadSuppliers(true);
+    } catch (error) {
+      setStatusType("error");
+      setStatus(error instanceof Error ? error.message : "Could not delete supplier.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
       <section className="panel p-6 md:p-8">
@@ -175,11 +202,19 @@ export default function SuppliersPage() {
                   <p className="mt-1 text-sm text-slate-600">{supplier.mobile || "No mobile"}</p>
                   <p className="mt-1 text-sm text-slate-500">{supplier.address || "No address"}</p>
                 </div>
-                <div className="text-left md:text-right">
+                <div className="flex flex-col gap-3 text-left md:items-end md:text-right">
                   <p className="soft-label">Balance</p>
                   <p className="mt-1 text-2xl font-black text-red-600">
                     <Money value={supplier.balance ?? 0} />
                   </p>
+                  <button
+                    type="button"
+                    className="rounded-2xl border border-red-100 bg-red-50 px-4 py-2 text-sm font-bold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+                    onClick={() => void deleteSupplier(supplier)}
+                    disabled={loading}
+                  >
+                    Delete
+                  </button>
                 </div>
               </div>
             </div>
