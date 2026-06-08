@@ -3,7 +3,6 @@ import path from 'node:path';
 import PDFDocument from 'pdfkit';
 import type { Response } from 'express';
 import type { Customer } from '../customer/customer.entity';
-import { dualCurrency } from '../common/utils/currency';
 import type { InvoiceItem } from './invoice-item.entity';
 import type { InvoiceWithNumber } from './invoice.service';
 
@@ -17,18 +16,90 @@ function getArabicFontPath() {
   return fontPaths.find((fontPath) => fs.existsSync(fontPath)) ?? fontPaths[0];
 }
 
-function getLogoPath() {
-  const logoPaths = [
-    path.join(process.cwd(), 'src/assets/logo.png'),
-    path.join(process.cwd(), 'dist/assets/logo.png'),
-    path.join(__dirname, '../assets/logo.png'),
-  ];
-
-  return logoPaths.find((logoPath) => fs.existsSync(logoPath));
+function clean(value: string | null | undefined, fallback = '-') {
+  const next = value?.trim();
+  return next || fallback;
 }
 
-function detailLine(doc: PDFKit.PDFDocument, label: string, value: string) {
-  doc.font('Helvetica').text(`${label}: ${value}`);
+function formatDate(value: string | null | undefined) {
+  const date = value ? new Date(value) : new Date();
+
+  if (Number.isNaN(date.getTime())) {
+    return value ?? '-';
+  }
+
+  return `${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear()}`;
+}
+
+function formatAmount(value: number | string | null | undefined, decimals = 3) {
+  return Number(value ?? 0).toFixed(decimals);
+}
+
+function drawCell(
+  doc: PDFKit.PDFDocument,
+  text: string,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  options: {
+    align?: 'left' | 'center' | 'right';
+    bold?: boolean;
+    font?: 'Helvetica' | 'Arabic';
+    size?: number;
+  } = {},
+) {
+  doc
+    .rect(x, y, width, height)
+    .stroke()
+    .font(options.font ?? 'Helvetica')
+    .fontSize(options.size ?? 12);
+
+  if (options.bold) {
+    doc.font(options.font === 'Arabic' ? 'Arabic' : 'Helvetica-Bold');
+  }
+
+  doc.text(text, x + 5, y + 9, {
+    width: width - 10,
+    height: height - 12,
+    align: options.align ?? 'center',
+  });
+}
+
+function drawBilingualHeader(
+  doc: PDFKit.PDFDocument,
+  english: string,
+  arabic: string,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+) {
+  doc.rect(x, y, width, height).stroke();
+  doc.font('Helvetica-Bold').fontSize(11).text(english, x + 5, y + 12, {
+    width: width - 10,
+    align: 'center',
+  });
+  doc.font('Arabic').fontSize(11).text(arabic, x + 5, y + 33, {
+    width: width - 10,
+    align: 'center',
+  });
+}
+
+function splitContacts(contactNames: string | null, companyPhone: string | null) {
+  const names = clean(contactNames, 'Abdul Basit, Zahoor Ellahi')
+    .split(/[,/|]/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+  const phones = clean(companyPhone, '96684998 / 94942708')
+    .split(/[,/|]/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+  return names.slice(0, 2).map((name, index) => ({
+    name,
+    phone: phones[index] ?? phones[0] ?? '',
+  }));
 }
 
 export function generateInvoicePDF(
@@ -37,14 +108,15 @@ export function generateInvoicePDF(
   customer: Customer,
   productNames: Map<number, string>,
   res: Response,
-  kwdToUsdRate?: number,
+  _kwdToUsdRate?: number,
 ) {
-  const doc = new PDFDocument({ margin: 30 });
+  const doc = new PDFDocument({
+    layout: 'landscape',
+    margin: 28,
+    size: 'A4',
+  });
 
-  const fontPath = getArabicFontPath();
-  const logoPath = getLogoPath();
-
-  doc.registerFont('Arabic', fontPath);
+  doc.registerFont('Arabic', getArabicFontPath());
 
   res.setHeader('Content-Type', 'application/pdf');
   res.setHeader(
@@ -53,123 +125,218 @@ export function generateInvoicePDF(
   );
 
   doc.pipe(res);
+  doc.lineWidth(1.3);
 
-  if (logoPath) {
-    doc.image(logoPath, 30, 20, { width: 60 });
-  }
+  const pageWidth = doc.page.width;
+  const tableX = 28;
+  const tableW = pageWidth - 56;
+  const rightX = pageWidth - 380;
 
-  doc.font('Helvetica').fontSize(14).text(invoice.company_name ?? '-', 100, 20);
+  const address = clean(
+    invoice.company_address,
+    'Shuwaikh Industrial Area, Block No.1,\nStreet No. 71, Building No. 222, Shop No. 06.',
+  );
+  const email = clean(invoice.company_email, 'almajad.albasat.co@gmail.com');
+  const contacts = splitContacts(invoice.contact_names, invoice.company_phone);
+  const companyEnglish = clean(
+    invoice.company_name,
+    'I-Majad Al-Basat Selling Meet Company',
+  );
+  const companyArabic = clean(
+    invoice.company_name_ar,
+    'شركة المجد الباسط لبيع اللحوم',
+  );
+  const titleEnglish = clean(invoice.invoice_title, 'Cash / Credit invoice');
+  const titleArabic = clean(invoice.invoice_title_ar, 'فاتورة نقدية / الحساب');
+  const activityEnglish = clean(invoice.company_activity, 'Import All Kinds Of Meat');
+  const activityArabic = clean(invoice.company_activity_ar, 'استيراد جميع انواع اللحوم');
 
-  if (invoice.company_name_ar) {
-    doc.font('Arabic').text(invoice.company_name_ar, 350, 20, { align: 'right' });
-  }
+  doc.font('Helvetica-Bold').fontSize(13).text('Address:', 32, 58, { continued: true });
+  doc.font('Helvetica').text(` ${address}`, { width: 350 });
+  doc.font('Helvetica').fontSize(13).text(`✉  ${email}`, 40, 124);
+  contacts.forEach((contact, index) => {
+    doc
+      .font('Helvetica')
+      .fontSize(13)
+      .text(`${contact.name}    | ${contact.phone}`, 32, 150 + index * 22);
+  });
 
-  doc.moveDown(2);
+  doc
+    .font('Arabic')
+    .fontSize(13)
+    .text('العنوان : الشويخ الصناعية بلوك رقم 1', rightX, 58, {
+      width: 340,
+      align: 'right',
+    })
+    .text('شارع رقم 71 ، مبنى رقم 222 ، محل رقم 06', rightX, 86, {
+      width: 340,
+      align: 'right',
+    })
+    .font('Helvetica')
+    .text(email, rightX, 116, { width: 340, align: 'right' });
 
-  if (invoice.company_activity) {
-    doc.font('Helvetica').fontSize(10).text(invoice.company_activity);
-  }
+  doc
+    .font('Helvetica-BoldOblique')
+    .fontSize(18)
+    .text(`${companyEnglish} `, tableX, 205, {
+      width: tableW,
+      align: 'center',
+      continued: true,
+    })
+    .font('Arabic')
+    .fontSize(18)
+    .text(companyArabic, { align: 'center' });
 
-  if (invoice.company_activity_ar) {
-    doc.font('Arabic').text(invoice.company_activity_ar);
-  }
+  doc
+    .font('Helvetica-BoldOblique')
+    .fontSize(20)
+    .text(`${titleEnglish}  `, tableX, 255, {
+      width: tableW,
+      align: 'center',
+      underline: true,
+      continued: true,
+    })
+    .font('Arabic')
+    .fontSize(20)
+    .text(titleArabic, { align: 'center', underline: true });
 
-  doc.moveDown();
+  doc.moveTo(tableX, 304).lineTo(tableX + tableW, 304).stroke();
+  doc
+    .font('Helvetica-BoldOblique')
+    .fontSize(17)
+    .text(`${activityEnglish} /`, tableX, 309, {
+      width: tableW,
+      align: 'center',
+      continued: true,
+    })
+    .font('Arabic')
+    .fontSize(17)
+    .text(activityArabic, { align: 'center' });
 
-  doc.font('Helvetica').text(invoice.invoice_title ?? 'Invoice');
+  let y = 338;
+  const customerRowH = 52;
+  const customerCols = [190, 240, 210, tableW - 640];
+  let x = tableX;
+  drawCell(doc, 'Customer Name /', x, y, customerCols[0], customerRowH, {
+    align: 'left',
+    bold: true,
+    size: 12,
+  });
+  doc.font('Arabic').fontSize(12).text('اسم الزبون', x + 108, y + 12, {
+    width: 80,
+    align: 'right',
+  });
+  x += customerCols[0];
+  drawCell(doc, clean(customer.name, '-').toUpperCase(), x, y, customerCols[1], customerRowH, {
+    bold: true,
+    size: 15,
+  });
+  x += customerCols[1];
+  drawCell(doc, 'Mobile Number /', x, y, customerCols[2], customerRowH, {
+    align: 'left',
+    bold: true,
+    size: 12,
+  });
+  doc.font('Arabic').fontSize(12).text('رقم الهاتف', x + 118, y + 12, {
+    width: 85,
+    align: 'right',
+  });
+  x += customerCols[2];
+  drawCell(doc, customer.mobile ?? '', x, y, customerCols[3], customerRowH, {
+    bold: true,
+    size: 12,
+  });
 
-  if (invoice.invoice_title_ar) {
-    doc.font('Arabic').text(invoice.invoice_title_ar);
-  }
+  y += customerRowH;
+  doc.rect(tableX, y, tableW, 14).stroke();
+  y += 14;
 
-  doc.moveDown(2);
+  const headerH = 64;
+  const cols = [70, 120, 145, 90, 100, 110, tableW - 635];
+  x = tableX;
+  drawBilingualHeader(doc, 'Serial', 'الرقم\nالتسلسلي', x, y, cols[0], headerH);
+  x += cols[0];
+  drawBilingualHeader(doc, 'Date\n(DD/MM/YY)', 'تاريخ', x, y, cols[1], headerH);
+  x += cols[1];
+  drawBilingualHeader(doc, 'Description', 'وصف', x, y, cols[2], headerH);
+  x += cols[2];
+  drawBilingualHeader(doc, 'Piece\n(No.)', 'قطع', x, y, cols[3], headerH);
+  x += cols[3];
+  drawBilingualHeader(doc, 'Weight\n(kg)', 'وزن', x, y, cols[4], headerH);
+  x += cols[4];
+  drawBilingualHeader(doc, 'Price\n(per kg)', 'سعر', x, y, cols[5], headerH);
+  x += cols[5];
+  drawBilingualHeader(doc, 'Amount\n(K.D)', 'كمية', x, y, cols[6], headerH);
 
-  doc.font('Helvetica');
+  y += headerH;
+  const rowH = 48;
+  const invoiceDate = formatDate(invoice.date);
+  let totalPieces = 0;
+  let totalWeight = 0;
 
-  detailLine(doc, 'Invoice No', invoice.invoice_number);
-  detailLine(doc, 'Customer', customer.name);
-  detailLine(doc, 'Mobile', customer.mobile ?? '-');
-  detailLine(doc, 'Date', invoice.date);
-
-  doc.moveDown();
-
-  const startX = 30;
-  let y = doc.y;
-
-  const col = {
-    desc: startX,
-    piece: 150,
-    weight: 215,
-    price: 315,
-    amount: 420,
-  };
-
-  doc.fontSize(10).text('Description', col.desc, y);
-  doc.text('Piece', col.piece, y);
-  doc.text('Weight', col.weight, y);
-  doc.text('Price', col.price, y);
-  doc.text('Amount', col.amount, y);
-
-  y += 20;
-
-  doc.moveTo(startX, y).lineTo(550, y).stroke();
-
-  y += 10;
-
-  doc.font('Helvetica');
-
-  items.forEach((item) => {
+  items.forEach((item, index) => {
     const description = item.product_id
       ? productNames.get(item.product_id) ?? `Product #${item.product_id}`
       : 'Counter item';
+    const pieces = Number(item.pieces ?? 0);
+    const weight = Number(item.weight ?? 0);
+    totalPieces += pieces;
+    totalWeight += weight;
 
-    doc.text(description, col.desc, y, { width: 110 });
-    doc.text(String(item.pieces ?? 1), col.piece, y);
-    doc.text(Number(item.weight).toFixed(3), col.weight, y);
-    doc.text(dualCurrency(item.price_per_kg, kwdToUsdRate), col.price, y, { width: 95 });
-    doc.text(dualCurrency(item.amount, kwdToUsdRate), col.amount, y, { width: 120 });
-
-    y += 28;
-  });
-
-  doc.moveTo(startX, y).lineTo(550, y).stroke();
-
-  y += 20;
-
-  doc.font('Helvetica');
-
-  doc.text('TOTAL', 350, y);
-  doc.text(dualCurrency(invoice.total, kwdToUsdRate), 420, y, { width: 140 });
-
-  doc.text('PREVIOUS BALANCE', 300, y + 20);
-  doc.text(dualCurrency(invoice.previous_balance, kwdToUsdRate), 420, y + 20, { width: 140 });
-
-  doc.text('TOTAL BILLS', 320, y + 40);
-  doc.text(dualCurrency(invoice.grand_total, kwdToUsdRate), 420, y + 40, { width: 140 });
-
-  doc.moveDown(4);
-
-  doc.font('Helvetica').fontSize(8);
-
-  doc.text(invoice.company_address ?? '-', {
-    align: 'center',
-  });
-
-  doc.text(`Phone: ${invoice.company_phone ?? '-'}`, {
-    align: 'center',
-  });
-
-  if (invoice.company_email) {
-    doc.text(`Email: ${invoice.company_email}`, {
-      align: 'center',
+    x = tableX;
+    drawCell(doc, String(index + 1), x, y, cols[0], rowH, { size: 14 });
+    x += cols[0];
+    drawCell(doc, invoiceDate, x, y, cols[1], rowH, { size: 14 });
+    x += cols[1];
+    drawCell(doc, description, x, y, cols[2], rowH, {
+      font: /[\u0600-\u06FF]/.test(description) ? 'Arabic' : 'Helvetica',
+      size: 13,
     });
+    x += cols[2];
+    drawCell(doc, pieces ? String(pieces) : '', x, y, cols[3], rowH, { size: 14 });
+    x += cols[3];
+    drawCell(doc, formatAmount(weight, 2), x, y, cols[4], rowH, { size: 14 });
+    x += cols[4];
+    drawCell(doc, formatAmount(item.price_per_kg), x, y, cols[5], rowH, { size: 14 });
+    x += cols[5];
+    drawCell(doc, formatAmount(item.amount), x, y, cols[6], rowH, { size: 14 });
+    y += rowH;
+  });
+
+  const minRows = Math.max(0, 2 - items.length);
+  for (let index = 0; index < minRows; index += 1) {
+    x = tableX;
+    cols.forEach((width) => {
+      drawCell(doc, '', x, y, width, rowH);
+      x += width;
+    });
+    y += rowH;
   }
 
-  if (invoice.contact_names) {
-    doc.text(`Contacts: ${invoice.contact_names}`, {
-      align: 'center',
-    });
-  }
+  const totalH = 48;
+  doc.save().fillColor('#d9d9d9').rect(tableX, y, tableW, totalH).fill().restore();
+  x = tableX;
+  drawCell(doc, '', x, y, cols[0], totalH, { bold: true });
+  x += cols[0];
+  drawCell(doc, 'TOTAL', x, y, cols[1] + cols[2], totalH, {
+    align: 'right',
+    bold: true,
+    size: 14,
+  });
+  x += cols[1] + cols[2];
+  drawCell(doc, String(totalPieces), x, y, cols[3], totalH, { bold: true, size: 14 });
+  x += cols[3];
+  drawCell(doc, formatAmount(totalWeight, 2), x, y, cols[4], totalH, {
+    bold: true,
+    size: 14,
+  });
+  x += cols[4];
+  drawCell(doc, '', x, y, cols[5], totalH, { bold: true });
+  x += cols[5];
+  drawCell(doc, formatAmount(invoice.total), x, y, cols[6], totalH, {
+    bold: true,
+    size: 14,
+  });
 
   doc.end();
 }
