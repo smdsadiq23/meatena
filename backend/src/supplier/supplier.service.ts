@@ -8,6 +8,7 @@ import { Repository } from 'typeorm';
 import { Purchase } from '../purchase/purchase.entity';
 import { SupplierPayment } from '../supplier-payment/supplier-payment.entity';
 import { CreateSupplierDto } from './dto/create-supplier.dto';
+import { UpdateSupplierDto } from './dto/update-supplier.dto';
 import { Supplier } from './supplier.entity';
 
 @Injectable()
@@ -35,6 +36,26 @@ export class SupplierService {
 
   findAll() {
     return this.repo.find({ order: { name: 'ASC' } });
+  }
+
+  async update(id: number, data: UpdateSupplierDto) {
+    const supplier = await this.repo.findOne({ where: { id } });
+
+    if (!supplier) {
+      throw new NotFoundException('Supplier not found');
+    }
+
+    if (data.name !== undefined) {
+      supplier.name = data.name.trim();
+    }
+    if (data.mobile !== undefined) {
+      supplier.mobile = data.mobile.trim() || null;
+    }
+    if (data.address !== undefined) {
+      supplier.address = data.address.trim() || null;
+    }
+
+    return this.repo.save(supplier);
   }
 
   async remove(id: number) {

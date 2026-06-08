@@ -69,6 +69,7 @@ type Product = {
   price_per_kg: number | string;
   stock_kg: number | string;
   stock_pieces?: number | string;
+  low_stock_kg?: number | string;
   low_stock?: boolean;
 };
 
@@ -90,6 +91,15 @@ type Purchase = {
   receipt_original_name?: string | null;
   receipt_file_name?: string | null;
   created_at?: string;
+};
+
+type PurchaseDetail = Purchase & {
+  items: Array<{
+    product_id: number;
+    pieces?: number | string | null;
+    weight: number | string;
+    cost_per_kg: number | string;
+  }>;
 };
 
 type Expense = {
@@ -601,6 +611,7 @@ const emptyProductForm = { name: '', sku: '', price: '', lowStockKg: '' };
 const emptySupplierPaymentForm = { amount: '', mode: 'cash', referenceNo: '', note: '' };
 const emptyReverseForm = { paymentId: '', reason: '' };
 const emptyVoidForm = { invoiceId: '', reason: '' };
+const noEdit = 0;
 
 function money(value: number | string | undefined | null) {
   return Number(value ?? 0).toFixed(3);
@@ -761,6 +772,17 @@ export default function App() {
   const [invoiceDetailLoading, setInvoiceDetailLoading] = useState(false);
   const [lastKnetUrl, setLastKnetUrl] = useState('');
   const [lastPaymentKind, setLastPaymentKind] = useState<'knet' | 'card'>('knet');
+  const [editingCustomerId, setEditingCustomerId] = useState<number>(noEdit);
+  const [customerEditForm, setCustomerEditForm] = useState(emptyCustomerForm);
+  const [editingProductId, setEditingProductId] = useState<number>(noEdit);
+  const [productEditForm, setProductEditForm] = useState(emptyProductForm);
+  const [editingSupplierId, setEditingSupplierId] = useState<number>(noEdit);
+  const [supplierEditForm, setSupplierEditForm] = useState(emptySupplierForm);
+  const [editingPurchaseId, setEditingPurchaseId] = useState<number>(noEdit);
+  const [purchaseEditCurrency, setPurchaseEditCurrency] = useState<TransactionCurrency>('KWD');
+  const [purchaseEditForm, setPurchaseEditForm] = useState(emptyPurchaseForm);
+  const [editingUserId, setEditingUserId] = useState<number>(noEdit);
+  const [userEditForm, setUserEditForm] = useState(emptyUserForm);
 
   const selectedCustomer = customers.find(customer => customer.id === selectedCustomerId) ?? null;
   const selectedProduct = products.find(product => product.id === selectedProductId) ?? null;
@@ -1481,6 +1503,44 @@ export default function App() {
     }
   }
 
+  function startEditSupplier(supplier: Supplier) {
+    setEditingSupplierId(supplier.id);
+    setSupplierEditForm({
+      name: supplier.name,
+      mobile: supplier.mobile ?? '',
+      address: supplier.address ?? '',
+    });
+  }
+
+  async function saveSupplierEdit() {
+    if (!editingSupplierId || !supplierEditForm.name.trim()) {
+      setStatus('Supplier name is required.');
+      return;
+    }
+
+    setBusy(true);
+    setStatus('');
+
+    try {
+      await apiFetch(`/suppliers/${editingSupplierId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          name: supplierEditForm.name.trim(),
+          mobile: supplierEditForm.mobile.trim() || undefined,
+          address: supplierEditForm.address.trim() || undefined,
+        }),
+      });
+      setEditingSupplierId(noEdit);
+      setSupplierEditForm(emptySupplierForm);
+      setStatus('Supplier updated.');
+      await loadData();
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : 'Could not update supplier.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function deleteSelectedSupplier() {
     if (!selectedSupplier) {
       setStatus('Select a supplier to delete.');
@@ -1544,6 +1604,46 @@ export default function App() {
     }
   }
 
+  function startEditCustomer(customer: Customer) {
+    setEditingCustomerId(customer.id);
+    setCustomerEditForm({
+      name: customer.name,
+      mobile: customer.mobile ?? '',
+      address: customer.address ?? '',
+      creditLimit: String(customer.credit_limit ?? ''),
+    });
+  }
+
+  async function saveCustomerEdit() {
+    if (!editingCustomerId || !customerEditForm.name.trim()) {
+      setStatus('Customer name is required.');
+      return;
+    }
+
+    setBusy(true);
+    setStatus('');
+
+    try {
+      await apiFetch(`/customers/${editingCustomerId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          name: customerEditForm.name.trim(),
+          mobile: customerEditForm.mobile.trim() || undefined,
+          address: customerEditForm.address.trim() || undefined,
+          credit_limit: customerEditForm.creditLimit ? Number(customerEditForm.creditLimit) : 0,
+        }),
+      });
+      setEditingCustomerId(noEdit);
+      setCustomerEditForm(emptyCustomerForm);
+      setStatus('Customer updated.');
+      await loadData();
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : 'Could not update customer.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function deleteCustomer(customerId: number) {
     setBusy(true);
     setStatus('');
@@ -1586,6 +1686,46 @@ export default function App() {
       await loadData();
     } catch (error) {
       setStatus(error instanceof Error ? error.message : 'Could not create product.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function startEditProduct(product: Product) {
+    setEditingProductId(product.id);
+    setProductEditForm({
+      name: product.name,
+      sku: product.sku ?? '',
+      price: String(product.price_per_kg ?? ''),
+      lowStockKg: String(product.low_stock_kg ?? ''),
+    });
+  }
+
+  async function saveProductEdit() {
+    if (!editingProductId || !productEditForm.name.trim()) {
+      setStatus('Product name is required.');
+      return;
+    }
+
+    setBusy(true);
+    setStatus('');
+
+    try {
+      await apiFetch(`/products/${editingProductId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          name: productEditForm.name.trim(),
+          sku: productEditForm.sku.trim() || undefined,
+          price_per_kg: Number(productEditForm.price || 0),
+          low_stock_kg: Number(productEditForm.lowStockKg || 0),
+        }),
+      });
+      setEditingProductId(noEdit);
+      setProductEditForm(emptyProductForm);
+      setStatus('Product updated.');
+      await loadData();
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : 'Could not update product.');
     } finally {
       setBusy(false);
     }
@@ -1654,6 +1794,76 @@ export default function App() {
       await loadData();
     } catch (error) {
       setStatus(error instanceof Error ? error.message : 'Could not record purchase.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function startEditPurchase(purchase: Purchase) {
+    setBusy(true);
+    setStatus('');
+
+    try {
+      const response = await apiFetch(`/purchases/${purchase.id}`);
+      const detail = (await response.json()) as PurchaseDetail;
+      const firstItem = detail.items[0];
+      const nextCurrency = detail.transaction_currency ?? 'KWD';
+      const nextRate = Number(detail.exchange_rate ?? currencyRate);
+      const storedCost = Number(firstItem?.cost_per_kg ?? 0);
+      const displayCost = nextCurrency === 'USD' ? storedCost * nextRate : storedCost;
+
+      setEditingPurchaseId(detail.id);
+      setSelectedSupplierId(detail.supplier_id);
+      setSelectedProductId(firstItem?.product_id ?? selectedProductId);
+      setPurchaseEditCurrency(nextCurrency);
+      setPurchaseEditForm({
+        supplierId: String(detail.supplier_id),
+        invoiceNo: detail.invoice_no ?? '',
+        pieces: firstItem?.pieces ? String(firstItem.pieces) : '',
+        weight: firstItem?.weight ? String(firstItem.weight) : '',
+        costPerKg: displayCost ? displayCost.toFixed(3) : '',
+      });
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : 'Could not open purchase edit.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function savePurchaseEdit() {
+    if (!editingPurchaseId || !selectedSupplierId || !selectedProductId || !purchaseEditForm.weight.trim()) {
+      setStatus('Choose supplier, product, and weight for the purchase edit.');
+      return;
+    }
+
+    setBusy(true);
+    setStatus('');
+
+    try {
+      await apiFetch(`/purchases/${editingPurchaseId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          supplier_id: selectedSupplierId,
+          invoice_no: purchaseEditForm.invoiceNo.trim() || undefined,
+          transaction_currency: purchaseEditCurrency,
+          exchange_rate: currencyRate,
+          items: [
+            {
+              product_id: selectedProductId,
+              pieces: purchaseEditForm.pieces ? Number(purchaseEditForm.pieces) : undefined,
+              weight: Number(purchaseEditForm.weight),
+              cost_per_kg: Number(purchaseEditForm.costPerKg || 0),
+            },
+          ],
+        }),
+      });
+      setEditingPurchaseId(noEdit);
+      setPurchaseEditForm(emptyPurchaseForm);
+      setPurchaseEditCurrency('KWD');
+      setStatus('Purchase updated.');
+      await loadData();
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : 'Could not update purchase.');
     } finally {
       setBusy(false);
     }
@@ -1769,8 +1979,58 @@ export default function App() {
     }
   }
 
-  async function deleteSelectedProduct() {
-    if (!selectedProductId || !selectedProduct) {
+  function startEditUser(item: UserRecord) {
+    setEditingUserId(item.id);
+    setUserEditForm({ username: item.username, password: '', role: item.role });
+  }
+
+  async function saveUserEdit() {
+    if (!editingUserId || !userEditForm.username.trim()) {
+      setStatus('Username is required.');
+      return;
+    }
+
+    setBusy(true);
+    setStatus('');
+
+    try {
+      await apiFetch(`/users/${editingUserId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          username: userEditForm.username.trim(),
+          password: userEditForm.password.trim() || undefined,
+          role: userEditForm.role,
+        }),
+      });
+      setEditingUserId(noEdit);
+      setUserEditForm(emptyUserForm);
+      setStatus('User updated.');
+      await loadData();
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : 'Could not update user.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function deleteUser(userId: number) {
+    setBusy(true);
+    setStatus('');
+
+    try {
+      await apiFetch(`/users/${userId}`, { method: 'DELETE' });
+      setEditingUserId(current => (current === userId ? noEdit : current));
+      setStatus('User deleted.');
+      await loadData();
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : 'Could not delete user.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function deleteProduct(product: Product | null) {
+    if (!product) {
       setStatus('Choose product to delete.');
       return;
     }
@@ -1779,15 +2039,19 @@ export default function App() {
     setStatus('');
 
     try {
-      await apiFetch(`/products/${selectedProductId}`, { method: 'DELETE' });
-      setSelectedProductId(null);
-      setStatus(`${selectedProduct.name} deleted.`);
+      await apiFetch(`/products/${product.id}`, { method: 'DELETE' });
+      setSelectedProductId(current => (current === product.id ? null : current));
+      setStatus(`${product.name} deleted.`);
       await loadData();
     } catch (error) {
       setStatus(error instanceof Error ? error.message : 'Could not delete product.');
     } finally {
       setBusy(false);
     }
+  }
+
+  async function deleteSelectedProduct() {
+    await deleteProduct(selectedProduct);
   }
 
   async function voidInvoice() {
@@ -2261,28 +2525,37 @@ export default function App() {
                     updateInvoiceItem(index, { productId });
                   }}
                 />
-                <View style={styles.twoColsEven}>
+                <View style={styles.formGrid}>
+                  <View style={styles.fieldBlock}>
+                    <Text style={styles.fieldLabel}>Pieces</Text>
                   <TextInput
-                    style={[styles.input, styles.flex]}
+                      style={styles.input}
                     value={item.pieces}
                     onChangeText={value => updateInvoiceItem(index, { pieces: value })}
-                    placeholder="Pieces"
+                      placeholder="Enter pieces"
                     keyboardType="number-pad"
                   />
+                  </View>
+                  <View style={styles.fieldBlock}>
+                    <Text style={styles.fieldLabel}>Weight kg</Text>
                   <TextInput
-                    style={[styles.input, styles.flex]}
+                      style={styles.input}
                     value={item.weight}
                     onChangeText={value => updateInvoiceItem(index, { weight: value })}
-                    placeholder="Weight kg"
+                      placeholder="Enter weight kg"
                     keyboardType="decimal-pad"
                   />
+                  </View>
+                  <View style={styles.fieldBlock}>
+                    <Text style={styles.fieldLabel}>Price</Text>
                   <TextInput
-                    style={[styles.input, styles.flex]}
+                      style={styles.input}
                     value={item.price}
                     onChangeText={value => updateInvoiceItem(index, { price: value })}
-                    placeholder={`Price ${invoiceCurrency}`}
+                      placeholder={`Enter price ${invoiceCurrency}`}
                     keyboardType="decimal-pad"
                   />
+                  </View>
                 </View>
                 {invoiceItems.length > 1 ? (
                   <SecondaryButton title="Remove Item" onPress={() => removeInvoiceItem(index)} disabled={busy} />
@@ -2353,7 +2626,46 @@ export default function App() {
               right={customer.balance !== undefined ? currency(customer.balance) : selectedCustomerId === customer.id ? 'Selected' : ''}
               onPress={() => setSelectedCustomerId(customer.id)}
             />
-            {isAdmin ? <SecondaryButton title="Delete Customer" onPress={() => deleteCustomer(customer.id)} disabled={busy} /> : null}
+            {editingCustomerId === customer.id ? (
+              <View style={styles.inlineEditor}>
+                <Text style={styles.subhead}>Edit customer</Text>
+                <TextInput
+                  style={styles.input}
+                  value={customerEditForm.name}
+                  onChangeText={value => setCustomerEditForm(current => ({ ...current, name: value }))}
+                  placeholder="Customer name"
+                />
+                <TextInput
+                  style={styles.input}
+                  value={customerEditForm.mobile}
+                  onChangeText={value => setCustomerEditForm(current => ({ ...current, mobile: value }))}
+                  placeholder="Mobile"
+                  keyboardType="phone-pad"
+                />
+                <TextInput
+                  style={styles.input}
+                  value={customerEditForm.address}
+                  onChangeText={value => setCustomerEditForm(current => ({ ...current, address: value }))}
+                  placeholder="Address"
+                />
+                <TextInput
+                  style={styles.input}
+                  value={customerEditForm.creditLimit}
+                  onChangeText={value => setCustomerEditForm(current => ({ ...current, creditLimit: value }))}
+                  placeholder="Credit limit"
+                  keyboardType="decimal-pad"
+                />
+                <View style={styles.twoCols}>
+                  <PrimaryButton title="Save Customer" onPress={saveCustomerEdit} disabled={busy} />
+                  <SecondaryButton title="Cancel" onPress={() => setEditingCustomerId(noEdit)} disabled={busy} />
+                </View>
+              </View>
+            ) : (
+              <View style={styles.twoCols}>
+                <SecondaryButton title="Edit Customer" onPress={() => startEditCustomer(customer)} disabled={busy} />
+                {isAdmin ? <SecondaryButton title="Delete Customer" onPress={() => deleteCustomer(customer.id)} disabled={busy} /> : null}
+              </View>
+            )}
           </View>
         ))}
       </View>
@@ -2526,14 +2838,59 @@ export default function App() {
         ) : null}
         <Text style={styles.subhead}>Current stock</Text>
         {products.map(product => (
-          <Row
-            key={product.id}
-            title={product.name}
-            subtitle={`Pieces ${product.stock_pieces ?? 0} | Weight ${money(product.stock_kg)} kg | Price ${currencyInline(product.price_per_kg)} | SKU ${product.sku || '-'}`}
-            right={`${product.stock_pieces ?? 0} pcs\n${money(product.stock_kg)} kg`}
-            danger={Boolean(product.low_stock)}
-            onPress={() => setSelectedProductId(product.id)}
-          />
+          <View key={product.id} style={styles.stackItem}>
+            <Row
+              title={product.name}
+              subtitle={`Pieces ${product.stock_pieces ?? 0} | Weight ${money(product.stock_kg)} kg | Price ${currencyInline(product.price_per_kg)} | SKU ${product.sku || '-'}`}
+              right={`${product.stock_pieces ?? 0} pcs\n${money(product.stock_kg)} kg`}
+              danger={Boolean(product.low_stock)}
+              onPress={() => setSelectedProductId(product.id)}
+            />
+            {editingProductId === product.id ? (
+              <View style={styles.inlineEditor}>
+                <Text style={styles.subhead}>Edit product</Text>
+                <TextInput
+                  style={styles.input}
+                  value={productEditForm.name}
+                  onChangeText={value => setProductEditForm(current => ({ ...current, name: value }))}
+                  placeholder="Product name"
+                />
+                <TextInput
+                  style={styles.input}
+                  value={productEditForm.sku}
+                  onChangeText={value => setProductEditForm(current => ({ ...current, sku: value }))}
+                  placeholder="SKU"
+                />
+                <TextInput
+                  style={styles.input}
+                  value={productEditForm.price}
+                  onChangeText={value => setProductEditForm(current => ({ ...current, price: value }))}
+                  placeholder="Selling price"
+                  keyboardType="decimal-pad"
+                />
+                <TextInput
+                  style={styles.input}
+                  value={productEditForm.lowStockKg}
+                  onChangeText={value => setProductEditForm(current => ({ ...current, lowStockKg: value }))}
+                  placeholder="Low stock kg"
+                  keyboardType="decimal-pad"
+                />
+                <View style={styles.twoCols}>
+                  <PrimaryButton title="Save Product" onPress={saveProductEdit} disabled={busy} />
+                  <SecondaryButton title="Cancel" onPress={() => setEditingProductId(noEdit)} disabled={busy} />
+                </View>
+              </View>
+            ) : isAdmin ? (
+              <View style={styles.twoCols}>
+                <SecondaryButton title="Edit Product" onPress={() => startEditProduct(product)} disabled={busy} />
+                <SecondaryButton
+                  title="Delete Product"
+                  onPress={() => deleteProduct(product)}
+                  disabled={busy}
+                />
+              </View>
+            ) : null}
+          </View>
         ))}
         {isAdmin ? (
           <>
@@ -2639,13 +2996,57 @@ export default function App() {
               subtitle={`${suppliers.find(supplier => supplier.id === purchase.supplier_id)?.name ?? 'Supplier'} | ${purchase.invoice_no || 'No invoice'}`}
               right={currency(purchase.total_amount)}
             />
-            <View style={styles.twoCols}>
-              <SecondaryButton title="Open PDF" onPress={() => openAuthenticatedPath(`/purchases/${purchase.id}/pdf`)} />
-              <SecondaryButton title="Upload Receipt" onPress={() => uploadPurchaseReceipt(purchase.id)} disabled={busy} />
-              {purchase.receipt_file_name ? (
-                <SecondaryButton title="Open Receipt" onPress={() => openAuthenticatedPath(`/purchases/${purchase.id}/receipt`)} />
-              ) : null}
-            </View>
+            {editingPurchaseId === purchase.id ? (
+              <View style={styles.inlineEditor}>
+                <Text style={styles.subhead}>Edit purchase</Text>
+                <SupplierPicker suppliers={suppliers} value={selectedSupplierId} onChange={setSelectedSupplierId} />
+                <ProductPicker products={products} value={selectedProductId} onChange={setSelectedProductId} />
+                <View style={styles.twoCols}>
+                  <Pill label="KWD" active={purchaseEditCurrency === 'KWD'} onPress={() => setPurchaseEditCurrency('KWD')} />
+                  <Pill label="USD" active={purchaseEditCurrency === 'USD'} onPress={() => setPurchaseEditCurrency('USD')} />
+                </View>
+                <TextInput
+                  style={styles.input}
+                  value={purchaseEditForm.invoiceNo}
+                  onChangeText={value => setPurchaseEditForm(current => ({ ...current, invoiceNo: value }))}
+                  placeholder="Supplier invoice no."
+                />
+                <TextInput
+                  style={styles.input}
+                  value={purchaseEditForm.pieces}
+                  onChangeText={value => setPurchaseEditForm(current => ({ ...current, pieces: value }))}
+                  placeholder="Pieces"
+                  keyboardType="number-pad"
+                />
+                <TextInput
+                  style={styles.input}
+                  value={purchaseEditForm.weight}
+                  onChangeText={value => setPurchaseEditForm(current => ({ ...current, weight: value }))}
+                  placeholder="Weight kg"
+                  keyboardType="decimal-pad"
+                />
+                <TextInput
+                  style={styles.input}
+                  value={purchaseEditForm.costPerKg}
+                  onChangeText={value => setPurchaseEditForm(current => ({ ...current, costPerKg: value }))}
+                  placeholder={`Cost per kg ${purchaseEditCurrency}`}
+                  keyboardType="decimal-pad"
+                />
+                <View style={styles.twoCols}>
+                  <PrimaryButton title="Save Purchase" onPress={savePurchaseEdit} disabled={busy} />
+                  <SecondaryButton title="Cancel" onPress={() => setEditingPurchaseId(noEdit)} disabled={busy} />
+                </View>
+              </View>
+            ) : (
+              <View style={styles.twoCols}>
+                <SecondaryButton title="Edit Purchase" onPress={() => startEditPurchase(purchase)} disabled={busy} />
+                <SecondaryButton title="Open PDF" onPress={() => openAuthenticatedPath(`/purchases/${purchase.id}/pdf`)} />
+                <SecondaryButton title="Upload Receipt" onPress={() => uploadPurchaseReceipt(purchase.id)} disabled={busy} />
+                {purchase.receipt_file_name ? (
+                  <SecondaryButton title="Open Receipt" onPress={() => openAuthenticatedPath(`/purchases/${purchase.id}/receipt`)} />
+                ) : null}
+              </View>
+            )}
           </View>
         ))}
       </View>
@@ -2718,9 +3119,41 @@ export default function App() {
               right={supplier.balance !== undefined ? currency(supplier.balance) : undefined}
               onPress={() => setSelectedSupplierId(supplier.id)}
             />
-            {selectedSupplierId === supplier.id ? (
-              <SecondaryButton title="Delete Supplier" onPress={deleteSelectedSupplier} disabled={busy} />
-            ) : null}
+            {editingSupplierId === supplier.id ? (
+              <View style={styles.inlineEditor}>
+                <Text style={styles.subhead}>Edit supplier</Text>
+                <TextInput
+                  style={styles.input}
+                  value={supplierEditForm.name}
+                  onChangeText={value => setSupplierEditForm(current => ({ ...current, name: value }))}
+                  placeholder="Supplier name"
+                />
+                <TextInput
+                  style={styles.input}
+                  value={supplierEditForm.mobile}
+                  onChangeText={value => setSupplierEditForm(current => ({ ...current, mobile: value }))}
+                  placeholder="Mobile"
+                  keyboardType="phone-pad"
+                />
+                <TextInput
+                  style={styles.input}
+                  value={supplierEditForm.address}
+                  onChangeText={value => setSupplierEditForm(current => ({ ...current, address: value }))}
+                  placeholder="Address"
+                />
+                <View style={styles.twoCols}>
+                  <PrimaryButton title="Save Supplier" onPress={saveSupplierEdit} disabled={busy} />
+                  <SecondaryButton title="Cancel" onPress={() => setEditingSupplierId(noEdit)} disabled={busy} />
+                </View>
+              </View>
+            ) : (
+              <View style={styles.twoCols}>
+                <SecondaryButton title="Edit Supplier" onPress={() => startEditSupplier(supplier)} disabled={busy} />
+                {selectedSupplierId === supplier.id ? (
+                  <SecondaryButton title="Delete Supplier" onPress={deleteSelectedSupplier} disabled={busy} />
+                ) : null}
+              </View>
+            )}
           </View>
         ))}
       </View>
@@ -3130,7 +3563,41 @@ export default function App() {
         <PrimaryButton title="Create User" onPress={createUser} disabled={busy} />
         <Text style={styles.subhead}>Current users</Text>
         {users.map(item => (
-          <Row key={item.id} title={item.username} subtitle={item.role} />
+          <View key={item.id} style={styles.stackItem}>
+            <Row title={item.username} subtitle={item.role} />
+            {editingUserId === item.id ? (
+              <View style={styles.inlineEditor}>
+                <Text style={styles.subhead}>Edit user</Text>
+                <TextInput
+                  style={styles.input}
+                  value={userEditForm.username}
+                  onChangeText={value => setUserEditForm(current => ({ ...current, username: value }))}
+                  placeholder="Username"
+                  autoCapitalize="none"
+                />
+                <TextInput
+                  style={styles.input}
+                  value={userEditForm.password}
+                  onChangeText={value => setUserEditForm(current => ({ ...current, password: value }))}
+                  placeholder="New password optional"
+                  secureTextEntry
+                />
+                <View style={styles.twoCols}>
+                  <Pill label="Staff" active={userEditForm.role === 'staff'} onPress={() => setUserEditForm(current => ({ ...current, role: 'staff' }))} />
+                  <Pill label="Admin" active={userEditForm.role === 'admin'} onPress={() => setUserEditForm(current => ({ ...current, role: 'admin' }))} />
+                </View>
+                <View style={styles.twoCols}>
+                  <PrimaryButton title="Save User" onPress={saveUserEdit} disabled={busy} />
+                  <SecondaryButton title="Cancel" onPress={() => setEditingUserId(noEdit)} disabled={busy} />
+                </View>
+              </View>
+            ) : (
+              <View style={styles.twoCols}>
+                <SecondaryButton title="Edit User" onPress={() => startEditUser(item)} disabled={busy} />
+                <SecondaryButton title="Delete User" onPress={() => deleteUser(item.id)} disabled={busy} />
+              </View>
+            )}
+          </View>
         ))}
       </View>
     );
@@ -3662,6 +4129,27 @@ const styles = StyleSheet.create({
   },
   stackItem: {
     gap: 8,
+  },
+  inlineEditor: {
+    backgroundColor: '#f8fafc',
+    borderColor: '#e2e8f0',
+    borderRadius: 18,
+    borderWidth: 1,
+    gap: 10,
+    padding: 12,
+  },
+  formGrid: {
+    gap: 10,
+  },
+  fieldBlock: {
+    gap: 6,
+  },
+  fieldLabel: {
+    color: '#475569',
+    fontSize: 12,
+    fontWeight: '900',
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
   },
   sectionHeaderRow: {
     alignItems: 'center',

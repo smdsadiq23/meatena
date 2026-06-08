@@ -5,6 +5,7 @@ import {
   Get,
   Param,
   ParseIntPipe,
+  Patch,
   Post,
   UseGuards,
 } from '@nestjs/common';
@@ -19,6 +20,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { UserRole } from '../user/user-role.enum';
 import { CreateSupplierDto } from './dto/create-supplier.dto';
+import { UpdateSupplierDto } from './dto/update-supplier.dto';
 import { SupplierService } from './supplier.service';
 
 @ApiTags('suppliers')
@@ -39,6 +41,12 @@ export class SupplierController {
   @Get()
   findAll() {
     return this.service.findAll();
+  }
+
+  @ApiOkResponse({ description: 'Supplier updated successfully.' })
+  @Patch(':id')
+  update(@Param('id', ParseIntPipe) id: number, @Body() body: UpdateSupplierDto) {
+    return this.service.update(id, body);
   }
 
   @ApiOkResponse({ description: 'Supplier deleted successfully.' })
