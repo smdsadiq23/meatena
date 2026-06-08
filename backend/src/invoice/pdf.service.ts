@@ -199,17 +199,17 @@ export function generateInvoicePDF(
     underline: true,
   });
 
-  doc.moveTo(tableX, 304).lineTo(tableX + tableW, 304).stroke();
-  doc.font('Helvetica-BoldOblique').fontSize(17).text(`${activityEnglish} /`, tableX, 309, {
+  doc.moveTo(tableX, 282).lineTo(tableX + tableW, 282).stroke();
+  doc.font('Helvetica-BoldOblique').fontSize(17).text(`${activityEnglish} /`, tableX, 287, {
     width: tableW / 2 + 80,
     align: 'right',
   });
-  doc.font('Arabic').fontSize(17).text(activityArabic, tableX + tableW / 2 + 10, 309, {
+  doc.font('Arabic').fontSize(17).text(activityArabic, tableX + tableW / 2 + 10, 287, {
     width: tableW / 2 - 10,
     align: 'left',
   });
 
-  let y = 338;
+  let y = 310;
   const customerRowH = 52;
   const customerCols = [190, 240, 210, tableW - 640];
   let x = tableX;
