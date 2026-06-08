@@ -583,6 +583,8 @@ function TextInput(props: TextInputProps) {
     <RNTextInput
       {...props}
       placeholder={props.placeholder ? t(props.placeholder) : props.placeholder}
+      placeholderTextColor={props.placeholderTextColor ?? '#64748b'}
+      selectionColor="#e71932"
       textAlign={props.textAlign ?? (language === 'ar' ? 'right' : 'left')}
     />
   );
@@ -3517,13 +3519,14 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   input: {
-    backgroundColor: 'white',
-    borderColor: '#ddd8d5',
+    backgroundColor: '#ffffff',
+    borderColor: '#cbd5e1',
     borderRadius: 18,
     borderWidth: 1,
     color: '#101827',
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: '800',
+    minHeight: 56,
     paddingHorizontal: 16,
     paddingVertical: 14,
   },
