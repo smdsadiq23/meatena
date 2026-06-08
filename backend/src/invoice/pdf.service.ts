@@ -162,6 +162,9 @@ export function generateInvoicePDF(
   const centerGap = 42;
   const titleColW = tableW / 2 - centerGap / 2;
   const titleRightX = tableX + titleColW + centerGap;
+  const activityGap = 86;
+  const activityColW = tableW / 2 - activityGap / 2;
+  const activityRightX = tableX + activityColW + activityGap;
 
   const address = clean(
     invoice.company_address,
@@ -205,12 +208,12 @@ export function generateInvoicePDF(
 
   drawTopLine(doc, companyEnglish, tableX, 205, titleColW, {
     font: 'Helvetica-BoldOblique',
-    size: 18,
+    size: 16,
     align: 'left',
   });
   drawTopLine(doc, companyArabic, titleRightX, 205, titleColW, {
     font: 'Arabic',
-    size: 18,
+    size: 17,
     align: 'right',
   });
 
@@ -228,14 +231,14 @@ export function generateInvoicePDF(
   });
 
   doc.moveTo(tableX, 282).lineTo(tableX + tableW, 282).stroke();
-  drawTopLine(doc, `${activityEnglish} /`, tableX, 287, titleColW, {
+  drawTopLine(doc, `${activityEnglish} /`, tableX, 287, activityColW, {
     font: 'Helvetica-BoldOblique',
-    size: 17,
+    size: 16,
     align: 'right',
   });
-  drawTopLine(doc, activityArabic, titleRightX, 287, titleColW, {
+  drawTopLine(doc, activityArabic, activityRightX, 287, activityColW, {
     font: 'Arabic',
-    size: 17,
+    size: 16,
     align: 'left',
   });
 
