@@ -8,6 +8,10 @@ import type { InvoiceWithNumber } from './invoice.service';
 
 function getArabicFontPath() {
   const fontPaths = [
+    '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
+    '/Library/Fonts/Arial Unicode.ttf',
+    '/System/Library/Fonts/Supplemental/Arial Unicode.ttf',
+    '/System/Library/Fonts/GeezaPro.ttc',
     path.join(process.cwd(), 'src/assets/fonts/arabic.ttf'),
     path.join(process.cwd(), 'dist/assets/fonts/arabic.ttf'),
     path.join(__dirname, '../assets/fonts/arabic.ttf'),
@@ -175,43 +179,35 @@ export function generateInvoicePDF(
     .font('Helvetica')
     .text(email, rightX, 116, { width: 340, align: 'right' });
 
-  doc
-    .font('Helvetica-BoldOblique')
-    .fontSize(18)
-    .text(`${companyEnglish} `, tableX, 205, {
-      width: tableW,
-      align: 'center',
-      continued: true,
-    })
-    .font('Arabic')
-    .fontSize(18)
-    .text(companyArabic, { align: 'center' });
+  doc.font('Helvetica-BoldOblique').fontSize(18).text(companyEnglish, tableX, 205, {
+    width: tableW / 2 + 40,
+    align: 'left',
+  });
+  doc.font('Arabic').fontSize(18).text(companyArabic, tableX + tableW / 2 - 30, 205, {
+    width: tableW / 2 + 30,
+    align: 'right',
+  });
 
-  doc
-    .font('Helvetica-BoldOblique')
-    .fontSize(20)
-    .text(`${titleEnglish}  `, tableX, 255, {
-      width: tableW,
-      align: 'center',
-      underline: true,
-      continued: true,
-    })
-    .font('Arabic')
-    .fontSize(20)
-    .text(titleArabic, { align: 'center', underline: true });
+  doc.font('Helvetica-BoldOblique').fontSize(20).text(titleEnglish, tableX, 255, {
+    width: tableW / 2 + 80,
+    align: 'right',
+    underline: true,
+  });
+  doc.font('Arabic').fontSize(20).text(titleArabic, tableX + tableW / 2 - 40, 255, {
+    width: tableW / 2,
+    align: 'right',
+    underline: true,
+  });
 
   doc.moveTo(tableX, 304).lineTo(tableX + tableW, 304).stroke();
-  doc
-    .font('Helvetica-BoldOblique')
-    .fontSize(17)
-    .text(`${activityEnglish} /`, tableX, 309, {
-      width: tableW,
-      align: 'center',
-      continued: true,
-    })
-    .font('Arabic')
-    .fontSize(17)
-    .text(activityArabic, { align: 'center' });
+  doc.font('Helvetica-BoldOblique').fontSize(17).text(`${activityEnglish} /`, tableX, 309, {
+    width: tableW / 2 + 80,
+    align: 'right',
+  });
+  doc.font('Arabic').fontSize(17).text(activityArabic, tableX + tableW / 2 + 10, 309, {
+    width: tableW / 2 - 10,
+    align: 'left',
+  });
 
   let y = 338;
   const customerRowH = 52;
