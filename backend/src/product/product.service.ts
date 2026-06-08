@@ -33,7 +33,7 @@ export class ProductService {
     const product = this.repo.create({
       name: data.name.trim(),
       sku: data.sku?.trim() || null,
-      price_per_kg: roundMoney(data.price_per_kg),
+      price_per_kg: roundMoney(data.price_per_kg ?? 0),
       low_stock_kg: roundMoney(data.low_stock_kg ?? 0),
     });
     return this.repo.save(product);

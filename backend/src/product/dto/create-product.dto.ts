@@ -13,10 +13,11 @@ export class CreateProductDto {
   @Length(1, 40)
   sku?: string;
 
-  @ApiProperty({ example: 3.15 })
+  @ApiProperty({ example: 3.15, required: false })
+  @IsOptional()
   @IsNumber({ maxDecimalPlaces: 3 })
   @Min(0)
-  price_per_kg: number;
+  price_per_kg?: number;
 
   @ApiProperty({ example: 10, required: false })
   @IsOptional()

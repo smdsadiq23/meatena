@@ -53,6 +53,7 @@ type PurchaseItem = {
 };
 
 const emptyItem = { product_id: "", pieces: "", weight: "", cost_per_kg: "" };
+const emptyProduct = { name: "", sku: "", price_per_kg: "", low_stock_kg: "" };
 
 export default function PurchasesPage() {
   const currencyRate = useCurrencyRate();
@@ -63,6 +64,7 @@ export default function PurchasesPage() {
   const [invoiceNo, setInvoiceNo] = useState("");
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
   const [purchaseCurrency, setPurchaseCurrency] = useState<"KWD" | "USD">("KWD");
+  const [productForm, setProductForm] = useState(emptyProduct);
   const [items, setItems] = useState<PurchaseItem[]>([emptyItem]);
   const [editingPurchaseId, setEditingPurchaseId] = useState<number | null>(null);
   const [editSupplierId, setEditSupplierId] = useState("");
@@ -151,6 +153,54 @@ export default function PurchasesPage() {
 
   const validateRows = (rows: PurchaseItem[]) =>
     rows.every((item) => item.product_id && Number(item.weight) > 0);
+
+  const createProductForPurchase = async () => {
+    if (!productForm.name.trim()) {
+      setStatusType("error");
+      setStatus("Product name is required.");
+      return;
+    }
+
+    setLoading(true);
+    setStatus("");
+
+    try {
+      const product = await fetchJsonOrThrow<Product>("/products", {
+        method: "POST",
+        body: JSON.stringify({
+          name: productForm.name.trim(),
+          sku: productForm.sku.trim() || undefined,
+          price_per_kg: productForm.price_per_kg
+            ? Number(productForm.price_per_kg)
+            : undefined,
+          low_stock_kg: productForm.low_stock_kg
+            ? Number(productForm.low_stock_kg)
+            : undefined,
+        }),
+      });
+
+      setProducts((current) => [...current, product].sort((a, b) => a.name.localeCompare(b.name)));
+      setItems((current) => {
+        const emptyIndex = current.findIndex((row) => !row.product_id);
+
+        if (emptyIndex === -1) {
+          return [...current, { ...emptyItem, product_id: String(product.id) }];
+        }
+
+        return current.map((item, index) =>
+          index === emptyIndex ? { ...item, product_id: String(product.id) } : item
+        );
+      });
+      setProductForm(emptyProduct);
+      setStatusType("success");
+      setStatus("Product created. You can now receive it in this purchase.");
+    } catch (error) {
+      setStatusType("error");
+      setStatus(error instanceof Error ? error.message : "Could not create product.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const recordPurchase = async () => {
     if (!supplierId || !validateRows(items)) {
@@ -316,6 +366,57 @@ export default function PurchasesPage() {
       ) : null}
 
       <section className="panel p-6">
+        <div className="mb-6 rounded-3xl bg-slate-50 p-5">
+          <p className="soft-label">New Product</p>
+          <h2 className="mt-2 text-xl font-bold text-slate-950">
+            Create product before receiving stock
+          </h2>
+          <p className="mt-1 text-sm font-semibold text-slate-500">
+            Selling price is optional. Set it later after purchase cost and margin are clear.
+          </p>
+          <div className="mt-4 grid gap-3 md:grid-cols-4">
+            <input
+              className="field bg-white"
+              placeholder="Product name"
+              value={productForm.name}
+              onChange={(event) =>
+                setProductForm((current) => ({ ...current, name: event.target.value }))
+              }
+            />
+            <input
+              className="field bg-white"
+              placeholder="SKU"
+              value={productForm.sku}
+              onChange={(event) =>
+                setProductForm((current) => ({ ...current, sku: event.target.value }))
+              }
+            />
+            <input
+              className="field bg-white"
+              placeholder="Selling price optional"
+              value={productForm.price_per_kg}
+              onChange={(event) =>
+                setProductForm((current) => ({ ...current, price_per_kg: event.target.value }))
+              }
+            />
+            <input
+              className="field bg-white"
+              placeholder="Low stock kg"
+              value={productForm.low_stock_kg}
+              onChange={(event) =>
+                setProductForm((current) => ({ ...current, low_stock_kg: event.target.value }))
+              }
+            />
+          </div>
+          <button
+            className="btn-secondary mt-4 px-5"
+            onClick={() => void createProductForPurchase()}
+            disabled={loading}
+          >
+            Add Product To Purchase List
+          </button>
+        </div>
+
         <div className="grid gap-4 md:grid-cols-2">
           <select className="field" value={supplierId} onChange={(e) => setSupplierId(e.target.value)}>
             <option value="">Select supplier</option>

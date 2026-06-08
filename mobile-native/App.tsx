@@ -1559,8 +1559,8 @@ export default function App() {
   }
 
   async function createProduct() {
-    if (!productForm.name.trim() || !productForm.price.trim()) {
-      setStatus('Product name and selling price are required.');
+    if (!productForm.name.trim()) {
+      setStatus('Product name is required. Selling price can be added later.');
       return;
     }
 
@@ -1568,17 +1568,19 @@ export default function App() {
     setStatus('');
 
     try {
-      await apiFetch('/products', {
+      const response = await apiFetch('/products', {
         method: 'POST',
         body: JSON.stringify({
           name: productForm.name.trim(),
           sku: productForm.sku.trim() || undefined,
-          price_per_kg: Number(productForm.price),
+          price_per_kg: productForm.price ? Number(productForm.price) : undefined,
           low_stock_kg: productForm.lowStockKg ? Number(productForm.lowStockKg) : undefined,
         }),
       });
+      const product = await response.json() as Product;
       setProductForm(emptyProductForm);
-      setStatus('Product created.');
+      setSelectedProductId(product.id);
+      setStatus('Product created. Selling price can be set after buying.');
       await loadData();
     } catch (error) {
       setStatus(error instanceof Error ? error.message : 'Could not create product.');
@@ -2477,7 +2479,7 @@ export default function App() {
               style={styles.input}
               value={productForm.price}
               onChangeText={value => setProductForm(current => ({ ...current, price: value }))}
-              placeholder="Selling price"
+              placeholder="Selling price optional"
               keyboardType="decimal-pad"
             />
             <TextInput
@@ -2547,6 +2549,43 @@ export default function App() {
       <View style={styles.card}>
         <Text style={styles.kicker}>Stock & Buying</Text>
         <Text style={styles.screenTitle}>Purchase Entry</Text>
+        {isAdmin ? (
+          <View style={styles.lineItem}>
+            <Text style={styles.subhead}>New product</Text>
+            <Text style={styles.mutedDark}>
+              Selling price is optional. Set it later after purchase cost and margin are clear.
+            </Text>
+            <TextInput
+              style={styles.input}
+              value={productForm.name}
+              onChangeText={value => setProductForm(current => ({ ...current, name: value }))}
+              placeholder="Product name"
+            />
+            <TextInput
+              style={styles.input}
+              value={productForm.sku}
+              onChangeText={value => setProductForm(current => ({ ...current, sku: value }))}
+              placeholder="SKU"
+            />
+            <View style={styles.twoColsEven}>
+              <TextInput
+                style={[styles.input, styles.flex]}
+                value={productForm.price}
+                onChangeText={value => setProductForm(current => ({ ...current, price: value }))}
+                placeholder="Selling price optional"
+                keyboardType="decimal-pad"
+              />
+              <TextInput
+                style={[styles.input, styles.flex]}
+                value={productForm.lowStockKg}
+                onChangeText={value => setProductForm(current => ({ ...current, lowStockKg: value }))}
+                placeholder="Low stock kg"
+                keyboardType="decimal-pad"
+              />
+            </View>
+            <SecondaryButton title="Add Product To Purchase" onPress={createProduct} disabled={busy} />
+          </View>
+        ) : null}
         <SupplierPicker suppliers={suppliers} value={selectedSupplierId} onChange={setSelectedSupplierId} />
         <ProductPicker products={products} value={selectedProductId} onChange={setSelectedProductId} />
         <Text style={styles.subhead}>Purchase currency</Text>

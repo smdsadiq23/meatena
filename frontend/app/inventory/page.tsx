@@ -58,7 +58,7 @@ type ReorderSuggestionResponse = {
   suggestions: ReorderSuggestion[];
 };
 
-const emptyProduct = { name: "", sku: "", price_per_kg: "0", low_stock_kg: "0" };
+const emptyProduct = { name: "", sku: "", price_per_kg: "", low_stock_kg: "" };
 const emptyAdjustment = { product_id: "", type: "wastage", quantity_kg: "", note: "" };
 const emptyEditProduct = { id: 0, name: "", sku: "", price_per_kg: "", low_stock_kg: "" };
 
@@ -176,8 +176,8 @@ export default function InventoryPage() {
         body: JSON.stringify({
           name: product.name,
           sku: product.sku || undefined,
-          price_per_kg: Number(product.price_per_kg),
-          low_stock_kg: Number(product.low_stock_kg),
+          price_per_kg: product.price_per_kg ? Number(product.price_per_kg) : undefined,
+          low_stock_kg: product.low_stock_kg ? Number(product.low_stock_kg) : undefined,
         }),
       });
       setProduct(emptyProduct);
@@ -548,7 +548,7 @@ export default function InventoryPage() {
               <div className="mt-5 space-y-3">
                 <input className="field" placeholder="Product name" value={product.name} onChange={(e) => setProduct((current) => ({ ...current, name: e.target.value }))} />
                 <input className="field" placeholder="SKU" value={product.sku} onChange={(e) => setProduct((current) => ({ ...current, sku: e.target.value }))} />
-                <input className="field" placeholder="Selling price per kg" value={product.price_per_kg} onChange={(e) => setProduct((current) => ({ ...current, price_per_kg: e.target.value }))} />
+                <input className="field" placeholder="Selling price optional" value={product.price_per_kg} onChange={(e) => setProduct((current) => ({ ...current, price_per_kg: e.target.value }))} />
                 <input className="field" placeholder="Low stock kg" value={product.low_stock_kg} onChange={(e) => setProduct((current) => ({ ...current, low_stock_kg: e.target.value }))} />
                 <button className="btn-primary w-full" onClick={createProduct} disabled={loading}>Add Product</button>
               </div>
