@@ -106,6 +106,30 @@ function splitContacts(contactNames: string | null, companyPhone: string | null)
   }));
 }
 
+function drawTopLine(
+  doc: PDFKit.PDFDocument,
+  text: string,
+  x: number,
+  y: number,
+  width: number,
+  options: {
+    align?: 'left' | 'center' | 'right';
+    font?: 'Helvetica' | 'Helvetica-Bold' | 'Helvetica-BoldOblique' | 'Arabic';
+    size?: number;
+    underline?: boolean;
+  } = {},
+) {
+  doc
+    .font(options.font ?? 'Helvetica')
+    .fontSize(options.size ?? 13)
+    .text(text, x, y, {
+      width,
+      align: options.align ?? 'left',
+      underline: options.underline ?? false,
+      lineGap: 1,
+    });
+}
+
 export function generateInvoicePDF(
   invoice: InvoiceWithNumber,
   items: InvoiceItem[],
@@ -135,6 +159,9 @@ export function generateInvoicePDF(
   const tableX = 28;
   const tableW = pageWidth - 56;
   const rightX = pageWidth - 380;
+  const centerGap = 42;
+  const titleColW = tableW / 2 - centerGap / 2;
+  const titleRightX = tableX + titleColW + centerGap;
 
   const address = clean(
     invoice.company_address,
@@ -155,57 +182,60 @@ export function generateInvoicePDF(
   const activityEnglish = clean(invoice.company_activity, 'Import All Kinds Of Meat');
   const activityArabic = clean(invoice.company_activity_ar, 'استيراد جميع انواع اللحوم');
 
-  doc.font('Helvetica-Bold').fontSize(13).text('Address:', 32, 58, { continued: true });
-  doc.font('Helvetica').text(` ${address}`, { width: 350 });
-  doc.font('Helvetica').fontSize(13).text(`✉  ${email}`, 40, 124);
+  drawTopLine(doc, 'Address:', 32, 58, 58, {
+    font: 'Helvetica-Bold',
+  });
+  drawTopLine(doc, address.replace(/\n/g, ' '), 92, 58, 470);
+  drawTopLine(doc, `Email: ${email}`, 32, 124, 350);
   contacts.forEach((contact, index) => {
-    doc
-      .font('Helvetica')
-      .fontSize(13)
-      .text(`${contact.name}    | ${contact.phone}`, 32, 150 + index * 22);
+    drawTopLine(doc, `${contact.name}    | ${contact.phone}`, 32, 150 + index * 22, 350);
   });
 
-  doc
-    .font('Arabic')
-    .fontSize(13)
-    .text('العنوان : الشويخ الصناعية بلوك رقم 1', rightX, 58, {
-      width: 340,
-      align: 'right',
-    })
-    .text('شارع رقم 71 ، مبنى رقم 222 ، محل رقم 06', rightX, 86, {
-      width: 340,
-      align: 'right',
-    })
-    .font('Helvetica')
-    .text(email, rightX, 116, { width: 340, align: 'right' });
-
-  doc.font('Helvetica-BoldOblique').fontSize(18).text(companyEnglish, tableX, 205, {
-    width: tableW / 2 + 40,
-    align: 'left',
+  drawTopLine(doc, 'العنوان : الشويخ الصناعية بلوك رقم 1', rightX, 58, 340, {
+    font: 'Arabic',
+    align: 'right',
   });
-  doc.font('Arabic').fontSize(18).text(companyArabic, tableX + tableW / 2 - 30, 205, {
-    width: tableW / 2 + 30,
+  drawTopLine(doc, 'شارع رقم 71 ، مبنى رقم 222 ، محل رقم 06', rightX, 86, 340, {
+    font: 'Arabic',
+    align: 'right',
+  });
+  drawTopLine(doc, email, rightX, 116, 340, {
     align: 'right',
   });
 
-  doc.font('Helvetica-BoldOblique').fontSize(20).text(titleEnglish, tableX, 255, {
-    width: tableW / 2 + 80,
+  drawTopLine(doc, companyEnglish, tableX, 205, titleColW, {
+    font: 'Helvetica-BoldOblique',
+    size: 18,
+    align: 'left',
+  });
+  drawTopLine(doc, companyArabic, titleRightX, 205, titleColW, {
+    font: 'Arabic',
+    size: 18,
+    align: 'right',
+  });
+
+  drawTopLine(doc, titleEnglish, tableX, 255, titleColW, {
+    font: 'Helvetica-BoldOblique',
+    size: 20,
     align: 'right',
     underline: true,
   });
-  doc.font('Arabic').fontSize(20).text(titleArabic, tableX + tableW / 2 - 40, 255, {
-    width: tableW / 2,
+  drawTopLine(doc, titleArabic, titleRightX, 255, titleColW, {
+    font: 'Arabic',
+    size: 20,
     align: 'right',
     underline: true,
   });
 
   doc.moveTo(tableX, 282).lineTo(tableX + tableW, 282).stroke();
-  doc.font('Helvetica-BoldOblique').fontSize(17).text(`${activityEnglish} /`, tableX, 287, {
-    width: tableW / 2 + 80,
+  drawTopLine(doc, `${activityEnglish} /`, tableX, 287, titleColW, {
+    font: 'Helvetica-BoldOblique',
+    size: 17,
     align: 'right',
   });
-  doc.font('Arabic').fontSize(17).text(activityArabic, tableX + tableW / 2 + 10, 287, {
-    width: tableW / 2 - 10,
+  drawTopLine(doc, activityArabic, titleRightX, 287, titleColW, {
+    font: 'Arabic',
+    size: 17,
     align: 'left',
   });
 
