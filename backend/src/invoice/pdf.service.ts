@@ -159,12 +159,6 @@ export function generateInvoicePDF(
   const tableX = 28;
   const tableW = pageWidth - 56;
   const rightX = pageWidth - 380;
-  const centerGap = 42;
-  const titleColW = tableW / 2 - centerGap / 2;
-  const titleRightX = tableX + titleColW + centerGap;
-  const activityGap = 86;
-  const activityColW = tableW / 2 - activityGap / 2;
-  const activityRightX = tableX + activityColW + activityGap;
 
   const address = clean(
     invoice.company_address,
@@ -185,64 +179,69 @@ export function generateInvoicePDF(
   const activityEnglish = clean(invoice.company_activity, 'Import All Kinds Of Meat');
   const activityArabic = clean(invoice.company_activity_ar, 'استيراد جميع انواع اللحوم');
 
-  drawTopLine(doc, 'Address:', 32, 58, 58, {
+  drawTopLine(doc, 'Address:', 32, 38, 58, {
     font: 'Helvetica-Bold',
   });
-  drawTopLine(doc, address.replace(/\n/g, ' '), 92, 58, 470);
-  drawTopLine(doc, `Email: ${email}`, 32, 124, 350);
+  drawTopLine(doc, address.replace(/\n/g, ' '), 92, 38, 410);
+  drawTopLine(doc, email, 68, 96, 350);
+  doc.rect(38, 96, 22, 12).stroke();
+  drawTopLine(doc, '@', 43, 95, 14, {
+    size: 9,
+    align: 'center',
+  });
   contacts.forEach((contact, index) => {
-    drawTopLine(doc, `${contact.name}    | ${contact.phone}`, 32, 150 + index * 22, 350);
+    drawTopLine(doc, `${contact.name}    | ${contact.phone}`, 32, 122 + index * 22, 350);
   });
 
-  drawTopLine(doc, 'العنوان : الشويخ الصناعية بلوك رقم 1', rightX, 58, 340, {
+  drawTopLine(doc, 'العنوان : الشويخ الصناعية بلوك رقم 1', rightX, 38, 340, {
     font: 'Arabic',
     align: 'right',
   });
-  drawTopLine(doc, 'شارع رقم 71 ، مبنى رقم 222 ، محل رقم 06', rightX, 86, 340, {
+  drawTopLine(doc, 'شارع رقم 71 ، مبنى رقم 222 ، محل رقم 06', rightX, 66, 340, {
     font: 'Arabic',
     align: 'right',
   });
-  drawTopLine(doc, email, rightX, 116, 340, {
+  drawTopLine(doc, email, rightX, 96, 340, {
     align: 'right',
   });
 
-  drawTopLine(doc, companyEnglish, tableX, 205, titleColW, {
+  drawTopLine(doc, companyEnglish, tableX, 178, 505, {
     font: 'Helvetica-BoldOblique',
-    size: 16,
+    size: 20,
     align: 'left',
   });
-  drawTopLine(doc, companyArabic, titleRightX, 205, titleColW, {
+  drawTopLine(doc, companyArabic, tableX + 500, 178, tableW - 500, {
     font: 'Arabic',
-    size: 17,
+    size: 20,
     align: 'right',
   });
 
-  drawTopLine(doc, titleEnglish, tableX, 255, titleColW, {
+  drawTopLine(doc, titleEnglish, 135, 238, 315, {
     font: 'Helvetica-BoldOblique',
     size: 20,
     align: 'right',
     underline: true,
   });
-  drawTopLine(doc, titleArabic, titleRightX, 255, titleColW, {
+  drawTopLine(doc, titleArabic, 455, 238, 330, {
     font: 'Arabic',
     size: 20,
-    align: 'right',
+    align: 'left',
     underline: true,
   });
 
-  doc.moveTo(tableX, 282).lineTo(tableX + tableW, 282).stroke();
-  drawTopLine(doc, `${activityEnglish} /`, tableX, 287, activityColW, {
+  doc.moveTo(tableX, 273).lineTo(tableX + tableW, 273).stroke();
+  drawTopLine(doc, `${activityEnglish} /`, 150, 280, 300, {
     font: 'Helvetica-BoldOblique',
-    size: 16,
+    size: 18,
     align: 'right',
   });
-  drawTopLine(doc, activityArabic, activityRightX, 287, activityColW, {
+  drawTopLine(doc, activityArabic, 454, 280, 330, {
     font: 'Arabic',
-    size: 16,
+    size: 18,
     align: 'left',
   });
 
-  let y = 310;
+  let y = 308;
   const customerRowH = 52;
   const customerCols = [190, 240, 210, tableW - 640];
   let x = tableX;
