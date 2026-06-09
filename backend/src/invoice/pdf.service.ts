@@ -39,6 +39,24 @@ function formatAmount(value: number | string | null | undefined, decimals = 3) {
   return Number(value ?? 0).toFixed(decimals);
 }
 
+function hasArabic(text: string) {
+  return /[\u0600-\u06FF]/.test(text);
+}
+
+function rtlVisual(text: string) {
+  return text
+    .split('\n')
+    .map((line) =>
+      line
+        .trim()
+        .split(/\s+/)
+        .filter(Boolean)
+        .reverse()
+        .join(' '),
+    )
+    .join('\n');
+}
+
 function drawCell(
   doc: PDFKit.PDFDocument,
   text: string,
@@ -63,7 +81,7 @@ function drawCell(
     doc.font(options.font === 'Arabic' ? 'Arabic' : 'Helvetica-Bold');
   }
 
-  doc.text(text, x + 5, y + 9, {
+  doc.text(options.font === 'Arabic' ? rtlVisual(text) : text, x + 5, y + 9, {
     width: width - 10,
     height: height - 12,
     align: options.align ?? 'center',
@@ -84,7 +102,7 @@ function drawBilingualHeader(
     width: width - 10,
     align: 'center',
   });
-  doc.font('Arabic').fontSize(11).text(arabic, x + 5, y + 33, {
+  doc.font('Arabic').fontSize(11).text(rtlVisual(arabic), x + 5, y + 33, {
     width: width - 10,
     align: 'center',
   });
@@ -119,10 +137,12 @@ function drawTopLine(
     underline?: boolean;
   } = {},
 ) {
+  const outputText = options.font === 'Arabic' ? rtlVisual(text) : text;
+
   doc
     .font(options.font ?? 'Helvetica')
     .fontSize(options.size ?? 13)
-    .text(text, x, y, {
+    .text(outputText, x, y, {
       width,
       align: options.align ?? 'left',
       underline: options.underline ?? false,
@@ -261,7 +281,7 @@ export function generateInvoicePDF(
     bold: true,
     size: 12,
   });
-  doc.font('Arabic').fontSize(12).text('اسم الزبون', x + 108, y + 12, {
+  doc.font('Arabic').fontSize(12).text(rtlVisual('اسم الزبون'), x + 108, y + 12, {
     width: 80,
     align: 'right',
   });
@@ -276,7 +296,7 @@ export function generateInvoicePDF(
     bold: true,
     size: 12,
   });
-  doc.font('Arabic').fontSize(12).text('رقم الهاتف', x + 118, y + 12, {
+  doc.font('Arabic').fontSize(12).text(rtlVisual('رقم الهاتف'), x + 118, y + 12, {
     width: 85,
     align: 'right',
   });
@@ -328,7 +348,7 @@ export function generateInvoicePDF(
     drawCell(doc, invoiceDate, x, y, cols[1], rowH, { size: 14 });
     x += cols[1];
     drawCell(doc, description, x, y, cols[2], rowH, {
-      font: /[\u0600-\u06FF]/.test(description) ? 'Arabic' : 'Helvetica',
+      font: hasArabic(description) ? 'Arabic' : 'Helvetica',
       size: 13,
     });
     x += cols[2];
