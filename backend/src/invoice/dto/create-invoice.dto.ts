@@ -3,6 +3,7 @@ import { Type } from 'class-transformer';
 import {
   ArrayMinSize,
   IsArray,
+  IsBoolean,
   IsIn,
   IsInt,
   IsNumber,
@@ -34,6 +35,11 @@ export class CreateInvoiceDto {
   @IsOptional()
   @IsNumber({ maxDecimalPlaces: 6 })
   exchange_rate?: number;
+
+  @ApiProperty({ example: true, required: false })
+  @IsOptional()
+  @IsBoolean()
+  include_previous_balance?: boolean;
 
   @ApiProperty({ example: 'INV-2026-001' })
   @IsString()

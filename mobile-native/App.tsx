@@ -750,6 +750,7 @@ export default function App() {
   const [selectedSupplierId, setSelectedSupplierId] = useState<number | null>(null);
   const [invoiceForm, setInvoiceForm] = useState(emptyInvoiceForm);
   const [invoiceCurrency, setInvoiceCurrency] = useState<TransactionCurrency>('KWD');
+  const [includePreviousBalance, setIncludePreviousBalance] = useState(false);
   const [invoiceItems, setInvoiceItems] = useState<InvoiceItemForm[]>([
     { productId: null, pieces: '', weight: '', price: '' },
   ]);
@@ -1204,6 +1205,7 @@ export default function App() {
 
   function resetInvoiceForm() {
     setInvoiceForm(emptyInvoiceForm);
+    setIncludePreviousBalance(false);
     setInvoiceItems([{ productId: selectedProductId, pieces: '', weight: '', price: String(selectedProduct?.price_per_kg ?? '') }]);
   }
 
@@ -1320,6 +1322,7 @@ export default function App() {
           type: invoiceForm.type,
           transaction_currency: invoiceCurrency,
           exchange_rate: currencyRate,
+          include_previous_balance: includePreviousBalance,
           invoice_number: invoiceForm.invoiceNumber.trim(),
           invoice_title: selectedProfile.invoice_title.trim(),
           invoice_title_ar: selectedProfile.invoice_title_ar?.trim() || undefined,
@@ -1342,6 +1345,7 @@ export default function App() {
         invoiceNumber: '',
       }));
       setInvoiceCurrency('KWD');
+      setIncludePreviousBalance(false);
       setInvoiceItems([{ productId: selectedProductId, pieces: '', weight: '', price: String(selectedProduct?.price_per_kg ?? '') }]);
       await loadData();
     } catch (error) {
@@ -2471,6 +2475,23 @@ export default function App() {
             <Metric label="After This Bill" value={currency(projectedBalance)} tone={isCreditLimitExceeded ? 'red' : undefined} />
             <Metric label="Remaining" value={remainingCredit === null ? 'Unlimited' : currency(remainingCredit)} />
           </View>
+          <TouchableOpacity
+            style={[
+              styles.checkboxRow,
+              includePreviousBalance ? styles.checkboxRowActive : null,
+              !selectedCustomerId || customerBalance === 0 ? styles.disabledButton : null,
+            ]}
+            disabled={!selectedCustomerId || customerBalance === 0}
+            onPress={() => setIncludePreviousBalance(current => !current)}
+          >
+            <View style={[styles.checkboxBox, includePreviousBalance ? styles.checkboxBoxActive : null]}>
+              {includePreviousBalance ? <Text style={styles.checkboxMark}>✓</Text> : null}
+            </View>
+            <View style={styles.flex}>
+              <Text style={styles.checkboxTitle}>Show previous balance in invoice PDF</Text>
+              <Text style={styles.rowSubtitle}>Adds previous balance and total bills rows before sharing.</Text>
+            </View>
+          </TouchableOpacity>
 
           <View style={styles.twoCols}>
             <Pill
@@ -4239,6 +4260,44 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'space-between',
+  },
+  checkboxRow: {
+    alignItems: 'center',
+    backgroundColor: '#f8fafc',
+    borderColor: '#e2e8f0',
+    borderRadius: 18,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 12,
+    padding: 12,
+  },
+  checkboxRowActive: {
+    backgroundColor: '#fff5f5',
+    borderColor: '#e71932',
+  },
+  checkboxBox: {
+    alignItems: 'center',
+    backgroundColor: 'white',
+    borderColor: '#cbd5e1',
+    borderRadius: 10,
+    borderWidth: 1,
+    height: 28,
+    justifyContent: 'center',
+    width: 28,
+  },
+  checkboxBoxActive: {
+    backgroundColor: '#e71932',
+    borderColor: '#e71932',
+  },
+  checkboxMark: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '900',
+  },
+  checkboxTitle: {
+    color: '#101827',
+    fontSize: 14,
+    fontWeight: '900',
   },
   billingFooter: {
     alignItems: 'center',

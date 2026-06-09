@@ -107,6 +107,7 @@ export default function Invoice() {
   const [invoiceNumber, setInvoiceNumber] = useState("");
   const [draftInvoiceNumber, setDraftInvoiceNumber] = useState("");
   const [invoiceCurrency, setInvoiceCurrency] = useState<"KWD" | "USD">("KWD");
+  const [includePreviousBalance, setIncludePreviousBalance] = useState(false);
   const [invoiceProfiles, setInvoiceProfiles] = useState<InvoiceProfile[]>([]);
   const [selectedProfileId, setSelectedProfileId] = useState<number | null>(null);
   const [profileForm, setProfileForm] = useState<InvoiceProfileForm>(
@@ -353,6 +354,7 @@ export default function Invoice() {
     setInvoiceNumber("");
     setDraftInvoiceNumber("");
     setInvoiceCurrency("KWD");
+    setIncludePreviousBalance(false);
     setStatus("");
     setStatusType("success");
   };
@@ -409,6 +411,7 @@ export default function Invoice() {
           type: "credit",
           transaction_currency: invoiceCurrency,
           exchange_rate: currencyRate,
+          include_previous_balance: includePreviousBalance,
           invoice_number: draftInvoiceNumber.trim(),
           invoice_title: selectedProfile.invoice_title.trim(),
           invoice_title_ar: selectedProfile.invoice_title_ar?.trim() || undefined,
@@ -587,6 +590,16 @@ export default function Invoice() {
             <div className="mt-2 text-3xl font-black tracking-tight text-red-700">
               <Money value={customerId ? balance : 0} />
             </div>
+            <label className="mt-4 flex cursor-pointer items-center gap-3 rounded-2xl bg-white/70 p-3 text-sm font-bold text-slate-800">
+              <input
+                type="checkbox"
+                className="h-5 w-5 accent-red-600"
+                checked={includePreviousBalance}
+                disabled={!customerId || balance === 0}
+                onChange={(event) => setIncludePreviousBalance(event.target.checked)}
+              />
+              <span>{t("Show previous balance in invoice PDF")}</span>
+            </label>
           </div>
 
           <div

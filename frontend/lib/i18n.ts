@@ -86,6 +86,7 @@ export const ARABIC_LABELS: Record<string, string> = {
   Balance: "الرصيد",
   Credit: "آجل",
   "After this bill": "بعد هذه الفاتورة",
+  "Show previous balance in invoice PDF": "إظهار الرصيد السابق في PDF الفاتورة",
   Remaining: "المتبقي",
   Unlimited: "غير محدود",
   "Selected Customer": "العميل المحدد",

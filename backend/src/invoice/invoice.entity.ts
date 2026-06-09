@@ -62,6 +62,9 @@ export class Invoice {
   @Column('decimal', { precision: 10, scale: 3, default: 0 })
   grand_total: number;
 
+  @Column({ type: 'boolean', default: false })
+  include_previous_balance: boolean;
+
   @Column({ type: 'varchar', default: 'active' })
   status: 'active' | 'void';
 

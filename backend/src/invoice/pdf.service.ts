@@ -462,6 +462,44 @@ export function generateInvoicePDF(
     bold: true,
     size: 14,
   });
+  y += totalH;
+
+  const previousBalance = Number(invoice.previous_balance ?? 0);
+  const showPreviousBalance =
+    invoice.include_previous_balance === true && previousBalance !== 0;
+
+  if (showPreviousBalance) {
+    doc.save().fillColor('#d9d9d9').rect(tableX, y, tableW, totalH).fill().restore();
+    x = tableX;
+    drawCell(doc, '', x, y, cols[0], totalH, { bold: true });
+    x += cols[0];
+    drawCell(doc, 'PREVIOUS BALANCE', x, y, cols[1] + cols[2] + cols[3] + cols[4] + cols[5], totalH, {
+      align: 'right',
+      bold: true,
+      size: 14,
+    });
+    x += cols[1] + cols[2] + cols[3] + cols[4] + cols[5];
+    drawCell(doc, formatAmount(previousBalance), x, y, cols[6], totalH, {
+      bold: true,
+      size: 14,
+    });
+    y += totalH;
+
+    doc.save().fillColor('#d9d9d9').rect(tableX, y, tableW, totalH).fill().restore();
+    x = tableX;
+    drawCell(doc, '', x, y, cols[0], totalH, { bold: true });
+    x += cols[0];
+    drawCell(doc, 'TOTAL BILLS', x, y, cols[1] + cols[2] + cols[3] + cols[4] + cols[5], totalH, {
+      align: 'right',
+      bold: true,
+      size: 14,
+    });
+    x += cols[1] + cols[2] + cols[3] + cols[4] + cols[5];
+    drawCell(doc, formatAmount(invoice.grand_total), x, y, cols[6], totalH, {
+      bold: true,
+      size: 14,
+    });
+  }
 
   doc.end();
 }

@@ -102,6 +102,10 @@ export class InvoiceService implements OnModuleInit {
       ALTER TABLE invoice
       ADD COLUMN IF NOT EXISTS exchange_rate numeric(12, 6) NOT NULL DEFAULT 3.25
     `);
+    await this.dataSource.query(`
+      ALTER TABLE invoice
+      ADD COLUMN IF NOT EXISTS include_previous_balance boolean NOT NULL DEFAULT false
+    `);
   }
 
   async create(data: CreateInvoiceDto) {
@@ -174,6 +178,7 @@ export class InvoiceService implements OnModuleInit {
         customer_id,
         manager,
       );
+      const include_previous_balance = data.include_previous_balance === true;
 
       const creditLimit = roundMoney(Number(customer.credit_limit ?? 0));
 
@@ -210,6 +215,7 @@ export class InvoiceService implements OnModuleInit {
         total,
         previous_balance,
         grand_total,
+        include_previous_balance,
       });
 
       for (const item of calculatedItems) {
