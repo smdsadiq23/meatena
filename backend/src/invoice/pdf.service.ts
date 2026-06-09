@@ -240,12 +240,10 @@ export function generateInvoicePDF(
   if (addressLine2) {
     drawTopLine(doc, addressLine2, 32, 62, 470);
   }
-  drawTopLine(doc, email, 68, 96, 350);
-  doc.rect(38, 96, 22, 12).stroke();
-  drawTopLine(doc, '@', 43, 95, 14, {
-    size: 9,
-    align: 'center',
+  drawTopLine(doc, 'Email:', 32, 96, 42, {
+    font: 'Helvetica-Bold',
   });
+  drawTopLine(doc, email, 78, 96, 350);
   contacts.forEach((contact, index) => {
     drawTopLine(doc, `${contact.name}    | ${contact.phone}`, 32, 122 + index * 22, 350);
   });
