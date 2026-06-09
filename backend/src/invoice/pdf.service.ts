@@ -178,11 +178,22 @@ export function generateInvoicePDF(
   const titleArabic = clean(invoice.invoice_title_ar, 'فاتورة نقدية / الحساب');
   const activityEnglish = clean(invoice.company_activity, 'Import All Kinds Of Meat');
   const activityArabic = clean(invoice.company_activity_ar, 'استيراد جميع انواع اللحوم');
+  const englishAddress = address.replace(/\n/g, ' ');
+  const streetAddressIndex = englishAddress.search(/\bStreet\b/i);
+  const addressLine1 =
+    streetAddressIndex > 0
+      ? englishAddress.slice(0, streetAddressIndex).trim().replace(/,$/, ',')
+      : englishAddress;
+  const addressLine2 =
+    streetAddressIndex > 0 ? englishAddress.slice(streetAddressIndex).trim() : '';
 
   drawTopLine(doc, 'Address:', 32, 38, 58, {
     font: 'Helvetica-Bold',
   });
-  drawTopLine(doc, address.replace(/\n/g, ' '), 92, 38, 410);
+  drawTopLine(doc, addressLine1, 92, 38, 420);
+  if (addressLine2) {
+    drawTopLine(doc, addressLine2, 32, 62, 470);
+  }
   drawTopLine(doc, email, 68, 96, 350);
   doc.rect(38, 96, 22, 12).stroke();
   drawTopLine(doc, '@', 43, 95, 14, {
@@ -210,7 +221,7 @@ export function generateInvoicePDF(
     size: 20,
     align: 'left',
   });
-  drawTopLine(doc, companyArabic, tableX + 500, 178, tableW - 500, {
+  drawTopLine(doc, companyArabic, tableX + 390, 178, tableW - 390, {
     font: 'Arabic',
     size: 20,
     align: 'right',
