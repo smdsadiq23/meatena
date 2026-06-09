@@ -28,6 +28,7 @@ const meatenaLogo = require('./assets/brand-icon.png');
 type Role = 'admin' | 'staff';
 type Language = 'en' | 'ar';
 type TransactionCurrency = 'KWD' | 'USD';
+type ReportType = 'day' | 'week' | 'month' | 'year';
 type Screen =
   | 'dashboard'
   | 'billing'
@@ -253,6 +254,7 @@ type HealthState = {
 };
 
 type ReportData = {
+  type?: ReportType;
   sales: number | string;
   expenses: number | string;
   expenseTotal?: number | string;
@@ -280,6 +282,7 @@ type HistoricReport = {
   };
   invoices: Array<{ id: number; invoice_number: string; customer_name: string; total: number; type: string; date: string }>;
   payments: Array<{ id: number; customer_name: string; amount: number; mode: string; date: string }>;
+  expenses: Array<{ id: number; title: string; category: string; amount: number; date: string }>;
   purchases: Array<{ id: number; supplier_name: string; invoice_no?: string | null; total: number; date: string }>;
   stockMovements: Array<{ id: number; product_name: string; type: string; quantity_kg: number; date: string }>;
   topCustomers: Array<{ id: number; name: string; sales: number; collected: number; invoiceCount: number }>;
@@ -340,6 +343,19 @@ type InvoiceProfileForm = {
 const CLOUD_API = process.env.CLOUD_API_URL ?? 'https://meatena.induxen.com/api';
 const LAN_API = process.env.LAN_API_URL ?? 'http://192.168.29.204:3003';
 const DEFAULT_API = CLOUD_API;
+const reportOptions: Array<{ value: ReportType; label: string }> = [
+  { value: 'day', label: 'Day' },
+  { value: 'week', label: 'Week' },
+  { value: 'month', label: 'Month' },
+  { value: 'year', label: 'Year' },
+];
+
+function defaultHistoricFrom() {
+  const date = new Date();
+  date.setDate(date.getDate() - 30);
+  return date.toISOString().slice(0, 10);
+}
+
 const SERVER_PRESETS = [
   {
     label: 'Cloud server',
@@ -723,6 +739,10 @@ export default function App() {
   const [health, setHealth] = useState<HealthState | null>(null);
   const [currencyRate, setCurrencyRate] = useState(currentKwdToUsdRate);
   const [currencyRateInput, setCurrencyRateInput] = useState(String(currentKwdToUsdRate));
+  const [reportType, setReportType] = useState<ReportType>('month');
+  const [historicFrom, setHistoricFrom] = useState(defaultHistoricFrom);
+  const [historicTo, setHistoricTo] = useState(() => new Date().toISOString().slice(0, 10));
+  const [historicLoading, setHistoricLoading] = useState(false);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [invoiceProfiles, setInvoiceProfiles] = useState<InvoiceProfile[]>([]);
@@ -1172,6 +1192,37 @@ export default function App() {
       setStatus(error instanceof Error ? error.message : 'Could not update currency rate.');
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function loadPeriodReport(nextType: ReportType) {
+    setReportType(nextType);
+    setBusy(true);
+    setStatus('');
+
+    try {
+      const response = await apiFetch(`/invoices/report?type=${nextType}`);
+      const data = (await response.json()) as ReportData;
+      setReport(data);
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : 'Could not load report.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function loadHistoricRange(from = historicFrom, to = historicTo) {
+    setHistoricLoading(true);
+    setStatus('');
+
+    try {
+      const response = await apiFetch(`/invoices/historic-report?from=${from}&to=${to}`);
+      const data = (await response.json()) as HistoricReport;
+      setHistoricReport(data);
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : 'Could not load historic report.');
+    } finally {
+      setHistoricLoading(false);
     }
   }
 
@@ -3465,57 +3516,168 @@ export default function App() {
   }
 
   function renderReports() {
+    const renderMoneySection = (
+      title: string,
+      rows: Array<{ id: number; title: string; subtitle: string; amount: number | string }>,
+    ) => (
+      <>
+        <Text style={styles.subhead}>{title}</Text>
+        {rows.length ? (
+          rows.slice(0, 20).map(row => (
+            <Row key={`${title}-${row.id}`} title={row.title} subtitle={row.subtitle} right={currency(row.amount)} />
+          ))
+        ) : (
+          <Text style={styles.mutedDark}>No records in this range.</Text>
+        )}
+      </>
+    );
+
+    const renderTextSection = (
+      title: string,
+      rows: Array<{ id: number; title: string; subtitle: string; right?: string }>,
+    ) => (
+      <>
+        <Text style={styles.subhead}>{title}</Text>
+        {rows.length ? (
+          rows.slice(0, 20).map(row => (
+            <Row key={`${title}-${row.id}`} title={row.title} subtitle={row.subtitle} right={row.right} />
+          ))
+        ) : (
+          <Text style={styles.mutedDark}>No records in this range.</Text>
+        )}
+      </>
+    );
+
     return (
       <View style={styles.card}>
         <Text style={styles.kicker}>Reports</Text>
         <Text style={styles.screenTitle}>Business Reports</Text>
+        <Text style={styles.subhead}>Period Report</Text>
+        <View style={styles.twoCols}>
+          {reportOptions.map(option => (
+            <Pill
+              key={option.value}
+              label={option.label}
+              active={reportType === option.value}
+              onPress={() => loadPeriodReport(option.value)}
+            />
+          ))}
+        </View>
         <View style={styles.metricGrid}>
           <Metric label="Sales" value={currency(report?.sales)} />
-          <Metric label="Expenses" value={currency(report?.expenses)} />
+          <Metric label="Expenses" value={currency(report?.expenseTotal ?? report?.expenses)} />
           <Metric label="Profit" value={currency(report?.profit)} />
           <Metric label="Outstanding" value={currency(creditSummary?.total_outstanding)} />
         </View>
+
         <Text style={styles.subhead}>Historic Report</Text>
+        <View style={styles.formGrid}>
+          <View style={styles.fieldBlock}>
+            <Text style={styles.fieldLabel}>From date</Text>
+            <TextInput
+              style={styles.input}
+              value={historicFrom}
+              onChangeText={setHistoricFrom}
+              placeholder="YYYY-MM-DD"
+            />
+          </View>
+          <View style={styles.fieldBlock}>
+            <Text style={styles.fieldLabel}>To date</Text>
+            <TextInput
+              style={styles.input}
+              value={historicTo}
+              onChangeText={setHistoricTo}
+              placeholder="YYYY-MM-DD"
+            />
+          </View>
+          <PrimaryButton
+            title={historicLoading ? 'Loading historic report...' : 'Load Historic Report'}
+            onPress={() => loadHistoricRange()}
+            disabled={historicLoading}
+          />
+        </View>
         <View style={styles.metricGrid}>
           <Metric label="Sales" value={currency(historicReport?.totals.salesTotal)} />
           <Metric label="Collections" value={currency(historicReport?.totals.netCollection)} />
           <Metric label="Expenses" value={currency(historicReport?.totals.expenseTotal)} />
           <Metric label="Purchases" value={currency(historicReport?.totals.purchaseTotal)} />
           <Metric label="Profit" value={currency(historicReport?.totals.grossProfit)} />
+          <Metric label="Cash" value={currency(historicReport?.totals.cashCollection)} />
           <Metric label="KNET" value={currency(historicReport?.totals.knetCollection)} />
+          <Metric label="Invoices" value={String(historicReport?.totals.invoiceCount ?? 0)} />
+          <Metric label="Payments" value={String(historicReport?.totals.paymentCount ?? 0)} />
+          <Metric label="Stock In kg" value={String(Number(historicReport?.totals.stockInKg ?? 0).toFixed(3))} />
+          <Metric label="Stock Out kg" value={String(Number(historicReport?.totals.stockOutKg ?? 0).toFixed(3))} />
+          <Metric label="Wastage kg" value={String(Number(historicReport?.totals.wastageKg ?? 0).toFixed(3))} />
         </View>
         {historicReport ? (
           <>
             <Text style={styles.mutedDark}>
               {historicReport.range.from} to {historicReport.range.to} | Invoices {historicReport.totals.invoiceCount} | Payments {historicReport.totals.paymentCount}
             </Text>
-            <Text style={styles.subhead}>Recent invoices</Text>
-            {historicReport.invoices.slice(0, 5).map(invoice => (
-              <Row
-                key={invoice.id}
-                title={`${invoice.invoice_number} · ${invoice.customer_name}`}
-                subtitle={`${invoice.type} · ${new Date(invoice.date).toLocaleDateString()}`}
-                right={currency(invoice.total)}
-              />
-            ))}
-            <Text style={styles.subhead}>Recent payments</Text>
-            {historicReport.payments.slice(0, 5).map(payment => (
-              <Row
-                key={payment.id}
-                title={payment.customer_name}
-                subtitle={`${payment.mode} · ${new Date(payment.date).toLocaleDateString()}`}
-                right={currency(payment.amount)}
-              />
-            ))}
-            <Text style={styles.subhead}>Stock movement</Text>
-            {historicReport.stockMovements.slice(0, 5).map(movement => (
-              <Row
-                key={movement.id}
-                title={movement.product_name}
-                subtitle={`${movement.type} · ${new Date(movement.date).toLocaleDateString()}`}
-                right={`${Number(movement.quantity_kg).toFixed(3)} kg`}
-              />
-            ))}
+            {renderMoneySection(
+              `Invoices (${historicReport.totals.invoiceCount})`,
+              historicReport.invoices.map(invoice => ({
+                id: invoice.id,
+                title: `${invoice.invoice_number} · ${invoice.customer_name}`,
+                subtitle: `${invoice.type} · ${new Date(invoice.date).toLocaleDateString()}`,
+                amount: invoice.total,
+              })),
+            )}
+            {renderMoneySection(
+              `Payments (${historicReport.totals.paymentCount})`,
+              historicReport.payments.map(payment => ({
+                id: payment.id,
+                title: payment.customer_name,
+                subtitle: `${payment.mode} · ${new Date(payment.date).toLocaleDateString()}`,
+                amount: payment.amount,
+              })),
+            )}
+            {renderMoneySection(
+              `Purchases (${historicReport.totals.purchaseCount})`,
+              historicReport.purchases.map(purchase => ({
+                id: purchase.id,
+                title: purchase.supplier_name,
+                subtitle: `${purchase.invoice_no ?? 'No invoice no.'} · ${new Date(purchase.date).toLocaleDateString()}`,
+                amount: purchase.total,
+              })),
+            )}
+            {renderMoneySection(
+              `Expenses (${historicReport.totals.expenseCount})`,
+              historicReport.expenses.map(expense => ({
+                id: expense.id,
+                title: expense.title,
+                subtitle: `${expense.category} · ${new Date(expense.date).toLocaleDateString()}`,
+                amount: expense.amount,
+              })),
+            )}
+            {renderTextSection(
+              `Stock Movements (${historicReport.totals.stockMovementCount})`,
+              historicReport.stockMovements.map(movement => ({
+                id: movement.id,
+                title: movement.product_name,
+                subtitle: `${movement.type} · ${new Date(movement.date).toLocaleDateString()}`,
+                right: `${Number(movement.quantity_kg).toFixed(3)} kg`,
+              })),
+            )}
+            {renderTextSection(
+              'Top Customers',
+              historicReport.topCustomers.map(customer => ({
+                id: customer.id,
+                title: customer.name,
+                subtitle: `Invoices ${customer.invoiceCount} · Collected ${currencyInline(customer.collected)}`,
+                right: currencyInline(customer.sales),
+              })),
+            )}
+            {renderTextSection(
+              'Top Products',
+              historicReport.topProducts.map(product => ({
+                id: product.id,
+                title: product.name,
+                subtitle: `Sold ${Number(product.soldKg).toFixed(3)} kg · Bought ${Number(product.purchasedKg).toFixed(3)} kg`,
+                right: `${Number(product.currentStockKg).toFixed(3)} kg`,
+              })),
+            )}
           </>
         ) : (
           <Text style={styles.mutedDark}>Historic report not loaded.</Text>
