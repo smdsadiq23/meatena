@@ -44,6 +44,10 @@ function formatAmount(value: number | string | null | undefined, decimals = 3) {
   return Number(value ?? 0).toFixed(decimals);
 }
 
+function hasArabic(text: string | null | undefined) {
+  return Boolean(text && /[\u0600-\u06FF]/.test(text));
+}
+
 function rtlVisual(text: string) {
   return text
     .split('\n')
@@ -56,6 +60,47 @@ function rtlVisual(text: string) {
         .join(' '),
     )
     .join('\n');
+}
+
+function inferArabicDescription(english: string) {
+  const normalized = english.toLowerCase();
+  const meat = normalized.includes('mutton')
+    ? 'لحم غنم'
+    : normalized.includes('lamb')
+      ? 'لحم ضأن'
+      : normalized.includes('goat')
+        ? 'لحم ماعز'
+        : normalized.includes('chicken')
+          ? 'دجاج'
+          : normalized.includes('beef')
+            ? 'لحم بقر'
+            : normalized.includes('liver')
+              ? 'كبد'
+              : '';
+
+  const origin = normalized.includes('bangladesh')
+    ? 'بنغلاديشي'
+    : normalized.includes('karachi')
+      ? 'كراتشي'
+      : normalized.includes('pakistan')
+        ? 'باكستاني'
+        : normalized.includes('india')
+          ? 'هندي'
+          : normalized.includes('egypt')
+            ? 'مصري'
+            : normalized.includes('australia')
+              ? 'أسترالي'
+              : '';
+
+  return [meat, origin].filter(Boolean).join(' ') || null;
+}
+
+function productArabicDescription(productName: ProductPdfName | null, english: string) {
+  if (hasArabic(productName?.name_ar)) {
+    return productName?.name_ar?.trim() ?? null;
+  }
+
+  return inferArabicDescription(english);
 }
 
 function drawCell(
@@ -360,7 +405,7 @@ export function generateInvoicePDF(
   items.forEach((item, index) => {
     const productName = item.product_id ? productNames.get(item.product_id) : null;
     const description = productName?.name ?? (item.product_id ? `Product #${item.product_id}` : 'Counter item');
-    const descriptionArabic = productName?.name_ar ?? null;
+    const descriptionArabic = productArabicDescription(productName ?? null, description);
     const pieces = Number(item.pieces ?? 0);
     const weight = Number(item.weight ?? 0);
     totalPieces += pieces;
