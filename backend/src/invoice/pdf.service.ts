@@ -236,7 +236,7 @@ export function generateInvoicePDF(
   drawTopLine(doc, titleArabic, 455, 238, 330, {
     font: 'Arabic',
     size: 20,
-    align: 'left',
+    align: 'right',
     underline: true,
   });
 
@@ -249,7 +249,7 @@ export function generateInvoicePDF(
   drawTopLine(doc, activityArabic, 454, 280, 330, {
     font: 'Arabic',
     size: 18,
-    align: 'left',
+    align: 'right',
   });
 
   let y = 308;
