@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Injectable,
   NotFoundException,
+  OnModuleInit,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -14,7 +15,7 @@ import { UpdateProductDto } from './dto/update-product.dto';
 import { Product } from './product.entity';
 
 @Injectable()
-export class ProductService {
+export class ProductService implements OnModuleInit {
   constructor(
     @InjectRepository(Product)
     private repo: Repository<Product>,
@@ -29,9 +30,17 @@ export class ProductService {
     private stockMovementRepo: Repository<StockMovement>,
   ) {}
 
+  async onModuleInit() {
+    await this.repo.query(`
+      ALTER TABLE product
+      ADD COLUMN IF NOT EXISTS name_ar varchar
+    `);
+  }
+
   create(data: CreateProductDto) {
     const product = this.repo.create({
       name: data.name.trim(),
+      name_ar: data.name_ar?.trim() || null,
       sku: data.sku?.trim() || null,
       price_per_kg: roundMoney(data.price_per_kg ?? 0),
       low_stock_kg: roundMoney(data.low_stock_kg ?? 0),
@@ -61,6 +70,10 @@ export class ProductService {
 
     if (data.name !== undefined) {
       product.name = data.name.trim();
+    }
+
+    if (data.name_ar !== undefined) {
+      product.name_ar = data.name_ar.trim() || null;
     }
 
     if (data.sku !== undefined) {

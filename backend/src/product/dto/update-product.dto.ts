@@ -8,6 +8,11 @@ export class UpdateProductDto {
 
   @IsOptional()
   @IsString()
+  @Length(1, 100)
+  name_ar?: string;
+
+  @IsOptional()
+  @IsString()
   @Length(1, 40)
   sku?: string;
 

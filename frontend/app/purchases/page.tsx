@@ -18,6 +18,7 @@ type Supplier = {
 type Product = {
   id: number;
   name: string;
+  name_ar?: string | null;
 };
 
 type Purchase = {
@@ -53,7 +54,7 @@ type PurchaseItem = {
 };
 
 const emptyItem = { product_id: "", pieces: "", weight: "", cost_per_kg: "" };
-const emptyProduct = { name: "", sku: "", price_per_kg: "", low_stock_kg: "" };
+const emptyProduct = { name: "", name_ar: "", sku: "", price_per_kg: "", low_stock_kg: "" };
 
 export default function PurchasesPage() {
   const currencyRate = useCurrencyRate();
@@ -169,6 +170,7 @@ export default function PurchasesPage() {
         method: "POST",
         body: JSON.stringify({
           name: productForm.name.trim(),
+          name_ar: productForm.name_ar.trim() || undefined,
           sku: productForm.sku.trim() || undefined,
           price_per_kg: productForm.price_per_kg
             ? Number(productForm.price_per_kg)
@@ -374,13 +376,22 @@ export default function PurchasesPage() {
           <p className="mt-1 text-sm font-semibold text-slate-500">
             Selling price is optional. Set it later after purchase cost and margin are clear.
           </p>
-          <div className="mt-4 grid gap-3 md:grid-cols-4">
+          <div className="mt-4 grid gap-3 md:grid-cols-5">
             <input
               className="field bg-white"
               placeholder="Product name"
               value={productForm.name}
               onChange={(event) =>
                 setProductForm((current) => ({ ...current, name: event.target.value }))
+              }
+            />
+            <input
+              className="field bg-white"
+              dir="rtl"
+              placeholder="Arabic description"
+              value={productForm.name_ar}
+              onChange={(event) =>
+                setProductForm((current) => ({ ...current, name_ar: event.target.value }))
               }
             />
             <input

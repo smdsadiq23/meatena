@@ -8,6 +8,9 @@ export class Product {
   @Column()
   name: string;
 
+  @Column({ type: 'varchar', nullable: true })
+  name_ar: string | null;
+
   @Column({ type: 'varchar', nullable: true, unique: true })
   sku: string | null;
 

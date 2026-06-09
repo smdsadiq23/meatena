@@ -7,6 +7,12 @@ export class CreateProductDto {
   @Length(1, 100)
   name: string;
 
+  @ApiProperty({ example: 'لحم بقر', required: false })
+  @IsOptional()
+  @IsString()
+  @Length(1, 100)
+  name_ar?: string;
+
   @ApiProperty({ example: 'BEEF-PK', required: false })
   @IsOptional()
   @IsString()

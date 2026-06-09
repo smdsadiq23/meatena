@@ -6,6 +6,11 @@ import type { Customer } from '../customer/customer.entity';
 import type { InvoiceItem } from './invoice-item.entity';
 import type { InvoiceWithNumber } from './invoice.service';
 
+type ProductPdfName = {
+  name: string;
+  name_ar: string | null;
+};
+
 function getArabicFontPath() {
   const fontPaths = [
     '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
@@ -37,10 +42,6 @@ function formatDate(value: string | null | undefined) {
 
 function formatAmount(value: number | string | null | undefined, decimals = 3) {
   return Number(value ?? 0).toFixed(decimals);
-}
-
-function hasArabic(text: string) {
-  return /[\u0600-\u06FF]/.test(text);
 }
 
 function rtlVisual(text: string) {
@@ -108,6 +109,31 @@ function drawBilingualHeader(
   });
 }
 
+function drawDescriptionCell(
+  doc: PDFKit.PDFDocument,
+  english: string,
+  arabic: string | null | undefined,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+) {
+  doc.rect(x, y, width, height).stroke();
+  doc.font('Helvetica').fontSize(12).text(english, x + 5, y + 9, {
+    width: width - 10,
+    height: arabic ? 18 : height - 12,
+    align: 'center',
+  });
+
+  if (arabic) {
+    doc.font('Arabic').fontSize(12).text(rtlVisual(arabic), x + 5, y + 27, {
+      width: width - 10,
+      height: 18,
+      align: 'right',
+    });
+  }
+}
+
 function splitContacts(contactNames: string | null, companyPhone: string | null) {
   const names = clean(contactNames, 'Abdul Basit, Zahoor Ellahi')
     .split(/[,/|]/)
@@ -154,7 +180,7 @@ export function generateInvoicePDF(
   invoice: InvoiceWithNumber,
   items: InvoiceItem[],
   customer: Customer,
-  productNames: Map<number, string>,
+  productNames: Map<number, ProductPdfName>,
   res: Response,
   _kwdToUsdRate?: number,
 ) {
@@ -334,9 +360,9 @@ export function generateInvoicePDF(
   let totalWeight = 0;
 
   items.forEach((item, index) => {
-    const description = item.product_id
-      ? productNames.get(item.product_id) ?? `Product #${item.product_id}`
-      : 'Counter item';
+    const productName = item.product_id ? productNames.get(item.product_id) : null;
+    const description = productName?.name ?? (item.product_id ? `Product #${item.product_id}` : 'Counter item');
+    const descriptionArabic = productName?.name_ar ?? null;
     const pieces = Number(item.pieces ?? 0);
     const weight = Number(item.weight ?? 0);
     totalPieces += pieces;
@@ -347,10 +373,7 @@ export function generateInvoicePDF(
     x += cols[0];
     drawCell(doc, invoiceDate, x, y, cols[1], rowH, { size: 14 });
     x += cols[1];
-    drawCell(doc, description, x, y, cols[2], rowH, {
-      font: hasArabic(description) ? 'Arabic' : 'Helvetica',
-      size: 13,
-    });
+    drawDescriptionCell(doc, description, descriptionArabic, x, y, cols[2], rowH);
     x += cols[2];
     drawCell(doc, pieces ? String(pieces) : '', x, y, cols[3], rowH, { size: 14 });
     x += cols[3];

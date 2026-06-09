@@ -34,6 +34,11 @@ export type InvoiceWithNumber = Invoice & {
   invoice_number: string;
 };
 
+type ProductInvoiceName = {
+  name: string;
+  name_ar: string | null;
+};
+
 function cleanText(value?: string | null) {
   const trimmed = value?.trim();
   return trimmed ? trimmed : null;
@@ -409,8 +414,11 @@ export class InvoiceService implements OnModuleInit {
       items: items.map((item) => ({
         ...item,
         product_name: item.product_id
-          ? productNames.get(item.product_id) ?? `Product #${item.product_id}`
+          ? productNames.get(item.product_id)?.name ?? `Product #${item.product_id}`
           : 'Custom item',
+        product_name_ar: item.product_id
+          ? productNames.get(item.product_id)?.name_ar ?? null
+          : null,
       })),
       payments,
       paid_amount,
@@ -541,7 +549,9 @@ export class InvoiceService implements OnModuleInit {
     return this.itemRepo.find({ where: { invoice_id: id } });
   }
 
-  async getProductNamesForItems(items: InvoiceItem[]) {
+  async getProductNamesForItems(
+    items: InvoiceItem[],
+  ): Promise<Map<number, ProductInvoiceName>> {
     const productIds = [
       ...new Set(
         items
@@ -551,14 +561,19 @@ export class InvoiceService implements OnModuleInit {
     ];
 
     if (!productIds.length) {
-      return new Map<number, string>();
+      return new Map<number, ProductInvoiceName>();
     }
 
     const products = await this.dataSource
       .getRepository(Product)
       .find({ where: { id: In(productIds) } });
 
-    return new Map(products.map((product) => [product.id, product.name]));
+    return new Map(
+      products.map((product) => [
+        product.id,
+        { name: product.name, name_ar: product.name_ar },
+      ]),
+    );
   }
 
   async getCustomer(id: number) {

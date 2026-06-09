@@ -7,6 +7,7 @@ import { Money } from "../../lib/currency";
 type StockItem = {
   id: number;
   name: string;
+  name_ar?: string | null;
   sku?: string;
   price_per_kg: number;
   stock_kg: number;
@@ -58,9 +59,9 @@ type ReorderSuggestionResponse = {
   suggestions: ReorderSuggestion[];
 };
 
-const emptyProduct = { name: "", sku: "", price_per_kg: "", low_stock_kg: "" };
+const emptyProduct = { name: "", name_ar: "", sku: "", price_per_kg: "", low_stock_kg: "" };
 const emptyAdjustment = { product_id: "", type: "wastage", quantity_kg: "", note: "" };
-const emptyEditProduct = { id: 0, name: "", sku: "", price_per_kg: "", low_stock_kg: "" };
+const emptyEditProduct = { id: 0, name: "", name_ar: "", sku: "", price_per_kg: "", low_stock_kg: "" };
 
 function EditIcon() {
   return (
@@ -175,6 +176,7 @@ export default function InventoryPage() {
         method: "POST",
         body: JSON.stringify({
           name: product.name,
+          name_ar: product.name_ar.trim() || undefined,
           sku: product.sku || undefined,
           price_per_kg: product.price_per_kg ? Number(product.price_per_kg) : undefined,
           low_stock_kg: product.low_stock_kg ? Number(product.low_stock_kg) : undefined,
@@ -259,6 +261,7 @@ export default function InventoryPage() {
     setEditingProduct({
       id: item.id,
       name: item.name,
+      name_ar: item.name_ar || "",
       sku: item.sku || "",
       price_per_kg: Number(item.price_per_kg).toFixed(3),
       low_stock_kg: Number(item.low_stock_kg).toFixed(3),
@@ -285,6 +288,7 @@ export default function InventoryPage() {
         method: "PATCH",
         body: JSON.stringify({
           name: editingProduct.name.trim(),
+          name_ar: editingProduct.name_ar.trim() || undefined,
           sku: editingProduct.sku.trim() || undefined,
           price_per_kg: Number(editingProduct.price_per_kg),
           low_stock_kg: Number(editingProduct.low_stock_kg || 0),
@@ -379,13 +383,22 @@ export default function InventoryPage() {
               <div key={item.id} className="rounded-3xl border border-black/8 bg-white px-5 py-4">
                 {editingProduct.id === item.id ? (
                   <div className="space-y-3">
-                    <div className="grid gap-3 md:grid-cols-[1.2fr_0.8fr_0.8fr_0.8fr]">
+                    <div className="grid gap-3 md:grid-cols-[1.2fr_1.2fr_0.8fr_0.8fr_0.8fr]">
                       <input
                         className="field"
                         placeholder="Product name"
                         value={editingProduct.name}
                         onChange={(event) =>
                           setEditingProduct((current) => ({ ...current, name: event.target.value }))
+                        }
+                      />
+                      <input
+                        className="field"
+                        dir="rtl"
+                        placeholder="Arabic description"
+                        value={editingProduct.name_ar}
+                        onChange={(event) =>
+                          setEditingProduct((current) => ({ ...current, name_ar: event.target.value }))
                         }
                       />
                       <input
@@ -437,6 +450,11 @@ export default function InventoryPage() {
                     <p className="mt-2 break-words text-sm font-semibold text-slate-500">
                       {item.sku || "No SKU"}
                     </p>
+                    {item.name_ar ? (
+                      <p className="mt-1 break-words text-sm font-semibold text-slate-500" dir="rtl">
+                        {item.name_ar}
+                      </p>
+                    ) : null}
                   </div>
                   <div className="text-left md:text-right">
                     <p className="soft-label md:hidden">Pieces</p>
@@ -547,6 +565,7 @@ export default function InventoryPage() {
               <h2 className="mt-2 text-xl font-bold text-slate-950">Add product</h2>
               <div className="mt-5 space-y-3">
                 <input className="field" placeholder="Product name" value={product.name} onChange={(e) => setProduct((current) => ({ ...current, name: e.target.value }))} />
+                <input className="field" dir="rtl" placeholder="Arabic description" value={product.name_ar} onChange={(e) => setProduct((current) => ({ ...current, name_ar: e.target.value }))} />
                 <input className="field" placeholder="SKU" value={product.sku} onChange={(e) => setProduct((current) => ({ ...current, sku: e.target.value }))} />
                 <input className="field" placeholder="Selling price optional" value={product.price_per_kg} onChange={(e) => setProduct((current) => ({ ...current, price_per_kg: e.target.value }))} />
                 <input className="field" placeholder="Low stock kg" value={product.low_stock_kg} onChange={(e) => setProduct((current) => ({ ...current, low_stock_kg: e.target.value }))} />
