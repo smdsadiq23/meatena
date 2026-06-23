@@ -607,9 +607,6 @@ export function generateInvoicePDF(
   doc.font('Helvetica-Bold').fontSize(11).text(`Total ${moneyMajorLabel(currency)}`, tableX + 8, bodyBottom + 12, {
     width: 95,
   });
-  doc.dash(1.5, { space: 2 });
-  doc.moveTo(tableX + 92, bodyBottom + 23).lineTo(colXs[6] - 98, bodyBottom + 23).stroke();
-  doc.undash();
   doc.font('Arabic').fontSize(9).text(rtlVisual('المجموع فقط'), colXs[6] - 88, bodyBottom + 9, {
     width: 78,
     align: 'right',
