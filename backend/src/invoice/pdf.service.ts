@@ -109,6 +109,10 @@ function rtlVisual(text: string) {
     .join('\n');
 }
 
+function arabicPhoneVisual(phone: string) {
+  return phone.split('').reverse().join('');
+}
+
 function inferArabicDescription(english: string) {
   const normalized = english.toLowerCase();
   const meat = normalized.includes('mutton')
@@ -386,8 +390,8 @@ function drawCleanLetterheadFooter(doc: PDFKit.PDFDocument) {
   doc
     .fillColor('#1b2f6b')
     .font('Times-Roman')
-    .fontSize(8.8)
-    .text('javedmeatsupply@gmail.com', 20, 784, {
+    .fontSize(8.4)
+    .text('javedmeatsupply@gmail.com', 20, 787, {
       width: textWidth,
       align: 'center',
       lineBreak: false,
@@ -468,13 +472,9 @@ export function generateInvoicePDF(
     underline: true,
   });
 
-  [
-    ['عبدالباسط', '٩٦٦٨٤٩٩٨'],
-    ['ظهور الاهلي', '٩٤٩٤٢٧٠٨'],
-    ['ابوبكر', '٥٠٢٨٩٠٤٠'],
-  ].forEach(([name, phone], index) => {
-    doc.font('Arabic').fontSize(12).text(rtlVisual(`${name} : ${phone}`), 412, formTop + index * 16, {
-      width: 150,
+  ['٩٦٦٨٤٩٩٨', '٩٤٩٤٢٧٠٨', '٥٠٢٨٩٠٤٠'].forEach((phone, index) => {
+    doc.font('Arabic').fontSize(13).text(arabicPhoneVisual(phone), 446, formTop + index * 16, {
+      width: 112,
       align: 'right',
     });
   });
