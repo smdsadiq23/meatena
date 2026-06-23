@@ -31,6 +31,16 @@ function getArabicFontPath() {
   return fontPaths.find((fontPath) => fs.existsSync(fontPath)) ?? fontPaths[0];
 }
 
+function getLetterheadPath() {
+  const imagePaths = [
+    path.join(process.cwd(), 'src/assets/letterheads/jcm-letterhead.jpeg'),
+    path.join(process.cwd(), 'dist/assets/letterheads/jcm-letterhead.jpeg'),
+    path.join(__dirname, '../assets/letterheads/jcm-letterhead.jpeg'),
+  ];
+
+  return imagePaths.find((imagePath) => fs.existsSync(imagePath)) ?? null;
+}
+
 function clean(value: string | null | undefined, fallback = '-') {
   const next = value?.trim();
   return next || fallback;
@@ -121,6 +131,7 @@ function drawCell(
     bold?: boolean;
     font?: 'Helvetica' | 'Arabic';
     size?: number;
+    yOffset?: number;
   } = {},
 ) {
   doc
@@ -133,7 +144,7 @@ function drawCell(
     doc.font(options.font === 'Arabic' ? 'Arabic' : 'Helvetica-Bold');
   }
 
-  doc.text(options.font === 'Arabic' ? rtlVisual(text) : text, x + 5, y + 9, {
+  doc.text(options.font === 'Arabic' ? rtlVisual(text) : text, x + 5, y + (options.yOffset ?? 9), {
     width: width - 10,
     height: height - 12,
     align: options.align ?? 'center',
@@ -150,12 +161,32 @@ function drawBilingualHeader(
   height: number,
 ) {
   doc.rect(x, y, width, height).stroke();
-  doc.font('Helvetica-Bold').fontSize(11).text(english, x + 5, y + 12, {
+  doc.font('Helvetica-Bold').fontSize(8.5).text(english, x + 3, y + 9, {
+    width: width - 6,
+    align: 'center',
+  });
+  doc.font('Arabic').fontSize(8.5).text(rtlVisual(arabic), x + 3, y + 31, {
+    width: width - 6,
+    align: 'center',
+  });
+}
+
+function drawBilingualHeaderCompact(
+  doc: PDFKit.PDFDocument,
+  english: string,
+  arabic: string,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+) {
+  doc.rect(x, y, width, height).stroke();
+  doc.font('Helvetica-Bold').fontSize(7.6).text(english, x + 2, y + 7, {
     width: width - 10,
     align: 'center',
   });
-  doc.font('Arabic').fontSize(11).text(rtlVisual(arabic), x + 5, y + 33, {
-    width: width - 10,
+  doc.font('Arabic').fontSize(7.6).text(rtlVisual(arabic), x + 2, y + 27, {
+    width: width - 4,
     align: 'center',
   });
 }
@@ -170,16 +201,16 @@ function drawDescriptionCell(
   height: number,
 ) {
   doc.rect(x, y, width, height).stroke();
-  doc.font('Helvetica').fontSize(12).text(english, x + 5, y + 9, {
+  doc.font('Helvetica').fontSize(9).text(english, x + 4, y + 8, {
     width: width - 10,
-    height: arabic ? 18 : height - 12,
+    height: arabic ? 14 : height - 10,
     align: 'center',
   });
 
   if (arabic) {
-    doc.font('Arabic').fontSize(12).text(rtlVisual(arabic), x + 5, y + 27, {
-      width: width - 10,
-      height: 18,
+    doc.font('Arabic').fontSize(9).text(rtlVisual(arabic), x + 4, y + 24, {
+      width: width - 8,
+      height: 15,
       align: 'right',
     });
   }
@@ -253,23 +284,23 @@ function drawArabicTitleWithSlash(
 
   doc
     .font('Arabic')
-    .fontSize(20)
-    .text(rtlVisual(rawLeft), x, y, {
+    .fontSize(17)
+    .text(rtlVisual(rawLeft), x, y + 4, {
       width: leftWidth,
       align: 'right',
       lineGap: 1,
     });
   doc
     .font('Helvetica-Bold')
-    .fontSize(20)
-    .text('/', x + leftWidth, y, {
+    .fontSize(17)
+    .text('/', x + leftWidth, y + 4, {
       width: slashWidth,
       align: 'center',
       lineGap: 1,
     });
   doc
     .font('Arabic')
-    .fontSize(20)
+    .fontSize(17)
     .text(rtlVisual(rawRight), x + leftWidth + slashWidth, y, {
       width: rightWidth,
       align: 'right',
@@ -288,8 +319,8 @@ export function generateInvoicePDF(
   _kwdToUsdRate?: number,
 ) {
   const doc = new PDFDocument({
-    layout: 'landscape',
-    margin: 28,
+    layout: 'portrait',
+    margin: 24,
     size: 'A4',
   });
 
@@ -305,121 +336,68 @@ export function generateInvoicePDF(
   doc.lineWidth(1.3);
 
   const pageWidth = doc.page.width;
-  const tableX = 28;
-  const tableW = pageWidth - 56;
-  const rightX = pageWidth - 380;
+  const pageHeight = doc.page.height;
+  const letterheadPath = getLetterheadPath();
+  if (letterheadPath) {
+    doc.image(letterheadPath, 0, 0, { width: pageWidth, height: pageHeight });
+  }
 
-  const address = clean(
-    invoice.company_address,
-    'Shuwaikh Industrial Area, Block No.1,\nStreet No. 71, Building No. 222, Shop No. 06.',
-  );
-  const email = clean(invoice.company_email, 'almajad.albasat.co@gmail.com');
-  const contacts = splitContacts(invoice.contact_names, invoice.company_phone);
-  const companyEnglish = clean(
-    invoice.company_name,
-    'I-Majad Al-Basat Selling Meet Company',
-  );
-  const companyArabic = clean(
-    invoice.company_name_ar,
-    'شركة المجد الباسط لبيع اللحوم',
-  );
+  const tableX = 26;
+  const tableW = pageWidth - 52;
   const titleEnglish = clean(invoice.invoice_title, 'Cash / Credit invoice');
   const titleArabic = clean(invoice.invoice_title_ar, 'فاتورة نقدية / الحساب');
   const activityEnglish = clean(invoice.company_activity, 'Import All Kinds Of Meat');
   const activityArabic = clean(invoice.company_activity_ar, 'استيراد جميع انواع اللحوم');
-  const englishAddress = address.replace(/\n/g, ' ');
-  const streetAddressIndex = englishAddress.search(/\bStreet\b/i);
-  const addressLine1 =
-    streetAddressIndex > 0
-      ? englishAddress.slice(0, streetAddressIndex).trim().replace(/,$/, ',')
-      : englishAddress;
-  const addressLine2 =
-    streetAddressIndex > 0 ? englishAddress.slice(streetAddressIndex).trim() : '';
 
-  drawTopLine(doc, 'Address:', 32, 38, 58, {
-    font: 'Helvetica-Bold',
-  });
-  drawTopLine(doc, addressLine1, 92, 38, 420);
-  if (addressLine2) {
-    drawTopLine(doc, addressLine2, 32, 62, 470);
-  }
-  drawTopLine(doc, 'Email:', 32, 96, 42, {
-    font: 'Helvetica-Bold',
-  });
-  drawTopLine(doc, email, 78, 96, 350);
-  contacts.forEach((contact, index) => {
-    drawTopLine(doc, `${contact.name}    | ${contact.phone}`, 32, 122 + index * 22, 350);
-  });
-
-  drawTopLine(doc, 'العنوان : الشويخ الصناعية بلوك رقم 1', rightX, 38, 340, {
-    font: 'Arabic',
-    align: 'right',
-  });
-  drawTopLine(doc, 'شارع رقم 71 ، مبنى رقم 222 ، محل رقم 06', rightX, 66, 340, {
-    font: 'Arabic',
-    align: 'right',
-  });
-  drawTopLine(doc, email, rightX, 96, 340, {
-    align: 'right',
-  });
-
-  drawTopLine(doc, companyEnglish, tableX, 178, 505, {
+  drawTopLine(doc, titleEnglish, 75, 164, 205, {
     font: 'Helvetica-BoldOblique',
-    size: 20,
-    align: 'left',
-  });
-  drawTopLine(doc, companyArabic, tableX + 390, 178, tableW - 390, {
-    font: 'Arabic',
-    size: 20,
-    align: 'right',
-  });
-
-  drawTopLine(doc, titleEnglish, 135, 238, 315, {
-    font: 'Helvetica-BoldOblique',
-    size: 20,
+    size: 15,
     align: 'right',
     underline: true,
   });
-  drawArabicTitleWithSlash(doc, titleArabic, 455, 238, 330);
+  drawArabicTitleWithSlash(doc, titleArabic, 318, 164, 230);
 
-  doc.moveTo(tableX, 273).lineTo(tableX + tableW, 273).stroke();
-  drawTopLine(doc, `${activityEnglish} /`, 150, 280, 300, {
+  doc.moveTo(tableX, 192).lineTo(tableX + tableW, 192).stroke();
+  drawTopLine(doc, `${activityEnglish} /`, 93, 199, 188, {
     font: 'Helvetica-BoldOblique',
-    size: 18,
+    size: 13,
     align: 'right',
   });
-  drawTopLine(doc, activityArabic, 454, 280, 330, {
+  drawTopLine(doc, activityArabic, 334, 198, 210, {
     font: 'Arabic',
-    size: 18,
+    size: 13,
     align: 'right',
   });
 
-  let y = 308;
-  const customerRowH = 52;
-  const customerCols = [190, 240, 210, tableW - 640];
+  let y = 224;
+  const customerRowH = 42;
+  const customerCols = [142, 170, 150, tableW - 462];
   let x = tableX;
   drawCell(doc, 'Customer Name /', x, y, customerCols[0], customerRowH, {
     align: 'left',
     bold: true,
-    size: 12,
+    size: 9,
+    yOffset: 8,
   });
-  doc.font('Arabic').fontSize(12).text(rtlVisual('اسم الزبون'), x + 108, y + 12, {
-    width: 80,
+  doc.font('Arabic').fontSize(9).text(rtlVisual('اسم الزبون'), x + 77, y + 9, {
+    width: 60,
     align: 'right',
   });
   x += customerCols[0];
   drawCell(doc, clean(customer.name, '-').toUpperCase(), x, y, customerCols[1], customerRowH, {
     bold: true,
-    size: 15,
+    size: 12,
+    yOffset: 8,
   });
   x += customerCols[1];
   drawCell(doc, 'Mobile Number /', x, y, customerCols[2], customerRowH, {
     align: 'left',
     bold: true,
-    size: 12,
+    size: 9,
+    yOffset: 8,
   });
-  doc.font('Arabic').fontSize(12).text(rtlVisual('رقم الهاتف'), x + 118, y + 12, {
-    width: 85,
+  doc.font('Arabic').fontSize(9).text(rtlVisual('رقم الهاتف'), x + 86, y + 9, {
+    width: 58,
     align: 'right',
   });
   x += customerCols[2];
@@ -429,28 +407,28 @@ export function generateInvoicePDF(
   });
 
   y += customerRowH;
-  doc.rect(tableX, y, tableW, 14).stroke();
-  y += 14;
+  doc.rect(tableX, y, tableW, 10).stroke();
+  y += 10;
 
-  const headerH = 64;
-  const cols = [70, 120, 145, 90, 100, 110, tableW - 635];
+  const headerH = 50;
+  const cols = [45, 76, 110, 62, 70, 72, tableW - 435];
   x = tableX;
-  drawBilingualHeader(doc, 'Serial', 'الرقم\nالتسلسلي', x, y, cols[0], headerH);
+  drawBilingualHeaderCompact(doc, 'Serial', 'الرقم\nالتسلسلي', x, y, cols[0], headerH);
   x += cols[0];
-  drawBilingualHeader(doc, 'Date\n(DD/MM/YY)', 'تاريخ', x, y, cols[1], headerH);
+  drawBilingualHeaderCompact(doc, 'Date\n(DD/MM/YY)', 'تاريخ', x, y, cols[1], headerH);
   x += cols[1];
-  drawBilingualHeader(doc, 'Description', 'وصف', x, y, cols[2], headerH);
+  drawBilingualHeaderCompact(doc, 'Description', 'وصف', x, y, cols[2], headerH);
   x += cols[2];
-  drawBilingualHeader(doc, 'Piece\n(No.)', 'قطع', x, y, cols[3], headerH);
+  drawBilingualHeaderCompact(doc, 'Piece\n(No.)', 'قطع', x, y, cols[3], headerH);
   x += cols[3];
-  drawBilingualHeader(doc, 'Weight\n(kg)', 'وزن', x, y, cols[4], headerH);
+  drawBilingualHeaderCompact(doc, 'Weight\n(kg)', 'وزن', x, y, cols[4], headerH);
   x += cols[4];
-  drawBilingualHeader(doc, 'Price\n(per kg)', 'سعر', x, y, cols[5], headerH);
+  drawBilingualHeaderCompact(doc, 'Price\n(per kg)', 'سعر', x, y, cols[5], headerH);
   x += cols[5];
-  drawBilingualHeader(doc, 'Amount\n(K.D)', 'كمية', x, y, cols[6], headerH);
+  drawBilingualHeaderCompact(doc, 'Amount\n(K.D)', 'كمية', x, y, cols[6], headerH);
 
   y += headerH;
-  const rowH = 48;
+  const rowH = 42;
   const invoiceDate = formatDate(invoice.date);
   let totalPieces = 0;
   let totalWeight = 0;
@@ -465,19 +443,19 @@ export function generateInvoicePDF(
     totalWeight += weight;
 
     x = tableX;
-    drawCell(doc, String(index + 1), x, y, cols[0], rowH, { size: 14 });
+    drawCell(doc, String(index + 1), x, y, cols[0], rowH, { size: 11, yOffset: 8 });
     x += cols[0];
-    drawCell(doc, invoiceDate, x, y, cols[1], rowH, { size: 14 });
+    drawCell(doc, invoiceDate, x, y, cols[1], rowH, { size: 10, yOffset: 8 });
     x += cols[1];
     drawDescriptionCell(doc, description, descriptionArabic, x, y, cols[2], rowH);
     x += cols[2];
-    drawCell(doc, pieces ? String(pieces) : '', x, y, cols[3], rowH, { size: 14 });
+    drawCell(doc, pieces ? String(pieces) : '', x, y, cols[3], rowH, { size: 11, yOffset: 8 });
     x += cols[3];
-    drawCell(doc, formatAmount(weight, 2), x, y, cols[4], rowH, { size: 14 });
+    drawCell(doc, formatAmount(weight, 2), x, y, cols[4], rowH, { size: 11, yOffset: 8 });
     x += cols[4];
-    drawCell(doc, formatAmount(item.price_per_kg), x, y, cols[5], rowH, { size: 14 });
+    drawCell(doc, formatAmount(item.price_per_kg), x, y, cols[5], rowH, { size: 11, yOffset: 8 });
     x += cols[5];
-    drawCell(doc, formatAmount(item.amount), x, y, cols[6], rowH, { size: 14 });
+    drawCell(doc, formatAmount(item.amount), x, y, cols[6], rowH, { size: 11, yOffset: 8 });
     y += rowH;
   });
 
@@ -491,7 +469,7 @@ export function generateInvoicePDF(
     y += rowH;
   }
 
-  const totalH = 48;
+  const totalH = 42;
   doc.save().fillColor('#d9d9d9').rect(tableX, y, tableW, totalH).fill().restore();
   x = tableX;
   drawCell(doc, '', x, y, cols[0], totalH, { bold: true });
@@ -499,21 +477,24 @@ export function generateInvoicePDF(
   drawCell(doc, 'TOTAL', x, y, cols[1] + cols[2], totalH, {
     align: 'right',
     bold: true,
-    size: 14,
+    size: 11,
+    yOffset: 8,
   });
   x += cols[1] + cols[2];
-  drawCell(doc, String(totalPieces), x, y, cols[3], totalH, { bold: true, size: 14 });
+  drawCell(doc, String(totalPieces), x, y, cols[3], totalH, { bold: true, size: 11, yOffset: 8 });
   x += cols[3];
   drawCell(doc, formatAmount(totalWeight, 2), x, y, cols[4], totalH, {
     bold: true,
-    size: 14,
+    size: 11,
+    yOffset: 8,
   });
   x += cols[4];
   drawCell(doc, '', x, y, cols[5], totalH, { bold: true });
   x += cols[5];
   drawCell(doc, formatAmount(invoice.total), x, y, cols[6], totalH, {
     bold: true,
-    size: 14,
+    size: 11,
+    yOffset: 8,
   });
   y += totalH;
 
