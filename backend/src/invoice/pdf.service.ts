@@ -395,19 +395,19 @@ export function generateInvoicePDF(
     doc.fontSize(11);
   });
 
-  doc.font('Arabic').fontSize(11).text(rtlVisual(activityArabic), 210, formTop - 4, {
+  doc.font('Arabic').fontSize(10).text(rtlVisual(activityArabic), 210, formTop - 8, {
     width: 170,
     align: 'center',
   });
-  doc.font('Helvetica-Bold').fontSize(11).text(activityEnglish, 206, formTop + 14, {
+  doc.font('Helvetica-Bold').fontSize(10).text(activityEnglish, 206, formTop + 12, {
     width: 178,
     align: 'center',
   });
-  doc.font('Arabic').fontSize(11).text(rtlVisual(titleArabic), 210, formTop + 35, {
+  doc.font('Arabic').fontSize(10).text(rtlVisual(titleArabic), 210, formTop + 36, {
     width: 170,
     align: 'center',
   });
-  doc.font('Helvetica-Bold').fontSize(11).text(titleEnglish, 218, formTop + 52, {
+  doc.font('Helvetica-Bold').fontSize(10).text(titleEnglish, 218, formTop + 55, {
     width: 155,
     align: 'center',
     underline: true,
@@ -446,16 +446,16 @@ export function generateInvoicePDF(
   doc.dash(1.5, { space: 2 });
   doc.moveTo(leftX + 122, partyY + 29).lineTo(rightX - 154, partyY + 29).stroke();
   doc.undash();
-  doc.font('Arabic').fontSize(13).text(rtlVisual('المطلوب من السيد / السادة'), rightX - 150, partyY + 13, {
-    width: 138,
+  doc.font('Arabic').fontSize(10).text(rtlVisual('المطلوب من السيد / السادة'), rightX - 190, partyY + 16, {
+    width: 176,
     align: 'right',
   });
 
   const tableX = leftX;
-  const tableY = 260;
+  const tableY = 258;
   const tableW = contentW;
-  const tableBottom = 704;
-  const headerH = 67;
+  const tableBottom = 690;
+  const headerH = 78;
   const footerH = 34;
   const bodyTop = tableY + headerH;
   const bodyBottom = tableBottom - footerH;
@@ -483,69 +483,73 @@ export function generateInvoicePDF(
 
   doc.roundedRect(tableX, tableY, tableW, tableBottom - tableY, 12).stroke();
   for (const xLine of colXs.slice(1)) {
-    doc.moveTo(xLine, tableY).lineTo(xLine, tableBottom).stroke();
+    const startsBelowMergedHeader = xLine === colXs[5] || xLine === colXs[7];
+    doc
+      .moveTo(xLine, startsBelowMergedHeader ? tableY + 37 : tableY)
+      .lineTo(xLine, tableBottom)
+      .stroke();
   }
   doc.moveTo(tableX, bodyTop).lineTo(tableX + tableW, bodyTop).stroke();
   doc.moveTo(tableX, bodyBottom).lineTo(tableX + tableW, bodyBottom).stroke();
-  doc.moveTo(colXs[4], tableY + 32).lineTo(tableX + tableW, tableY + 32).stroke();
+  doc.moveTo(colXs[4], tableY + 37).lineTo(tableX + tableW, tableY + 37).stroke();
 
   const headerCenterY = tableY + 14;
-  doc.font('Helvetica-Bold').fontSize(14).text('Description', tableX + 8, headerCenterY + 6, {
+  doc.font('Helvetica-Bold').fontSize(13).text('Description', tableX + 8, headerCenterY + 3, {
     width: cols.desc - 16,
     align: 'center',
   });
-  doc.font('Arabic').fontSize(12).text(rtlVisual('التفاصيل'), tableX + 126, headerCenterY + 8, {
+  doc.font('Arabic').fontSize(10).text(rtlVisual('التفاصيل'), tableX + 126, headerCenterY + 24, {
     width: 95,
     align: 'center',
   });
-  doc.font('Arabic').fontSize(9).text(rtlVisual('لحم بقر\nمستورد'), colXs[1] + 3, tableY + 8, {
+  doc.font('Arabic').fontSize(7).text(rtlVisual('لحم بقر\nمستورد'), colXs[1] + 3, tableY + 6, {
     width: cols.beef - 6,
     align: 'center',
   });
-  doc.font('Helvetica-Bold').fontSize(7).text('Beef\nImported', colXs[1] + 2, tableY + 37, {
+  doc.font('Helvetica-Bold').fontSize(6).text('Beef\nImported', colXs[1] + 2, tableY + 40, {
     width: cols.beef - 4,
     align: 'center',
   });
-  doc.font('Arabic').fontSize(9).text(rtlVisual('لحم غنم\nمستورد'), colXs[2] + 3, tableY + 8, {
+  doc.font('Arabic').fontSize(7).text(rtlVisual('لحم غنم\nمستورد'), colXs[2] + 3, tableY + 6, {
     width: cols.mutton - 6,
     align: 'center',
   });
-  doc.font('Helvetica-Bold').fontSize(7).text('Mutton\nImported', colXs[2] + 2, tableY + 37, {
+  doc.font('Helvetica-Bold').fontSize(6).text('Mutton\nImported', colXs[2] + 2, tableY + 40, {
     width: cols.mutton - 4,
     align: 'center',
   });
-  doc.font('Helvetica-Bold').fontSize(10).text('Qty.', colXs[3] + 4, tableY + 23, {
+  doc.font('Helvetica-Bold').fontSize(9).text('Qty.', colXs[3] + 4, tableY + 26, {
     width: cols.qty - 8,
     align: 'center',
   });
-  doc.font('Arabic').fontSize(9).text(rtlVisual('الكمية'), colXs[3] + 4, tableY + 38, {
+  doc.font('Arabic').fontSize(8).text(rtlVisual('الكمية'), colXs[3] + 4, tableY + 48, {
     width: cols.qty - 8,
     align: 'center',
   });
-  doc.font('Arabic').fontSize(10).text(rtlVisual('سعر الوحدة'), colXs[4] + 4, tableY + 8, {
+  doc.font('Arabic').fontSize(8).text(rtlVisual('سعر الوحدة'), colXs[4] + 4, tableY + 6, {
     width: cols.unitK + cols.unitF - 8,
     align: 'center',
   });
-  doc.font('Helvetica-Bold').fontSize(10).text('Unit Price', colXs[4] + 4, tableY + 20, {
+  doc.font('Helvetica-Bold').fontSize(8).text('Unit Price', colXs[4] + 4, tableY + 22, {
     width: cols.unitK + cols.unitF - 8,
     align: 'center',
   });
-  doc.font('Arabic').fontSize(10).text(rtlVisual('المبلغ الاجمالية'), colXs[6] + 4, tableY + 8, {
+  doc.font('Arabic').fontSize(8).text(rtlVisual('المبلغ الاجمالية'), colXs[6] + 4, tableY + 6, {
     width: cols.amountK + cols.amountF - 8,
     align: 'center',
   });
-  doc.font('Helvetica-Bold').fontSize(10).text('Total Amount', colXs[6] + 4, tableY + 20, {
+  doc.font('Helvetica-Bold').fontSize(8).text('Total Amount', colXs[6] + 4, tableY + 22, {
     width: cols.amountK + cols.amountF - 8,
     align: 'center',
   });
-  doc.font('Arabic').fontSize(8).text(rtlVisual('دينار'), colXs[4] + 3, tableY + 38, { width: cols.unitK - 6, align: 'center' });
-  doc.font('Helvetica-Bold').fontSize(8).text(moneyMajorLabel(currency), colXs[4] + 3, tableY + 50, { width: cols.unitK - 6, align: 'center' });
-  doc.font('Arabic').fontSize(8).text(rtlVisual('فلس'), colXs[5] + 3, tableY + 38, { width: cols.unitF - 6, align: 'center' });
-  doc.font('Helvetica-Bold').fontSize(8).text(moneyMinorLabel(currency), colXs[5] + 3, tableY + 50, { width: cols.unitF - 6, align: 'center' });
-  doc.font('Arabic').fontSize(8).text(rtlVisual('دينار'), colXs[6] + 3, tableY + 38, { width: cols.amountK - 6, align: 'center' });
-  doc.font('Helvetica-Bold').fontSize(8).text(moneyMajorLabel(currency), colXs[6] + 3, tableY + 50, { width: cols.amountK - 6, align: 'center' });
-  doc.font('Arabic').fontSize(8).text(rtlVisual('فلس'), colXs[7] + 3, tableY + 38, { width: cols.amountF - 6, align: 'center' });
-  doc.font('Helvetica-Bold').fontSize(8).text(moneyMinorLabel(currency), colXs[7] + 3, tableY + 50, { width: cols.amountF - 6, align: 'center' });
+  doc.font('Arabic').fontSize(7).text(rtlVisual('دينار'), colXs[4] + 3, tableY + 43, { width: cols.unitK - 6, align: 'center' });
+  doc.font('Helvetica-Bold').fontSize(7).text(moneyMajorLabel(currency), colXs[4] + 3, tableY + 58, { width: cols.unitK - 6, align: 'center' });
+  doc.font('Arabic').fontSize(7).text(rtlVisual('فلس'), colXs[5] + 3, tableY + 43, { width: cols.unitF - 6, align: 'center' });
+  doc.font('Helvetica-Bold').fontSize(7).text(moneyMinorLabel(currency), colXs[5] + 3, tableY + 58, { width: cols.unitF - 6, align: 'center' });
+  doc.font('Arabic').fontSize(7).text(rtlVisual('دينار'), colXs[6] + 3, tableY + 43, { width: cols.amountK - 6, align: 'center' });
+  doc.font('Helvetica-Bold').fontSize(7).text(moneyMajorLabel(currency), colXs[6] + 3, tableY + 58, { width: cols.amountK - 6, align: 'center' });
+  doc.font('Arabic').fontSize(7).text(rtlVisual('فلس'), colXs[7] + 3, tableY + 43, { width: cols.amountF - 6, align: 'center' });
+  doc.font('Helvetica-Bold').fontSize(7).text(moneyMinorLabel(currency), colXs[7] + 3, tableY + 58, { width: cols.amountF - 6, align: 'center' });
 
   for (let lineY = bodyTop + rowH; lineY < bodyBottom; lineY += rowH) {
     doc.dash(1.5, { space: 2 });
@@ -584,10 +588,10 @@ export function generateInvoicePDF(
       align: 'left',
     });
     if (descriptionArabic) {
-      doc.font('Arabic').fontSize(9).text(rtlVisual(descriptionArabic), tableX + 8, y + 12, {
-        width: cols.desc - 16,
-        align: 'right',
-      });
+    doc.font('Arabic').fontSize(7).text(rtlVisual(descriptionArabic), tableX + 8, y + 9, {
+      width: cols.desc - 16,
+      align: 'right',
+    });
     }
     doc.font('Helvetica').fontSize(10);
     doc.text(beefQty, colXs[1] + 3, y + 3, { width: cols.beef - 6, align: 'center' });
@@ -604,9 +608,9 @@ export function generateInvoicePDF(
     width: 95,
   });
   doc.dash(1.5, { space: 2 });
-  doc.moveTo(tableX + 92, bodyBottom + 23).lineTo(colXs[6] - 10, bodyBottom + 23).stroke();
+  doc.moveTo(tableX + 92, bodyBottom + 23).lineTo(colXs[6] - 98, bodyBottom + 23).stroke();
   doc.undash();
-  doc.font('Arabic').fontSize(11).text(rtlVisual('المجموع فقط'), colXs[6] - 88, bodyBottom + 10, {
+  doc.font('Arabic').fontSize(9).text(rtlVisual('المجموع فقط'), colXs[6] - 88, bodyBottom + 9, {
     width: 78,
     align: 'right',
   });
@@ -619,14 +623,15 @@ export function generateInvoicePDF(
     align: 'center',
   });
 
-  doc.font('Helvetica-Bold').fontSize(12).text('Sign.', leftX + 14, 724, { width: 44 });
+  doc.font('Helvetica-Bold').fontSize(10).text('Sign.', leftX + 14, 713, { width: 44 });
   doc.dash(1.5, { space: 2 });
-  doc.moveTo(leftX + 58, 736).lineTo(leftX + 190, 736).stroke();
-  doc.moveTo(314, 736).lineTo(505, 736).stroke();
+  doc.moveTo(leftX + 58, 724).lineTo(leftX + 200, 724).stroke();
+  doc.moveTo(320, 724).lineTo(502, 724).stroke();
   doc.undash();
-  doc.font('Arabic').fontSize(12).text(rtlVisual('توقيع'), leftX + 192, 724, { width: 45, align: 'right' });
-  doc.font('Helvetica-Bold').fontSize(12).text('Receiver Sign.', 264, 724, { width: 88 });
-  doc.font('Arabic').fontSize(12).text(rtlVisual('توقيع المستلم'), 506, 724, { width: 58, align: 'right' });
+  doc.font('Arabic').fontSize(10).text(rtlVisual('توقيع'), leftX + 202, 711, { width: 36, align: 'right' });
+  doc.font('Helvetica-Bold').fontSize(10).text('Receiver Sign.', 262, 713, { width: 78 });
+  doc.font('Arabic').fontSize(10).text(rtlVisual('المستلم'), 506, 711, { width: 52, align: 'right' });
+  doc.font('Arabic').fontSize(10).text(rtlVisual('توقيع'), 506, 723, { width: 52, align: 'right' });
 
   const previousBalance = Number(invoice.previous_balance ?? 0);
   const showPreviousBalance =
