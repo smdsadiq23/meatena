@@ -126,6 +126,35 @@ function drawArabicPhoneDigits(
   });
 }
 
+function drawArabicSlashPhrase(
+  doc: PDFKit.PDFDocument,
+  leftText: string,
+  rightText: string,
+  x: number,
+  y: number,
+  width: number,
+  size = 10,
+) {
+  const slashWidth = 8;
+  const sideWidth = Math.floor((width - slashWidth) / 2);
+
+  doc.font('Arabic').fontSize(size).text(rtlVisual(leftText), x, y, {
+    width: sideWidth,
+    align: 'right',
+    lineBreak: false,
+  });
+  doc.font('Helvetica').fontSize(size).text('/', x + sideWidth, y, {
+    width: slashWidth,
+    align: 'center',
+    lineBreak: false,
+  });
+  doc.font('Arabic').fontSize(size).text(rtlVisual(rightText), x + sideWidth + slashWidth, y, {
+    width: sideWidth,
+    align: 'right',
+    lineBreak: false,
+  });
+}
+
 function inferArabicDescription(english: string) {
   const normalized = english.toLowerCase();
   const meat = normalized.includes('mutton')
@@ -393,8 +422,8 @@ function drawCleanLetterheadFooter(doc: PDFKit.PDFDocument) {
   doc
     .fillColor('#c01822')
     .font('Arabic')
-    .fontSize(10)
-    .text(rtlVisual('منطقة الشويخ الصناعية ٣، قطعة رقم ١، شارع رقم ٧١، مبنى رقم ٢٢٢، محل رقم ٠٦'), 20, 771, {
+    .fontSize(9)
+    .text(rtlVisual('منطقة الشويخ الصناعية ٣، قطعة رقم ١، شارع رقم ٧١، مبنى رقم ٢٢٢، محل رقم ٠٦'), 20, 770, {
       width: textWidth,
       align: 'center',
       lineBreak: false,
@@ -404,7 +433,7 @@ function drawCleanLetterheadFooter(doc: PDFKit.PDFDocument) {
     .fillColor('#1b2f6b')
     .font('Times-Roman')
     .fontSize(8.4)
-    .text('javedmeatsupply@gmail.com', 20, 787, {
+    .text('javedmeatsupply@gmail.com', 20, 790, {
       width: textWidth,
       align: 'center',
       lineBreak: false,
@@ -526,10 +555,7 @@ export function generateInvoicePDF(
   doc.dash(1.5, { space: 2 });
   doc.moveTo(leftX + 122, partyY + 29).lineTo(rightX - 154, partyY + 29).stroke();
   doc.undash();
-  doc.font('Arabic').fontSize(10).text(rtlVisual('المطلوب من السيد / السادة'), rightX - 190, partyY + 16, {
-    width: 176,
-    align: 'right',
-  });
+  drawArabicSlashPhrase(doc, 'المطلوب من السيد', 'السادة', rightX - 190, partyY + 16, 176, 10);
 
   const tableX = leftX;
   const tableY = 258;
