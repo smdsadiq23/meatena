@@ -128,30 +128,48 @@ function drawArabicPhoneDigits(
 
 function drawArabicSlashPhrase(
   doc: PDFKit.PDFDocument,
-  leftText: string,
   rightText: string,
+  leftText: string,
   x: number,
   y: number,
   width: number,
   size = 10,
 ) {
-  const slashWidth = 8;
-  const sideWidth = Math.floor((width - slashWidth) / 2);
+  const slashGap = 3;
+  const slashWidth = 6;
+  const rightVisual = rtlVisual(rightText);
+  const leftVisual = rtlVisual(leftText);
 
-  doc.font('Arabic').fontSize(size).text(rtlVisual(leftText), x, y, {
-    width: sideWidth,
+  doc.font('Arabic').fontSize(size);
+  const rightWords = rightVisual.split(/\s+/).filter(Boolean);
+  const wordGap = 5;
+  const rightWordWidths = rightWords.map((word) => doc.widthOfString(word));
+  const rightWidth =
+    rightWordWidths.reduce((total, wordWidth) => total + wordWidth, 0) +
+    wordGap * Math.max(0, rightWords.length - 1);
+  const leftWidth = doc.widthOfString(leftVisual) + 4;
+  const totalWidth = rightWidth + slashGap * 2 + slashWidth + leftWidth;
+  const startX = x + width - totalWidth;
+
+  doc.font('Arabic').fontSize(size).text(leftVisual, startX, y, {
+    width: leftWidth,
     align: 'right',
     lineBreak: false,
   });
-  doc.font('Helvetica').fontSize(size).text('/', x + sideWidth, y, {
+  doc.font('Helvetica').fontSize(size).text('/', startX + leftWidth + slashGap, y, {
     width: slashWidth,
     align: 'center',
     lineBreak: false,
   });
-  doc.font('Arabic').fontSize(size).text(rtlVisual(rightText), x + sideWidth + slashWidth, y, {
-    width: sideWidth,
-    align: 'right',
-    lineBreak: false,
+  let rightCursor = startX + leftWidth + slashGap + slashWidth + slashGap;
+  rightWords.forEach((word, index) => {
+    const wordWidth = rightWordWidths[index];
+    doc.font('Arabic').fontSize(size).text(word, rightCursor, y, {
+      width: wordWidth,
+      align: 'right',
+      lineBreak: false,
+    });
+    rightCursor += wordWidth + wordGap;
   });
 }
 
