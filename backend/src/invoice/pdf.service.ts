@@ -13,6 +13,12 @@ type ProductPdfName = {
 
 function getArabicFontPath() {
   const fontPaths = [
+    '/usr/share/fonts/google-noto/NotoSansArabic-Regular.ttf',
+    '/usr/share/fonts/google-noto/NotoNaskhArabic-Regular.ttf',
+    '/usr/share/fonts/google-noto-naskh-arabic/NotoNaskhArabic-Regular.ttf',
+    '/usr/share/fonts/google-noto-naskh-arabic-vf/NotoNaskhArabic[wght].ttf',
+    '/usr/share/fonts/google-noto-sans-arabic/NotoSansArabic-Regular.ttf',
+    '/usr/share/fonts/google-noto-sans-arabic-vf/NotoSansArabic[wdth,wght].ttf',
     '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
     '/Library/Fonts/Arial Unicode.ttf',
     '/System/Library/Fonts/Supplemental/Arial Unicode.ttf',
@@ -221,6 +227,58 @@ function drawTopLine(
     });
 }
 
+function drawArabicTitleWithSlash(
+  doc: PDFKit.PDFDocument,
+  text: string,
+  x: number,
+  y: number,
+  width: number,
+) {
+  const [rawLeft, rawRight] = text.split('/').map((part) => part.trim());
+
+  if (!rawLeft || !rawRight) {
+    drawTopLine(doc, text, x, y, width, {
+      font: 'Arabic',
+      size: 20,
+      align: 'right',
+      underline: true,
+    });
+    return;
+  }
+
+  const slashWidth = 18;
+  const leftWidth = Math.floor((width - slashWidth) * 0.58);
+  const rightWidth = width - slashWidth - leftWidth;
+  const baselineY = y + 26;
+
+  doc
+    .font('Arabic')
+    .fontSize(20)
+    .text(rtlVisual(rawLeft), x, y, {
+      width: leftWidth,
+      align: 'right',
+      lineGap: 1,
+    });
+  doc
+    .font('Helvetica-Bold')
+    .fontSize(20)
+    .text('/', x + leftWidth, y, {
+      width: slashWidth,
+      align: 'center',
+      lineGap: 1,
+    });
+  doc
+    .font('Arabic')
+    .fontSize(20)
+    .text(rtlVisual(rawRight), x + leftWidth + slashWidth, y, {
+      width: rightWidth,
+      align: 'right',
+      lineGap: 1,
+    });
+
+  doc.moveTo(x + 38, baselineY).lineTo(x + width - 6, baselineY).stroke();
+}
+
 export function generateInvoicePDF(
   invoice: InvoiceWithNumber,
   items: InvoiceItem[],
@@ -322,12 +380,7 @@ export function generateInvoicePDF(
     align: 'right',
     underline: true,
   });
-  drawTopLine(doc, titleArabic, 455, 238, 330, {
-    font: 'Arabic',
-    size: 20,
-    align: 'right',
-    underline: true,
-  });
+  drawArabicTitleWithSlash(doc, titleArabic, 455, 238, 330);
 
   doc.moveTo(tableX, 273).lineTo(tableX + tableW, 273).stroke();
   drawTopLine(doc, `${activityEnglish} /`, 150, 280, 300, {
