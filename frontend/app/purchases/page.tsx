@@ -8,7 +8,7 @@ import {
   fetchJsonOrThrow,
   getErrorMessage,
 } from "../../lib/auth";
-import { Money, useCurrencyRate } from "../../lib/currency";
+import { Money, setDisplayCurrency, useCurrencyRate } from "../../lib/currency";
 
 type Supplier = {
   id: number;
@@ -247,6 +247,7 @@ export default function PurchasesPage() {
       setInvoiceNo("");
       setReceiptFile(null);
       setPurchaseCurrency("KWD");
+      setDisplayCurrency("KWD");
       setItems([emptyItem]);
       setStatusType("success");
       setStatus(
@@ -273,6 +274,7 @@ export default function PurchasesPage() {
       setEditSupplierId(String(detail.supplier_id));
       setEditInvoiceNo(detail.invoice_no || "");
       setEditPurchaseCurrency(detail.transaction_currency ?? "KWD");
+      setDisplayCurrency(detail.transaction_currency ?? "KWD");
       setEditExchangeRate(Number(detail.exchange_rate ?? currencyRate));
       setEditItems(
         detail.items.length
@@ -330,6 +332,7 @@ export default function PurchasesPage() {
       setEditSupplierId("");
       setEditInvoiceNo("");
       setEditPurchaseCurrency("KWD");
+      setDisplayCurrency("KWD");
       setEditExchangeRate(currencyRate);
       setEditItems([emptyItem]);
       setStatusType("success");
@@ -444,14 +447,14 @@ export default function PurchasesPage() {
               key={currency}
               type="button"
               className={purchaseCurrency === currency ? "btn-primary px-5" : "btn-secondary px-5"}
-              onClick={() => setPurchaseCurrency(currency)}
+              onClick={() => {
+                setPurchaseCurrency(currency);
+                setDisplayCurrency(currency);
+              }}
             >
               {currency}
             </button>
           ))}
-          <span className="text-sm font-semibold text-slate-500">
-            Rate: 1 KWD = {currencyRate.toFixed(3)} USD
-          </span>
         </div>
 
         <div className="mt-4 rounded-3xl border border-dashed border-black/15 bg-slate-50 p-5">
@@ -528,14 +531,12 @@ export default function PurchasesPage() {
                         onClick={() => {
                           setEditPurchaseCurrency(currency);
                           setEditExchangeRate(currencyRate);
+                          setDisplayCurrency(currency);
                         }}
                       >
                         {currency}
                       </button>
                     ))}
-                    <span className="text-sm font-semibold text-slate-500">
-                      Rate: 1 KWD = {editExchangeRate.toFixed(3)} USD
-                    </span>
                   </div>
 
                   <div className="space-y-3">

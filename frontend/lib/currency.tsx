@@ -5,9 +5,13 @@ import { API, fetchJsonOrThrow } from "./auth";
 
 const DEFAULT_KWD_TO_USD_RATE = Number(process.env.NEXT_PUBLIC_KWD_TO_USD_RATE ?? 3.25);
 const STORAGE_KEY = "kwd_to_usd_rate";
+const DISPLAY_CURRENCY_STORAGE_KEY = "display_currency";
+export type DisplayCurrency = "KWD" | "USD";
 
 let currentRate = DEFAULT_KWD_TO_USD_RATE;
+let currentDisplayCurrency: DisplayCurrency = "KWD";
 const listeners = new Set<() => void>();
+const displayListeners = new Set<() => void>();
 
 function readStoredRate() {
   if (typeof window === "undefined") {
@@ -20,6 +24,18 @@ function readStoredRate() {
 
 function emitRateChange() {
   listeners.forEach((listener) => listener());
+}
+
+function readStoredDisplayCurrency(): DisplayCurrency {
+  if (typeof window === "undefined") {
+    return currentDisplayCurrency;
+  }
+
+  return window.localStorage.getItem(DISPLAY_CURRENCY_STORAGE_KEY) === "USD" ? "USD" : "KWD";
+}
+
+function emitDisplayCurrencyChange() {
+  displayListeners.forEach((listener) => listener());
 }
 
 export function setCurrencyRate(rate: number) {
@@ -79,6 +95,34 @@ export function useCurrencyRate() {
   );
 }
 
+export function setDisplayCurrency(currency: DisplayCurrency) {
+  currentDisplayCurrency = currency;
+
+  if (typeof window !== "undefined") {
+    window.localStorage.setItem(DISPLAY_CURRENCY_STORAGE_KEY, currency);
+  }
+
+  emitDisplayCurrencyChange();
+}
+
+export function subscribeDisplayCurrency(listener: () => void) {
+  displayListeners.add(listener);
+  return () => displayListeners.delete(listener);
+}
+
+export function getDisplayCurrencySnapshot(): DisplayCurrency {
+  currentDisplayCurrency = readStoredDisplayCurrency();
+  return currentDisplayCurrency;
+}
+
+export function useDisplayCurrency(): DisplayCurrency {
+  return useSyncExternalStore(
+    subscribeDisplayCurrency,
+    getDisplayCurrencySnapshot,
+    () => "KWD"
+  );
+}
+
 export function kwdToUsd(value: number | string | undefined | null, rate = currentRate) {
   return Number(value ?? 0) * rate;
 }
@@ -91,8 +135,15 @@ export function formatUsd(value: number | string | undefined | null) {
   return `USD ${kwdToUsd(value).toFixed(2)}`;
 }
 
+export function formatCurrency(
+  value: number | string | undefined | null,
+  currency = currentDisplayCurrency
+) {
+  return currency === "USD" ? formatUsd(value) : formatKwd(value);
+}
+
 export function formatDualCurrency(value: number | string | undefined | null) {
-  return `${formatKwd(value)} | ${formatUsd(value)}`;
+  return formatCurrency(value);
 }
 
 export function Money({
@@ -105,12 +156,12 @@ export function Money({
   usdClassName?: string;
 }) {
   useCurrencyRate();
+  const displayCurrency = useDisplayCurrency();
 
   return (
     <span className={`inline-flex min-w-0 max-w-full flex-col leading-[1.08] tracking-normal ${className}`}>
-      <span className="block max-w-full whitespace-normal break-words">{formatKwd(value)}</span>
-      <span className={`mt-1 block max-w-full whitespace-normal break-words text-[0.52em] font-extrabold leading-none tracking-normal opacity-70 ${usdClassName}`}>
-        {formatUsd(value)}
+      <span className={`block max-w-full whitespace-normal break-words ${displayCurrency === "USD" ? usdClassName : ""}`}>
+        {formatCurrency(value, displayCurrency)}
       </span>
     </span>
   );

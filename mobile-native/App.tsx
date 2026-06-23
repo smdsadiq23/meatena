@@ -634,10 +634,15 @@ function money(value: number | string | undefined | null) {
 }
 
 let currentKwdToUsdRate = Number(process.env.KWD_TO_USD_RATE ?? 3.25);
+let currentDisplayCurrency: TransactionCurrency = 'KWD';
+
+function setCurrentDisplayCurrency(currency: TransactionCurrency) {
+  currentDisplayCurrency = currency;
+}
 
 function currency(value: number | string | undefined | null) {
   const parts = splitCurrency(value);
-  return `${parts.kwd}\n${parts.usd}`;
+  return currentDisplayCurrency === 'USD' ? parts.usd : parts.kwd;
 }
 
 function splitCurrency(value: number | string | undefined | null) {
@@ -649,8 +654,7 @@ function splitCurrency(value: number | string | undefined | null) {
 }
 
 function currencyInline(value: number | string | undefined | null) {
-  const kwd = Number(value ?? 0);
-  return `KWD ${kwd.toFixed(3)} | USD ${(kwd * currentKwdToUsdRate).toFixed(2)}`;
+  return currency(value);
 }
 
 function invoiceLabel(invoice: Invoice) {
@@ -666,7 +670,7 @@ function compactPhone(value?: string | null) {
 }
 
 function isCurrencyValue(value?: string) {
-  return Boolean(value?.startsWith('KWD ') && value.includes('\nUSD '));
+  return Boolean(value?.startsWith('KWD ') || value?.startsWith('USD '));
 }
 
 function normalizeServerUrl(value: string) {
@@ -1396,6 +1400,7 @@ export default function App() {
         invoiceNumber: '',
       }));
       setInvoiceCurrency('KWD');
+      setCurrentDisplayCurrency('KWD');
       setIncludePreviousBalance(false);
       setInvoiceItems([{ productId: selectedProductId, pieces: '', weight: '', price: String(selectedProduct?.price_per_kg ?? '') }]);
       await loadData();
@@ -1845,6 +1850,7 @@ export default function App() {
       });
       setPurchaseForm(emptyPurchaseForm);
       setPurchaseCurrency('KWD');
+      setCurrentDisplayCurrency('KWD');
       setStatus('Purchase recorded and stock updated.');
       await loadData();
     } catch (error) {
@@ -1871,6 +1877,7 @@ export default function App() {
       setSelectedSupplierId(detail.supplier_id);
       setSelectedProductId(firstItem?.product_id ?? selectedProductId);
       setPurchaseEditCurrency(nextCurrency);
+      setCurrentDisplayCurrency(nextCurrency);
       setPurchaseEditForm({
         supplierId: String(detail.supplier_id),
         invoiceNo: detail.invoice_no ?? '',
@@ -1915,6 +1922,7 @@ export default function App() {
       setEditingPurchaseId(noEdit);
       setPurchaseEditForm(emptyPurchaseForm);
       setPurchaseEditCurrency('KWD');
+      setCurrentDisplayCurrency('KWD');
       setStatus('Purchase updated.');
       await loadData();
     } catch (error) {
@@ -2576,10 +2584,15 @@ export default function App() {
           </View>
           <Text style={styles.subhead}>Billing currency</Text>
           <View style={styles.twoCols}>
-            <Pill label="KWD" active={invoiceCurrency === 'KWD'} onPress={() => setInvoiceCurrency('KWD')} />
-            <Pill label="USD" active={invoiceCurrency === 'USD'} onPress={() => setInvoiceCurrency('USD')} />
+            <Pill label="KWD" active={invoiceCurrency === 'KWD'} onPress={() => {
+              setInvoiceCurrency('KWD');
+              setCurrentDisplayCurrency('KWD');
+            }} />
+            <Pill label="USD" active={invoiceCurrency === 'USD'} onPress={() => {
+              setInvoiceCurrency('USD');
+              setCurrentDisplayCurrency('USD');
+            }} />
           </View>
-          <Text style={styles.mutedDark}>1 KWD = {currencyRate.toFixed(3)} USD</Text>
           {invoiceItems.map((item, index) => {
             const lineAmount =
               Number(item.weight || 0) * toBaseKwd(Number(item.price || 0), invoiceCurrency);
@@ -3028,10 +3041,15 @@ export default function App() {
         <ProductPicker products={products} value={selectedProductId} onChange={setSelectedProductId} />
         <Text style={styles.subhead}>Purchase currency</Text>
         <View style={styles.twoCols}>
-          <Pill label="KWD" active={purchaseCurrency === 'KWD'} onPress={() => setPurchaseCurrency('KWD')} />
-          <Pill label="USD" active={purchaseCurrency === 'USD'} onPress={() => setPurchaseCurrency('USD')} />
+          <Pill label="KWD" active={purchaseCurrency === 'KWD'} onPress={() => {
+            setPurchaseCurrency('KWD');
+            setCurrentDisplayCurrency('KWD');
+          }} />
+          <Pill label="USD" active={purchaseCurrency === 'USD'} onPress={() => {
+            setPurchaseCurrency('USD');
+            setCurrentDisplayCurrency('USD');
+          }} />
         </View>
-        <Text style={styles.mutedDark}>1 KWD = {currencyRate.toFixed(3)} USD</Text>
         <TextInput
           style={styles.input}
           value={purchaseForm.invoiceNo}
@@ -3074,8 +3092,14 @@ export default function App() {
                 <SupplierPicker suppliers={suppliers} value={selectedSupplierId} onChange={setSelectedSupplierId} />
                 <ProductPicker products={products} value={selectedProductId} onChange={setSelectedProductId} />
                 <View style={styles.twoCols}>
-                  <Pill label="KWD" active={purchaseEditCurrency === 'KWD'} onPress={() => setPurchaseEditCurrency('KWD')} />
-                  <Pill label="USD" active={purchaseEditCurrency === 'USD'} onPress={() => setPurchaseEditCurrency('USD')} />
+                  <Pill label="KWD" active={purchaseEditCurrency === 'KWD'} onPress={() => {
+                    setPurchaseEditCurrency('KWD');
+                    setCurrentDisplayCurrency('KWD');
+                  }} />
+                  <Pill label="USD" active={purchaseEditCurrency === 'USD'} onPress={() => {
+                    setPurchaseEditCurrency('USD');
+                    setCurrentDisplayCurrency('USD');
+                  }} />
                 </View>
                 <TextInput
                   style={styles.input}
@@ -4017,26 +4041,16 @@ function Row({
 }
 
 function MoneyText({ value, danger }: { value: string; danger?: boolean }) {
-  if (!isCurrencyValue(value)) {
-    return <Text style={danger ? styles.dangerText : styles.rowRight}>{value}</Text>;
-  }
-
-  const [kwd, usd] = value.split('\n');
   return (
-    <View style={styles.rowMoney}>
-      <Text style={danger ? styles.dangerText : styles.rowRight} numberOfLines={1} adjustsFontSizeToFit>
-        {kwd}
-      </Text>
-      <Text style={danger ? styles.dangerSubText : styles.rowUsd} numberOfLines={1} adjustsFontSizeToFit>
-        {usd}
-      </Text>
-    </View>
+    <Text style={danger ? styles.dangerText : styles.rowRight} numberOfLines={1} adjustsFontSizeToFit>
+      {value}
+    </Text>
   );
 }
 
 function Metric({ label, value, tone }: { label: string; value: string; tone?: 'red' | 'green' | 'amber' | 'blue' | 'dark' }) {
   const { t } = useLanguage();
-  const currencyValue = isCurrencyValue(value) ? value.split('\n') : null;
+  const currencyValue = isCurrencyValue(value) ? value : null;
   return (
     <View
       style={[
@@ -4051,10 +4065,7 @@ function Metric({ label, value, tone }: { label: string; value: string; tone?: '
       {currencyValue ? (
         <View style={styles.metricMoney}>
           <Text style={[styles.metricValue, tone && tone !== 'amber' ? styles.metricValueTint : null]} numberOfLines={1} adjustsFontSizeToFit>
-            {currencyValue[0]}
-          </Text>
-          <Text style={[styles.metricUsd, tone && tone !== 'amber' ? styles.metricValueTint : null]} numberOfLines={1} adjustsFontSizeToFit>
-            {currencyValue[1]}
+            {currencyValue}
           </Text>
         </View>
       ) : (

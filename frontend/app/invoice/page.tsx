@@ -6,7 +6,7 @@ import {
   fetchJson,
   fetchJsonOrThrow,
 } from "../../lib/auth";
-import { formatDualCurrency, Money, useCurrencyRate } from "../../lib/currency";
+import { formatDualCurrency, Money, setDisplayCurrency, useCurrencyRate } from "../../lib/currency";
 import { useLanguage } from "../../lib/use-language";
 const DEFAULT_PRICE = "3.150";
 
@@ -354,6 +354,7 @@ export default function Invoice() {
     setInvoiceNumber("");
     setDraftInvoiceNumber("");
     setInvoiceCurrency("KWD");
+    setDisplayCurrency("KWD");
     setIncludePreviousBalance(false);
     setStatus("");
     setStatusType("success");
@@ -693,14 +694,14 @@ export default function Invoice() {
                 key={currency}
                 type="button"
                 className={invoiceCurrency === currency ? "btn-primary px-5" : "btn-secondary px-5"}
-                onClick={() => setInvoiceCurrency(currency)}
+                onClick={() => {
+                  setInvoiceCurrency(currency);
+                  setDisplayCurrency(currency);
+                }}
               >
                 {currency}
               </button>
             ))}
-            <span className="text-sm font-semibold text-slate-500">
-              1 KWD = {currencyRate.toFixed(3)} USD
-            </span>
           </div>
 
           <div className="mb-2 grid grid-cols-[1.4fr_0.7fr_1fr_1fr_1fr_auto] gap-2 text-sm font-bold uppercase tracking-[0.14em] text-slate-600">
