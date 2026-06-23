@@ -498,11 +498,11 @@ export function generateInvoicePDF(
     width: cols.desc - 16,
     align: 'center',
   });
-  doc.font('Arabic').fontSize(10).text(rtlVisual('التفاصيل'), tableX + 126, headerCenterY + 24, {
+  doc.font('Arabic').fontSize(11).text(rtlVisual('التفاصيل'), tableX + 126, headerCenterY + 23, {
     width: 95,
     align: 'center',
   });
-  doc.font('Arabic').fontSize(7).text(rtlVisual('لحم بقر\nمستورد'), colXs[1] + 3, tableY + 6, {
+  doc.font('Arabic').fontSize(8).text(rtlVisual('لحم بقر\nمستورد'), colXs[1] + 3, tableY + 5, {
     width: cols.beef - 6,
     align: 'center',
   });
@@ -510,7 +510,7 @@ export function generateInvoicePDF(
     width: cols.beef - 4,
     align: 'center',
   });
-  doc.font('Arabic').fontSize(7).text(rtlVisual('لحم غنم\nمستورد'), colXs[2] + 3, tableY + 6, {
+  doc.font('Arabic').fontSize(8).text(rtlVisual('لحم غنم\nمستورد'), colXs[2] + 3, tableY + 5, {
     width: cols.mutton - 6,
     align: 'center',
   });
@@ -522,33 +522,41 @@ export function generateInvoicePDF(
     width: cols.qty - 8,
     align: 'center',
   });
-  doc.font('Arabic').fontSize(8).text(rtlVisual('الكمية'), colXs[3] + 4, tableY + 48, {
+  doc.font('Arabic').fontSize(9).text(rtlVisual('الكمية'), colXs[3] + 4, tableY + 48, {
     width: cols.qty - 8,
     align: 'center',
   });
-  doc.font('Arabic').fontSize(8).text(rtlVisual('سعر الوحدة'), colXs[4] + 4, tableY + 6, {
+  doc.font('Arabic').fontSize(8).text(rtlVisual('سعر'), colXs[4] + 4, tableY + 3, {
     width: cols.unitK + cols.unitF - 8,
     align: 'center',
   });
-  doc.font('Helvetica-Bold').fontSize(8).text('Unit Price', colXs[4] + 4, tableY + 22, {
+  doc.font('Arabic').fontSize(8).text(rtlVisual('الوحدة'), colXs[4] + 4, tableY + 13, {
     width: cols.unitK + cols.unitF - 8,
     align: 'center',
   });
-  doc.font('Arabic').fontSize(8).text(rtlVisual('المبلغ الاجمالية'), colXs[6] + 4, tableY + 6, {
+  doc.font('Helvetica-Bold').fontSize(8).text('Unit Price', colXs[4] + 4, tableY + 27, {
+    width: cols.unitK + cols.unitF - 8,
+    align: 'center',
+  });
+  doc.font('Arabic').fontSize(8).text(rtlVisual('المبلغ'), colXs[6] + 4, tableY + 3, {
     width: cols.amountK + cols.amountF - 8,
     align: 'center',
   });
-  doc.font('Helvetica-Bold').fontSize(8).text('Total Amount', colXs[6] + 4, tableY + 22, {
+  doc.font('Arabic').fontSize(8).text(rtlVisual('الإجمالي'), colXs[6] + 4, tableY + 13, {
     width: cols.amountK + cols.amountF - 8,
     align: 'center',
   });
-  doc.font('Arabic').fontSize(7).text(rtlVisual('دينار'), colXs[4] + 3, tableY + 43, { width: cols.unitK - 6, align: 'center' });
+  doc.font('Helvetica-Bold').fontSize(8).text('Total Amount', colXs[6] + 4, tableY + 27, {
+    width: cols.amountK + cols.amountF - 8,
+    align: 'center',
+  });
+  doc.font('Arabic').fontSize(8).text(rtlVisual('دينار'), colXs[4] + 3, tableY + 43, { width: cols.unitK - 6, align: 'center' });
   doc.font('Helvetica-Bold').fontSize(7).text(moneyMajorLabel(currency), colXs[4] + 3, tableY + 58, { width: cols.unitK - 6, align: 'center' });
-  doc.font('Arabic').fontSize(7).text(rtlVisual('فلس'), colXs[5] + 3, tableY + 43, { width: cols.unitF - 6, align: 'center' });
+  doc.font('Arabic').fontSize(8).text(rtlVisual('فلس'), colXs[5] + 3, tableY + 43, { width: cols.unitF - 6, align: 'center' });
   doc.font('Helvetica-Bold').fontSize(7).text(moneyMinorLabel(currency), colXs[5] + 3, tableY + 58, { width: cols.unitF - 6, align: 'center' });
-  doc.font('Arabic').fontSize(7).text(rtlVisual('دينار'), colXs[6] + 3, tableY + 43, { width: cols.amountK - 6, align: 'center' });
+  doc.font('Arabic').fontSize(8).text(rtlVisual('دينار'), colXs[6] + 3, tableY + 43, { width: cols.amountK - 6, align: 'center' });
   doc.font('Helvetica-Bold').fontSize(7).text(moneyMajorLabel(currency), colXs[6] + 3, tableY + 58, { width: cols.amountK - 6, align: 'center' });
-  doc.font('Arabic').fontSize(7).text(rtlVisual('فلس'), colXs[7] + 3, tableY + 43, { width: cols.amountF - 6, align: 'center' });
+  doc.font('Arabic').fontSize(8).text(rtlVisual('فلس'), colXs[7] + 3, tableY + 43, { width: cols.amountF - 6, align: 'center' });
   doc.font('Helvetica-Bold').fontSize(7).text(moneyMinorLabel(currency), colXs[7] + 3, tableY + 58, { width: cols.amountF - 6, align: 'center' });
 
   for (let lineY = bodyTop + rowH; lineY < bodyBottom; lineY += rowH) {
@@ -588,10 +596,10 @@ export function generateInvoicePDF(
       align: 'left',
     });
     if (descriptionArabic) {
-    doc.font('Arabic').fontSize(7).text(rtlVisual(descriptionArabic), tableX + 8, y + 9, {
-      width: cols.desc - 16,
-      align: 'right',
-    });
+      doc.font('Arabic').fontSize(9).text(rtlVisual(descriptionArabic), tableX + 8, y + 8, {
+        width: cols.desc - 16,
+        align: 'right',
+      });
     }
     doc.font('Helvetica').fontSize(10);
     doc.text(beefQty, colXs[1] + 3, y + 3, { width: cols.beef - 6, align: 'center' });
@@ -607,9 +615,9 @@ export function generateInvoicePDF(
   doc.font('Helvetica-Bold').fontSize(11).text(`Total ${moneyMajorLabel(currency)}`, tableX + 8, bodyBottom + 12, {
     width: 95,
   });
-  doc.font('Arabic').fontSize(9).text(rtlVisual('المجموع فقط'), colXs[6] - 88, bodyBottom + 9, {
-    width: 78,
-    align: 'right',
+  doc.font('Arabic').fontSize(10).text('المجموع فقط', colXs[4] + 2, bodyBottom + 9, {
+    width: cols.unitK + cols.unitF - 4,
+    align: 'center',
   });
   doc.font('Helvetica-Bold').fontSize(12).text(totalParts.major, colXs[6] + 3, bodyBottom + 11, {
     width: cols.amountK - 6,
