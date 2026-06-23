@@ -341,6 +341,61 @@ function drawArabicTitleWithSlash(
   doc.moveTo(x + 38, baselineY).lineTo(x + width - 6, baselineY).stroke();
 }
 
+function drawCleanLetterheadFooter(doc: PDFKit.PDFDocument) {
+  const pageWidth = doc.page.width;
+  const footerTop = 740;
+  const lineBlueY = 747;
+  const lineRedY = 750;
+  const textWidth = pageWidth - 40;
+
+  doc.save();
+  doc.rect(0, footerTop, pageWidth, doc.page.height - footerTop).fill('#ffffff');
+
+  doc
+    .lineWidth(1)
+    .strokeColor('#1b4b9b')
+    .moveTo(14, lineBlueY)
+    .lineTo(pageWidth - 14, lineBlueY)
+    .stroke();
+  doc
+    .strokeColor('#c01822')
+    .moveTo(14, lineRedY)
+    .lineTo(pageWidth - 14, lineRedY)
+    .stroke();
+
+  doc
+    .fillColor('#1b2f6b')
+    .font('Times-Roman')
+    .fontSize(10)
+    .text('Shuwaikh Industrial Area 3, Block No.1, Street No.71, Building No.222, Shop No.06', 20, 758, {
+      width: textWidth,
+      align: 'center',
+      lineBreak: false,
+    });
+
+  doc
+    .fillColor('#c01822')
+    .font('Arabic')
+    .fontSize(10)
+    .text(rtlVisual('منطقة الشويخ الصناعية ٣، قطعة رقم ١، شارع رقم ٧١، مبنى رقم ٢٢٢، محل رقم ٠٦'), 20, 771, {
+      width: textWidth,
+      align: 'center',
+      lineBreak: false,
+    });
+
+  doc
+    .fillColor('#1b2f6b')
+    .font('Times-Roman')
+    .fontSize(8.8)
+    .text('javedmeatsupply@gmail.com', 20, 784, {
+      width: textWidth,
+      align: 'center',
+      lineBreak: false,
+    });
+
+  doc.restore();
+}
+
 export function generateInvoicePDF(
   invoice: InvoiceWithNumber,
   items: InvoiceItem[],
@@ -637,6 +692,7 @@ export function generateInvoicePDF(
   doc.font('Helvetica-Bold').fontSize(10).text('Receiver Sign.', 262, 713, { width: 78 });
   doc.font('Arabic').fontSize(10).text(rtlVisual('المستلم'), 506, 711, { width: 52, align: 'right' });
   doc.font('Arabic').fontSize(10).text(rtlVisual('توقيع'), 506, 723, { width: 52, align: 'right' });
+  drawCleanLetterheadFooter(doc);
 
   const previousBalance = Number(invoice.previous_balance ?? 0);
   const showPreviousBalance =
