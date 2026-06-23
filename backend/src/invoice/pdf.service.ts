@@ -60,6 +60,37 @@ function formatAmount(value: number | string | null | undefined, decimals = 3) {
   return Number(value ?? 0).toFixed(decimals);
 }
 
+function invoiceCurrency(invoice: InvoiceWithNumber) {
+  return (invoice.transaction_currency ?? 'KWD').toUpperCase() === 'USD'
+    ? 'USD'
+    : 'KWD';
+}
+
+function displayMoneyValue(value: number | string | null | undefined, invoice: InvoiceWithNumber) {
+  const amount = Number(value ?? 0);
+  const currency = invoiceCurrency(invoice);
+  const rate = Number(invoice.exchange_rate ?? 3.25);
+
+  if (currency === 'USD') {
+    return amount * (Number.isFinite(rate) && rate > 0 ? rate : 3.25);
+  }
+
+  return amount;
+}
+
+function splitMoney(value: number, currency: 'KWD' | 'USD') {
+  const [major, minor = ''] = value.toFixed(currency === 'KWD' ? 3 : 2).split('.');
+  return { major, minor };
+}
+
+function moneyMajorLabel(currency: 'KWD' | 'USD') {
+  return currency === 'KWD' ? 'K.D.' : 'USD';
+}
+
+function moneyMinorLabel(currency: 'KWD' | 'USD') {
+  return currency === 'KWD' ? 'Fils' : 'Cents';
+}
+
 function hasArabic(text: string | null | undefined) {
   return Boolean(text && /[\u0600-\u06FF]/.test(text));
 }
@@ -337,201 +368,285 @@ export function generateInvoicePDF(
 
   const pageWidth = doc.page.width;
   const pageHeight = doc.page.height;
+  const currency = invoiceCurrency(invoice);
   const letterheadPath = getLetterheadPath();
   if (letterheadPath) {
     doc.image(letterheadPath, 0, 0, { width: pageWidth, height: pageHeight });
   }
 
-  const tableX = 26;
-  const tableW = pageWidth - 52;
-  const titleEnglish = clean(invoice.invoice_title, 'Cash / Credit invoice');
-  const titleArabic = clean(invoice.invoice_title_ar, 'فاتورة نقدية / الحساب');
-  const activityEnglish = clean(invoice.company_activity, 'Import All Kinds Of Meat');
+  const leftX = 22;
+  const rightX = pageWidth - 22;
+  const contentW = rightX - leftX;
+  const titleEnglish = clean(invoice.invoice_title, 'Cash / Credit Invoice');
+  const titleArabic = clean(invoice.invoice_title_ar, 'فاتورة نقدا / بالحساب');
+  const activityEnglish = clean(invoice.company_activity, 'Import All Kinds of Meat');
   const activityArabic = clean(invoice.company_activity_ar, 'استيراد جميع انواع اللحوم');
+  const formTop = 116;
 
-  drawTopLine(doc, titleEnglish, 75, 164, 205, {
-    font: 'Helvetica-BoldOblique',
-    size: 15,
-    align: 'right',
+  doc.fillColor('#000000');
+  doc.font('Helvetica-Bold').fontSize(11);
+  [
+    ['Abdul Basat', '96684998'],
+    ['Zahoor Ellahi', '94942708'],
+    ['Abu Bakar', '50289040'],
+  ].forEach(([name, phone], index) => {
+    doc.text(`${name} :`, leftX, formTop + index * 16, { width: 78 });
+    doc.fontSize(12).text(phone, leftX + 86, formTop + index * 16, { width: 70 });
+    doc.fontSize(11);
+  });
+
+  doc.font('Arabic').fontSize(11).text(rtlVisual(activityArabic), 210, formTop - 4, {
+    width: 170,
+    align: 'center',
+  });
+  doc.font('Helvetica-Bold').fontSize(11).text(activityEnglish, 206, formTop + 14, {
+    width: 178,
+    align: 'center',
+  });
+  doc.font('Arabic').fontSize(11).text(rtlVisual(titleArabic), 210, formTop + 35, {
+    width: 170,
+    align: 'center',
+  });
+  doc.font('Helvetica-Bold').fontSize(11).text(titleEnglish, 218, formTop + 52, {
+    width: 155,
+    align: 'center',
     underline: true,
   });
-  drawArabicTitleWithSlash(doc, titleArabic, 318, 164, 230);
 
-  doc.moveTo(tableX, 192).lineTo(tableX + tableW, 192).stroke();
-  drawTopLine(doc, `${activityEnglish} /`, 93, 199, 188, {
-    font: 'Helvetica-BoldOblique',
-    size: 13,
+  [
+    ['عبدالباسط', '٩٦٦٨٤٩٩٨'],
+    ['ظهور الاهلي', '٩٤٩٤٢٧٠٨'],
+    ['ابوبكر', '٥٠٢٨٩٠٤٠'],
+  ].forEach(([name, phone], index) => {
+    doc.font('Arabic').fontSize(12).text(rtlVisual(`${name} : ${phone}`), 412, formTop + index * 16, {
+      width: 150,
+      align: 'right',
+    });
+  });
+
+  doc.font('Helvetica-Bold').fontSize(14).text('No.:', leftX, 182, { width: 42 });
+  doc.fillColor('#c01822').font('Helvetica').fontSize(18).text(clean(invoice.invoice_number, String(invoice.id)), leftX + 42, 180, {
+    width: 92,
+  });
+  doc.fillColor('#000000');
+  doc.font('Helvetica-Bold').fontSize(12).text('Date', 383, 184, { width: 42 });
+  doc.font('Helvetica').fontSize(13).text(formatDate(invoice.date), 426, 184, { width: 76, align: 'center' });
+  doc.font('Arabic').fontSize(12).text(rtlVisual('التاريخ :'), 506, 184, {
+    width: 56,
     align: 'right',
   });
-  drawTopLine(doc, activityArabic, 334, 198, 210, {
-    font: 'Arabic',
-    size: 13,
+
+  const partyY = 210;
+  doc.roundedRect(leftX, partyY, contentW, 42, 12).stroke();
+  doc.font('Helvetica-Bold').fontSize(14).text('Mr./Messers', leftX + 12, partyY + 14, { width: 112 });
+  doc.font('Helvetica').fontSize(12).text(clean(customer.name, ''), leftX + 122, partyY + 15, {
+    width: 285,
+    align: 'center',
+  });
+  doc.dash(1.5, { space: 2 });
+  doc.moveTo(leftX + 122, partyY + 29).lineTo(rightX - 154, partyY + 29).stroke();
+  doc.undash();
+  doc.font('Arabic').fontSize(13).text(rtlVisual('المطلوب من السيد / السادة'), rightX - 150, partyY + 13, {
+    width: 138,
     align: 'right',
   });
 
-  let y = 224;
-  const customerRowH = 42;
-  const customerCols = [142, 170, 150, tableW - 462];
-  let x = tableX;
-  drawCell(doc, 'Customer Name /', x, y, customerCols[0], customerRowH, {
-    align: 'left',
-    bold: true,
-    size: 9,
-    yOffset: 8,
-  });
-  doc.font('Arabic').fontSize(9).text(rtlVisual('اسم الزبون'), x + 77, y + 9, {
-    width: 60,
-    align: 'right',
-  });
-  x += customerCols[0];
-  drawCell(doc, clean(customer.name, '-').toUpperCase(), x, y, customerCols[1], customerRowH, {
-    bold: true,
-    size: 12,
-    yOffset: 8,
-  });
-  x += customerCols[1];
-  drawCell(doc, 'Mobile Number /', x, y, customerCols[2], customerRowH, {
-    align: 'left',
-    bold: true,
-    size: 9,
-    yOffset: 8,
-  });
-  doc.font('Arabic').fontSize(9).text(rtlVisual('رقم الهاتف'), x + 86, y + 9, {
-    width: 58,
-    align: 'right',
-  });
-  x += customerCols[2];
-  drawCell(doc, customer.mobile ?? '', x, y, customerCols[3], customerRowH, {
-    bold: true,
-    size: 12,
-  });
+  const tableX = leftX;
+  const tableY = 260;
+  const tableW = contentW;
+  const tableBottom = 704;
+  const headerH = 67;
+  const footerH = 34;
+  const bodyTop = tableY + headerH;
+  const bodyBottom = tableBottom - footerH;
+  const rowH = 31;
+  const cols = {
+    desc: 225,
+    beef: 36,
+    mutton: 40,
+    qty: 48,
+    unitK: 55,
+    unitF: 35,
+    amountK: 62,
+    amountF: tableW - 501,
+  };
+  const colXs = [
+    tableX,
+    tableX + cols.desc,
+    tableX + cols.desc + cols.beef,
+    tableX + cols.desc + cols.beef + cols.mutton,
+    tableX + cols.desc + cols.beef + cols.mutton + cols.qty,
+    tableX + cols.desc + cols.beef + cols.mutton + cols.qty + cols.unitK,
+    tableX + cols.desc + cols.beef + cols.mutton + cols.qty + cols.unitK + cols.unitF,
+    tableX + cols.desc + cols.beef + cols.mutton + cols.qty + cols.unitK + cols.unitF + cols.amountK,
+  ];
 
-  y += customerRowH;
-  doc.rect(tableX, y, tableW, 10).stroke();
-  y += 10;
+  doc.roundedRect(tableX, tableY, tableW, tableBottom - tableY, 12).stroke();
+  for (const xLine of colXs.slice(1)) {
+    doc.moveTo(xLine, tableY).lineTo(xLine, tableBottom).stroke();
+  }
+  doc.moveTo(tableX, bodyTop).lineTo(tableX + tableW, bodyTop).stroke();
+  doc.moveTo(tableX, bodyBottom).lineTo(tableX + tableW, bodyBottom).stroke();
+  doc.moveTo(colXs[4], tableY + 32).lineTo(tableX + tableW, tableY + 32).stroke();
 
-  const headerH = 50;
-  const cols = [45, 76, 110, 62, 70, 72, tableW - 435];
-  x = tableX;
-  drawBilingualHeaderCompact(doc, 'Serial', 'الرقم\nالتسلسلي', x, y, cols[0], headerH);
-  x += cols[0];
-  drawBilingualHeaderCompact(doc, 'Date\n(DD/MM/YY)', 'تاريخ', x, y, cols[1], headerH);
-  x += cols[1];
-  drawBilingualHeaderCompact(doc, 'Description', 'وصف', x, y, cols[2], headerH);
-  x += cols[2];
-  drawBilingualHeaderCompact(doc, 'Piece\n(No.)', 'قطع', x, y, cols[3], headerH);
-  x += cols[3];
-  drawBilingualHeaderCompact(doc, 'Weight\n(kg)', 'وزن', x, y, cols[4], headerH);
-  x += cols[4];
-  drawBilingualHeaderCompact(doc, 'Price\n(per kg)', 'سعر', x, y, cols[5], headerH);
-  x += cols[5];
-  drawBilingualHeaderCompact(doc, 'Amount\n(K.D)', 'كمية', x, y, cols[6], headerH);
+  const headerCenterY = tableY + 14;
+  doc.font('Helvetica-Bold').fontSize(14).text('Description', tableX + 8, headerCenterY + 6, {
+    width: cols.desc - 16,
+    align: 'center',
+  });
+  doc.font('Arabic').fontSize(12).text(rtlVisual('التفاصيل'), tableX + 126, headerCenterY + 8, {
+    width: 95,
+    align: 'center',
+  });
+  doc.font('Arabic').fontSize(9).text(rtlVisual('لحم بقر\nمستورد'), colXs[1] + 3, tableY + 8, {
+    width: cols.beef - 6,
+    align: 'center',
+  });
+  doc.font('Helvetica-Bold').fontSize(7).text('Beef\nImported', colXs[1] + 2, tableY + 37, {
+    width: cols.beef - 4,
+    align: 'center',
+  });
+  doc.font('Arabic').fontSize(9).text(rtlVisual('لحم غنم\nمستورد'), colXs[2] + 3, tableY + 8, {
+    width: cols.mutton - 6,
+    align: 'center',
+  });
+  doc.font('Helvetica-Bold').fontSize(7).text('Mutton\nImported', colXs[2] + 2, tableY + 37, {
+    width: cols.mutton - 4,
+    align: 'center',
+  });
+  doc.font('Helvetica-Bold').fontSize(10).text('Qty.', colXs[3] + 4, tableY + 23, {
+    width: cols.qty - 8,
+    align: 'center',
+  });
+  doc.font('Arabic').fontSize(9).text(rtlVisual('الكمية'), colXs[3] + 4, tableY + 38, {
+    width: cols.qty - 8,
+    align: 'center',
+  });
+  doc.font('Arabic').fontSize(10).text(rtlVisual('سعر الوحدة'), colXs[4] + 4, tableY + 8, {
+    width: cols.unitK + cols.unitF - 8,
+    align: 'center',
+  });
+  doc.font('Helvetica-Bold').fontSize(10).text('Unit Price', colXs[4] + 4, tableY + 20, {
+    width: cols.unitK + cols.unitF - 8,
+    align: 'center',
+  });
+  doc.font('Arabic').fontSize(10).text(rtlVisual('المبلغ الاجمالية'), colXs[6] + 4, tableY + 8, {
+    width: cols.amountK + cols.amountF - 8,
+    align: 'center',
+  });
+  doc.font('Helvetica-Bold').fontSize(10).text('Total Amount', colXs[6] + 4, tableY + 20, {
+    width: cols.amountK + cols.amountF - 8,
+    align: 'center',
+  });
+  doc.font('Arabic').fontSize(8).text(rtlVisual('دينار'), colXs[4] + 3, tableY + 38, { width: cols.unitK - 6, align: 'center' });
+  doc.font('Helvetica-Bold').fontSize(8).text(moneyMajorLabel(currency), colXs[4] + 3, tableY + 50, { width: cols.unitK - 6, align: 'center' });
+  doc.font('Arabic').fontSize(8).text(rtlVisual('فلس'), colXs[5] + 3, tableY + 38, { width: cols.unitF - 6, align: 'center' });
+  doc.font('Helvetica-Bold').fontSize(8).text(moneyMinorLabel(currency), colXs[5] + 3, tableY + 50, { width: cols.unitF - 6, align: 'center' });
+  doc.font('Arabic').fontSize(8).text(rtlVisual('دينار'), colXs[6] + 3, tableY + 38, { width: cols.amountK - 6, align: 'center' });
+  doc.font('Helvetica-Bold').fontSize(8).text(moneyMajorLabel(currency), colXs[6] + 3, tableY + 50, { width: cols.amountK - 6, align: 'center' });
+  doc.font('Arabic').fontSize(8).text(rtlVisual('فلس'), colXs[7] + 3, tableY + 38, { width: cols.amountF - 6, align: 'center' });
+  doc.font('Helvetica-Bold').fontSize(8).text(moneyMinorLabel(currency), colXs[7] + 3, tableY + 50, { width: cols.amountF - 6, align: 'center' });
 
-  y += headerH;
-  const rowH = 42;
+  for (let lineY = bodyTop + rowH; lineY < bodyBottom; lineY += rowH) {
+    doc.dash(1.5, { space: 2 });
+    doc.moveTo(tableX, lineY).lineTo(tableX + tableW, lineY).stroke();
+    doc.undash();
+  }
+
   const invoiceDate = formatDate(invoice.date);
   let totalPieces = 0;
   let totalWeight = 0;
+  const maxRows = Math.floor((bodyBottom - bodyTop) / rowH);
 
-  items.forEach((item, index) => {
+  items.slice(0, maxRows).forEach((item, index) => {
     const productName = item.product_id ? productNames.get(item.product_id) : null;
     const description = productName?.name ?? (item.product_id ? `Product #${item.product_id}` : 'Counter item');
     const descriptionArabic = productArabicDescription(productName ?? null, description);
     const pieces = Number(item.pieces ?? 0);
     const weight = Number(item.weight ?? 0);
+    const displayPrice = displayMoneyValue(item.price_per_kg, invoice);
+    const displayAmount = displayMoneyValue(item.amount, invoice);
+    const priceParts = splitMoney(displayPrice, currency);
+    const amountParts = splitMoney(displayAmount, currency);
+    const productType = description.toLowerCase();
+    const beefQty = productType.includes('beef') ? formatAmount(weight, 2) : '';
+    const muttonQty =
+      productType.includes('mutton') || productType.includes('lamb')
+        ? formatAmount(weight, 2)
+        : '';
+    const y = bodyTop + index * rowH + 8;
+
     totalPieces += pieces;
     totalWeight += weight;
 
-    x = tableX;
-    drawCell(doc, String(index + 1), x, y, cols[0], rowH, { size: 11, yOffset: 8 });
-    x += cols[0];
-    drawCell(doc, invoiceDate, x, y, cols[1], rowH, { size: 10, yOffset: 8 });
-    x += cols[1];
-    drawDescriptionCell(doc, description, descriptionArabic, x, y, cols[2], rowH);
-    x += cols[2];
-    drawCell(doc, pieces ? String(pieces) : '', x, y, cols[3], rowH, { size: 11, yOffset: 8 });
-    x += cols[3];
-    drawCell(doc, formatAmount(weight, 2), x, y, cols[4], rowH, { size: 11, yOffset: 8 });
-    x += cols[4];
-    drawCell(doc, formatAmount(item.price_per_kg), x, y, cols[5], rowH, { size: 11, yOffset: 8 });
-    x += cols[5];
-    drawCell(doc, formatAmount(item.amount), x, y, cols[6], rowH, { size: 11, yOffset: 8 });
-    y += rowH;
-  });
-
-  const minRows = Math.max(0, 2 - items.length);
-  for (let index = 0; index < minRows; index += 1) {
-    x = tableX;
-    cols.forEach((width) => {
-      drawCell(doc, '', x, y, width, rowH);
-      x += width;
+    doc.font('Helvetica').fontSize(10).text(description, tableX + 8, y, {
+      width: cols.desc - 16,
+      align: 'left',
     });
-    y += rowH;
-  }
+    if (descriptionArabic) {
+      doc.font('Arabic').fontSize(9).text(rtlVisual(descriptionArabic), tableX + 8, y + 12, {
+        width: cols.desc - 16,
+        align: 'right',
+      });
+    }
+    doc.font('Helvetica').fontSize(10);
+    doc.text(beefQty, colXs[1] + 3, y + 3, { width: cols.beef - 6, align: 'center' });
+    doc.text(muttonQty, colXs[2] + 3, y + 3, { width: cols.mutton - 6, align: 'center' });
+    doc.text(pieces ? String(pieces) : '', colXs[3] + 3, y + 3, { width: cols.qty - 6, align: 'center' });
+    doc.text(priceParts.major, colXs[4] + 3, y + 3, { width: cols.unitK - 6, align: 'center' });
+    doc.text(priceParts.minor, colXs[5] + 3, y + 3, { width: cols.unitF - 6, align: 'center' });
+    doc.text(amountParts.major, colXs[6] + 3, y + 3, { width: cols.amountK - 6, align: 'center' });
+    doc.text(amountParts.minor, colXs[7] + 3, y + 3, { width: cols.amountF - 6, align: 'center' });
+  });
 
-  const totalH = 42;
-  doc.save().fillColor('#d9d9d9').rect(tableX, y, tableW, totalH).fill().restore();
-  x = tableX;
-  drawCell(doc, '', x, y, cols[0], totalH, { bold: true });
-  x += cols[0];
-  drawCell(doc, 'TOTAL', x, y, cols[1] + cols[2], totalH, {
+  const totalParts = splitMoney(displayMoneyValue(invoice.total, invoice), currency);
+  doc.font('Helvetica-Bold').fontSize(11).text(`Total ${moneyMajorLabel(currency)}`, tableX + 8, bodyBottom + 12, {
+    width: 95,
+  });
+  doc.dash(1.5, { space: 2 });
+  doc.moveTo(tableX + 92, bodyBottom + 23).lineTo(colXs[6] - 10, bodyBottom + 23).stroke();
+  doc.undash();
+  doc.font('Arabic').fontSize(11).text(rtlVisual('المجموع فقط'), colXs[6] - 88, bodyBottom + 10, {
+    width: 78,
     align: 'right',
-    bold: true,
-    size: 11,
-    yOffset: 8,
   });
-  x += cols[1] + cols[2];
-  drawCell(doc, String(totalPieces), x, y, cols[3], totalH, { bold: true, size: 11, yOffset: 8 });
-  x += cols[3];
-  drawCell(doc, formatAmount(totalWeight, 2), x, y, cols[4], totalH, {
-    bold: true,
-    size: 11,
-    yOffset: 8,
+  doc.font('Helvetica-Bold').fontSize(12).text(totalParts.major, colXs[6] + 3, bodyBottom + 11, {
+    width: cols.amountK - 6,
+    align: 'center',
   });
-  x += cols[4];
-  drawCell(doc, '', x, y, cols[5], totalH, { bold: true });
-  x += cols[5];
-  drawCell(doc, formatAmount(invoice.total), x, y, cols[6], totalH, {
-    bold: true,
-    size: 11,
-    yOffset: 8,
+  doc.text(totalParts.minor, colXs[7] + 3, bodyBottom + 11, {
+    width: cols.amountF - 6,
+    align: 'center',
   });
-  y += totalH;
+
+  doc.font('Helvetica-Bold').fontSize(12).text('Sign.', leftX + 14, 724, { width: 44 });
+  doc.dash(1.5, { space: 2 });
+  doc.moveTo(leftX + 58, 736).lineTo(leftX + 190, 736).stroke();
+  doc.moveTo(314, 736).lineTo(505, 736).stroke();
+  doc.undash();
+  doc.font('Arabic').fontSize(12).text(rtlVisual('توقيع'), leftX + 192, 724, { width: 45, align: 'right' });
+  doc.font('Helvetica-Bold').fontSize(12).text('Receiver Sign.', 264, 724, { width: 88 });
+  doc.font('Arabic').fontSize(12).text(rtlVisual('توقيع المستلم'), 506, 724, { width: 58, align: 'right' });
 
   const previousBalance = Number(invoice.previous_balance ?? 0);
   const showPreviousBalance =
     invoice.include_previous_balance === true && previousBalance !== 0;
 
   if (showPreviousBalance) {
-    doc.save().fillColor('#d9d9d9').rect(tableX, y, tableW, totalH).fill().restore();
-    x = tableX;
-    drawCell(doc, '', x, y, cols[0], totalH, { bold: true });
-    x += cols[0];
-    drawCell(doc, 'PREVIOUS BALANCE', x, y, cols[1] + cols[2] + cols[3] + cols[4] + cols[5], totalH, {
+    const previousParts = splitMoney(displayMoneyValue(previousBalance, invoice), currency);
+    const grandParts = splitMoney(displayMoneyValue(invoice.grand_total, invoice), currency);
+    doc.font('Helvetica-Bold').fontSize(9).text('Previous Balance', 386, 710, {
+      width: 86,
       align: 'right',
-      bold: true,
-      size: 14,
     });
-    x += cols[1] + cols[2] + cols[3] + cols[4] + cols[5];
-    drawCell(doc, formatAmount(previousBalance), x, y, cols[6], totalH, {
-      bold: true,
-      size: 14,
-    });
-    y += totalH;
+    doc.text(`${previousParts.major}.${previousParts.minor}`, 476, 710, { width: 74, align: 'right' });
+    doc.text('Total Bills', 386, 722, { width: 86, align: 'right' });
+    doc.text(`${grandParts.major}.${grandParts.minor}`, 476, 722, { width: 74, align: 'right' });
+  }
 
-    doc.save().fillColor('#d9d9d9').rect(tableX, y, tableW, totalH).fill().restore();
-    x = tableX;
-    drawCell(doc, '', x, y, cols[0], totalH, { bold: true });
-    x += cols[0];
-    drawCell(doc, 'TOTAL BILLS', x, y, cols[1] + cols[2] + cols[3] + cols[4] + cols[5], totalH, {
-      align: 'right',
-      bold: true,
-      size: 14,
-    });
-    x += cols[1] + cols[2] + cols[3] + cols[4] + cols[5];
-    drawCell(doc, formatAmount(invoice.grand_total), x, y, cols[6], totalH, {
-      bold: true,
-      size: 14,
+  if (items.length > maxRows) {
+    doc.font('Helvetica').fontSize(8).text(`+${items.length - maxRows} more items`, tableX + 8, bodyBottom - 14, {
+      width: 120,
     });
   }
 
