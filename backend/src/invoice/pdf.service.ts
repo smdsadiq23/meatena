@@ -109,8 +109,21 @@ function rtlVisual(text: string) {
     .join('\n');
 }
 
-function arabicPhoneVisual(phone: string) {
-  return phone.split('').reverse().join('');
+function drawArabicPhoneDigits(
+  doc: PDFKit.PDFDocument,
+  phone: string,
+  x: number,
+  y: number,
+) {
+  const digitWidth = 7.2;
+
+  phone.split('').forEach((digit, index) => {
+    doc.font('Arabic').fontSize(12).text(digit, x + index * digitWidth, y, {
+      width: digitWidth,
+      align: 'center',
+      lineBreak: false,
+    });
+  });
 }
 
 function inferArabicDescription(english: string) {
@@ -472,11 +485,23 @@ export function generateInvoicePDF(
     underline: true,
   });
 
-  ['٩٦٦٨٤٩٩٨', '٩٤٩٤٢٧٠٨', '٥٠٢٨٩٠٤٠'].forEach((phone, index) => {
-    doc.font('Arabic').fontSize(13).text(arabicPhoneVisual(phone), 446, formTop + index * 16, {
-      width: 112,
+  [
+    ['عبدالباسط', '٩٦٦٨٤٩٩٨'],
+    ['ظهور الاهلي', '٩٤٩٤٢٧٠٨'],
+    ['ابوبكر', '٥٠٢٨٩٠٤٠'],
+  ].forEach(([name, phone], index) => {
+    const y = formTop + index * 16;
+    doc.font('Arabic').fontSize(12).text(rtlVisual(name), 488, y, {
+      width: 72,
       align: 'right',
+      lineBreak: false,
     });
+    doc.font('Arabic').fontSize(12).text(':', 476, y, {
+      width: 8,
+      align: 'center',
+      lineBreak: false,
+    });
+    drawArabicPhoneDigits(doc, phone, 412, y);
   });
 
   doc.font('Helvetica-Bold').fontSize(14).text('No.:', leftX, 182, { width: 42 });
