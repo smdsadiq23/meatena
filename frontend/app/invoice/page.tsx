@@ -172,6 +172,10 @@ export default function Invoice() {
   }, []);
 
   useEffect(() => {
+    setDisplayCurrency(invoiceCurrency);
+  }, [invoiceCurrency]);
+
+  useEffect(() => {
     if (items.length <= previousItemCountRef.current) {
       previousItemCountRef.current = items.length;
       return;
