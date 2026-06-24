@@ -20,6 +20,9 @@ export class InvoiceItem {
   @Column('decimal', { precision: 10, scale: 3 })
   price_per_kg: number;
 
+  @Column('decimal', { precision: 10, scale: 3, default: 0 })
+  discount_amount: number;
+
   @Column('decimal', { precision: 10, scale: 3 })
   amount: number;
 }

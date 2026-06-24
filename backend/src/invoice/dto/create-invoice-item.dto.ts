@@ -23,4 +23,10 @@ export class CreateInvoiceItemDto {
   @IsNumber({ maxDecimalPlaces: 3 })
   @Min(0)
   price_per_kg: number;
+
+  @ApiProperty({ example: 1.5, required: false })
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 3 })
+  @Min(0)
+  discount_amount?: number;
 }

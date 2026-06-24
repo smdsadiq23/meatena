@@ -34,6 +34,7 @@ type InvoiceItem = {
   pieces: string;
   weight: string;
   price: string;
+  discount: string;
   amount: number;
 };
 
@@ -111,7 +112,6 @@ export default function Invoice() {
   const [invoiceNumber, setInvoiceNumber] = useState("");
   const [draftInvoiceNumber, setDraftInvoiceNumber] = useState("");
   const [draftInvoiceDate, setDraftInvoiceDate] = useState(todayInputDate);
-  const [discountAmountInput, setDiscountAmountInput] = useState("");
   const [invoiceCurrency, setInvoiceCurrency] = useState<"KWD" | "USD">("KWD");
   const [includePreviousBalance, setIncludePreviousBalance] = useState(false);
   const [invoiceProfiles, setInvoiceProfiles] = useState<InvoiceProfile[]>([]);
@@ -124,7 +124,7 @@ export default function Invoice() {
   const [statusType, setStatusType] = useState<"success" | "error">("success");
   const [loading, setLoading] = useState(false);
   const [items, setItems] = useState<InvoiceItem[]>([
-    { productId: "", pieces: "", weight: "", price: DEFAULT_PRICE, amount: 0 },
+    { productId: "", pieces: "", weight: "", price: DEFAULT_PRICE, discount: "", amount: 0 },
   ]);
   const firstInputRef = useRef<HTMLInputElement>(null);
   const weightRefs = useRef<Array<HTMLInputElement | null>>([]);
@@ -186,15 +186,15 @@ export default function Invoice() {
     invoiceCurrency === "USD" ? value / currencyRate : value;
   const displayProductPrice = (price: number) =>
     invoiceCurrency === "USD" ? price * currencyRate : price;
-  const total = items.reduce(
-    (sum, item) => sum + Number(item.weight || 0) * toBaseKwd(Number(item.price || 0)),
-    0
-  );
-  const enteredDiscountAmount = Number(discountAmountInput || 0);
-  const discount = Number.isFinite(enteredDiscountAmount)
-    ? Math.max(toBaseKwd(enteredDiscountAmount), 0)
-    : Number.NaN;
-  const netTotal = Number.isFinite(discount) ? Math.max(total - discount, 0) : total;
+  const lineGrossAmount = (item: InvoiceItem) =>
+    Number(item.weight || 0) * toBaseKwd(Number(item.price || 0));
+  const lineDiscountAmount = (item: InvoiceItem) =>
+    toBaseKwd(Math.max(Number(item.discount || 0), 0));
+  const lineNetAmount = (item: InvoiceItem) =>
+    Math.max(lineGrossAmount(item) - lineDiscountAmount(item), 0);
+  const total = items.reduce((sum, item) => sum + lineGrossAmount(item), 0);
+  const discount = items.reduce((sum, item) => sum + lineDiscountAmount(item), 0);
+  const netTotal = items.reduce((sum, item) => sum + lineNetAmount(item), 0);
   const creditLimit = Number(selectedCustomer?.credit_limit ?? 0);
   const projectedBalance = balance + netTotal;
   const remainingCredit =
@@ -205,7 +205,7 @@ export default function Invoice() {
 
   const updateItem = (
     index: number,
-    field: "productId" | "pieces" | "weight" | "price",
+    field: "productId" | "pieces" | "weight" | "price" | "discount",
     value: string
   ) => {
     const nextItems = [...items];
@@ -218,23 +218,21 @@ export default function Invoice() {
       }
     }
 
-    nextItems[index].amount =
-      Number(nextItems[index].weight || 0) *
-      toBaseKwd(Number(nextItems[index].price || 0));
+    nextItems[index].amount = lineNetAmount(nextItems[index]);
     setItems(nextItems);
   };
 
   const addRow = () => {
     setItems((current) => [
       ...current,
-      { productId: "", pieces: "", weight: "", price: DEFAULT_PRICE, amount: 0 },
+      { productId: "", pieces: "", weight: "", price: DEFAULT_PRICE, discount: "", amount: 0 },
     ]);
   };
 
   const removeRow = (index: number) => {
     setItems((current) =>
       current.length === 1
-        ? [{ productId: "", pieces: "", weight: "", price: DEFAULT_PRICE, amount: 0 }]
+        ? [{ productId: "", pieces: "", weight: "", price: DEFAULT_PRICE, discount: "", amount: 0 }]
         : current.filter((_, itemIndex) => itemIndex !== index)
     );
   };
@@ -360,12 +358,11 @@ export default function Invoice() {
   }
 
   const resetForm = () => {
-    setItems([{ productId: "", pieces: "", weight: "", price: DEFAULT_PRICE, amount: 0 }]);
+    setItems([{ productId: "", pieces: "", weight: "", price: DEFAULT_PRICE, discount: "", amount: 0 }]);
     setInvoiceId(null);
     setInvoiceNumber("");
     setDraftInvoiceNumber("");
     setDraftInvoiceDate(todayInputDate());
-    setDiscountAmountInput("");
     setInvoiceCurrency("KWD");
     setDisplayCurrency("KWD");
     setIncludePreviousBalance(false);
@@ -410,15 +407,14 @@ export default function Invoice() {
       return;
     }
 
-    if (!Number.isFinite(discount)) {
-      setStatusType("error");
-      setStatus(t("Enter a valid discount amount."));
-      return;
-    }
+    const hasInvalidDiscount = items.some((item) => {
+      const itemDiscount = lineDiscountAmount(item);
+      return !Number.isFinite(itemDiscount) || itemDiscount > lineGrossAmount(item);
+    });
 
-    if (discount > total) {
+    if (hasInvalidDiscount) {
       setStatusType("error");
-      setStatus(t("Discount amount cannot be greater than subtotal."));
+      setStatus(t("Each item discount must be valid and cannot be greater than the item amount."));
       return;
     }
 
@@ -445,7 +441,7 @@ export default function Invoice() {
           exchange_rate: currencyRate,
           include_previous_balance: includePreviousBalance,
           invoice_date: draftInvoiceDate,
-          discount_amount: Number(discountAmountInput || 0),
+          discount_amount: items.reduce((sum, item) => sum + Number(item.discount || 0), 0),
           invoice_number: draftInvoiceNumber.trim(),
           invoice_title: selectedProfile.invoice_title.trim(),
           invoice_title_ar: selectedProfile.invoice_title_ar?.trim() || undefined,
@@ -462,6 +458,7 @@ export default function Invoice() {
             pieces: item.pieces ? Number(item.pieces) : undefined,
             weight: Number(item.weight),
             price_per_kg: Number(item.price),
+            discount_amount: Number(item.discount || 0),
           })),
         }),
       });
@@ -472,10 +469,9 @@ export default function Invoice() {
       setStatus(
         `${t("Invoice")} ${data.invoice.invoice_number ?? draftInvoiceNumber.trim()} ${t("created successfully.")}`
       );
-      setItems([{ productId: "", pieces: "", weight: "", price: DEFAULT_PRICE, amount: 0 }]);
+      setItems([{ productId: "", pieces: "", weight: "", price: DEFAULT_PRICE, discount: "", amount: 0 }]);
       setDraftInvoiceNumber("");
       setDraftInvoiceDate(todayInputDate());
-      setDiscountAmountInput("");
       fetchJson<Product[]>("/inventory/stock").then(setProducts).catch(() => undefined);
       setTimeout(() => {
         firstInputRef.current?.focus();
@@ -738,16 +734,6 @@ export default function Invoice() {
                 {draftInvoiceDate || t("Not entered")}
               </p>
             </div>
-            <div className="rounded-3xl bg-slate-50 p-4">
-              <p className="soft-label">{t("Discount amount")}</p>
-              <input
-                className="field mt-2 bg-white"
-                inputMode="decimal"
-                placeholder={`${t("Discount")} (${invoiceCurrency})`}
-                value={discountAmountInput}
-                onChange={(event) => setDiscountAmountInput(event.target.value)}
-              />
-            </div>
           </div>
           <div className="mb-4 flex flex-wrap items-center gap-3">
             <p className="soft-label">{t("Billing Currency")}</p>
@@ -766,18 +752,19 @@ export default function Invoice() {
             ))}
           </div>
 
-          <div className="mb-2 grid grid-cols-[1.4fr_0.7fr_1fr_1fr_1fr_auto] gap-2 text-sm font-bold uppercase tracking-[0.14em] text-slate-600">
+          <div className="mb-2 grid grid-cols-[1.35fr_0.55fr_0.75fr_0.75fr_0.75fr_0.9fr_auto] gap-2 text-sm font-bold uppercase tracking-[0.14em] text-slate-600">
             <div>{t("Product")}</div>
             <div>{t("Pieces")}</div>
             <div>{t("Weight")}</div>
             <div>{t("Price")}</div>
+            <div>{t("Discount")}</div>
             <div>{t("Amount")}</div>
             <div />
           </div>
 
           <div className="space-y-2">
             {items.map((item, index) => (
-              <div key={index} className="grid grid-cols-[1.4fr_0.7fr_1fr_1fr_1fr_auto] gap-2">
+              <div key={index} className="grid grid-cols-[1.35fr_0.55fr_0.75fr_0.75fr_0.75fr_0.9fr_auto] gap-2">
                 <select
                   className="field"
                   value={item.productId}
@@ -822,13 +809,16 @@ export default function Invoice() {
                   onKeyDown={(e) => onPriceKeyDown(e, index)}
                 />
 
+                <input
+                  className="field"
+                  inputMode="decimal"
+                  placeholder={`${t("Discount")} (${invoiceCurrency})`}
+                  value={item.discount}
+                  onChange={(e) => updateItem(index, "discount", e.target.value)}
+                />
+
                 <div className="rounded-2xl bg-slate-100 px-4 py-4 text-lg font-bold text-slate-950">
-                  <Money
-                    value={
-                      Number(item.weight || 0) *
-                      toBaseKwd(Number(item.price || 0))
-                    }
-                  />
+                  <Money value={lineNetAmount(item)} />
                 </div>
 
                 <button

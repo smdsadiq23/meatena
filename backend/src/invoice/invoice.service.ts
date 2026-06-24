@@ -184,6 +184,10 @@ export class InvoiceService implements OnModuleInit {
       ALTER TABLE invoice
       ADD COLUMN IF NOT EXISTS discount_percent numeric(7, 3) NOT NULL DEFAULT 0
     `);
+    await this.dataSource.query(`
+      ALTER TABLE invoice_item
+      ADD COLUMN IF NOT EXISTS discount_amount numeric(10, 3) NOT NULL DEFAULT 0
+    `);
   }
 
   async create(data: CreateInvoiceDto) {
@@ -220,30 +224,55 @@ export class InvoiceService implements OnModuleInit {
       }
 
       let subtotal = 0;
+      let itemDiscountTotal = 0;
       const calculatedItems = items.map((item) => {
         const pricePerKg = roundMoney(
           transactionCurrency === 'USD'
             ? item.price_per_kg / exchangeRate
             : item.price_per_kg,
         );
-        const amount = roundMoney(item.weight * pricePerKg);
-        subtotal = roundMoney(subtotal + amount);
+        const grossAmount = roundMoney(item.weight * pricePerKg);
+        const enteredItemDiscount = Number(item.discount_amount ?? 0);
+        const itemDiscount = roundMoney(
+          transactionCurrency === 'USD'
+            ? enteredItemDiscount / exchangeRate
+            : enteredItemDiscount,
+        );
+
+        if (
+          !Number.isFinite(itemDiscount) ||
+          itemDiscount < 0 ||
+          itemDiscount > grossAmount
+        ) {
+          throw new BadRequestException(
+            'Item discount amount must be between zero and the item amount',
+          );
+        }
+
+        const amount = roundMoney(grossAmount - itemDiscount);
+        subtotal = roundMoney(subtotal + grossAmount);
+        itemDiscountTotal = roundMoney(itemDiscountTotal + itemDiscount);
 
         return {
           product_id: item.product_id ?? null,
           weight: roundMoney(item.weight),
           pieces: item.pieces ?? null,
           price_per_kg: pricePerKg,
+          discount_amount: itemDiscount,
           amount,
         };
       });
 
       const enteredDiscountAmount = Number(data.discount_amount ?? 0);
-      const discount_amount = roundMoney(
-        transactionCurrency === 'USD'
-          ? enteredDiscountAmount / exchangeRate
-          : enteredDiscountAmount,
-      );
+      const invoiceLevelDiscount =
+        itemDiscountTotal > 0
+          ? 0
+          : roundMoney(
+              transactionCurrency === 'USD'
+                ? enteredDiscountAmount / exchangeRate
+                : enteredDiscountAmount,
+            );
+      const discount_amount = roundMoney(itemDiscountTotal + invoiceLevelDiscount);
 
       if (
         !Number.isFinite(discount_amount) ||
