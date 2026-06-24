@@ -739,8 +739,9 @@ export function generateInvoicePDF(
   const totalParts = splitMoney(displayMoneyValue(invoice.total, invoice), currency);
 
   if (discountAmount > 0) {
+    const discountPercent = Number(invoice.discount_percent ?? 0);
     const discountParts = splitMoney(displayMoneyValue(discountAmount, invoice), currency);
-    doc.font('Helvetica-Bold').fontSize(9).text('Discount', colXs[4] + 2, bodyBottom + 3, {
+    doc.font('Helvetica-Bold').fontSize(9).text(`Discount ${discountPercent.toFixed(2)}%`, colXs[4] + 2, bodyBottom + 3, {
       width: cols.unitK + cols.unitF - 4,
       align: 'center',
     });

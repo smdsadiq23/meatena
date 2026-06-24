@@ -111,7 +111,7 @@ export default function Invoice() {
   const [invoiceNumber, setInvoiceNumber] = useState("");
   const [draftInvoiceNumber, setDraftInvoiceNumber] = useState("");
   const [draftInvoiceDate, setDraftInvoiceDate] = useState(todayInputDate);
-  const [discountInput, setDiscountInput] = useState("");
+  const [discountPercentInput, setDiscountPercentInput] = useState("");
   const [invoiceCurrency, setInvoiceCurrency] = useState<"KWD" | "USD">("KWD");
   const [includePreviousBalance, setIncludePreviousBalance] = useState(false);
   const [invoiceProfiles, setInvoiceProfiles] = useState<InvoiceProfile[]>([]);
@@ -190,10 +190,11 @@ export default function Invoice() {
     (sum, item) => sum + Number(item.weight || 0) * toBaseKwd(Number(item.price || 0)),
     0
   );
-  const enteredDiscount = Number(discountInput || 0);
-  const discount = Number.isFinite(enteredDiscount)
-    ? Math.max(toBaseKwd(enteredDiscount), 0)
+  const enteredDiscountPercent = Number(discountPercentInput || 0);
+  const discountPercent = Number.isFinite(enteredDiscountPercent)
+    ? Math.max(enteredDiscountPercent, 0)
     : Number.NaN;
+  const discount = Number.isFinite(discountPercent) ? (total * discountPercent) / 100 : Number.NaN;
   const netTotal = Number.isFinite(discount) ? Math.max(total - discount, 0) : total;
   const creditLimit = Number(selectedCustomer?.credit_limit ?? 0);
   const projectedBalance = balance + netTotal;
@@ -365,7 +366,7 @@ export default function Invoice() {
     setInvoiceNumber("");
     setDraftInvoiceNumber("");
     setDraftInvoiceDate(todayInputDate());
-    setDiscountInput("");
+    setDiscountPercentInput("");
     setInvoiceCurrency("KWD");
     setDisplayCurrency("KWD");
     setIncludePreviousBalance(false);
@@ -410,15 +411,15 @@ export default function Invoice() {
       return;
     }
 
-    if (!Number.isFinite(discount)) {
+    if (!Number.isFinite(discountPercent)) {
       setStatusType("error");
-      setStatus(t("Enter a valid discount amount."));
+      setStatus(t("Enter a valid discount percent."));
       return;
     }
 
-    if (discount > total) {
+    if (discountPercent > 100) {
       setStatusType("error");
-      setStatus(t("Discount cannot be greater than invoice subtotal."));
+      setStatus(t("Discount percent cannot be greater than 100."));
       return;
     }
 
@@ -445,7 +446,7 @@ export default function Invoice() {
           exchange_rate: currencyRate,
           include_previous_balance: includePreviousBalance,
           invoice_date: draftInvoiceDate,
-          discount_amount: Number(discountInput || 0),
+          discount_percent: Number(discountPercentInput || 0),
           invoice_number: draftInvoiceNumber.trim(),
           invoice_title: selectedProfile.invoice_title.trim(),
           invoice_title_ar: selectedProfile.invoice_title_ar?.trim() || undefined,
@@ -475,7 +476,7 @@ export default function Invoice() {
       setItems([{ productId: "", pieces: "", weight: "", price: DEFAULT_PRICE, amount: 0 }]);
       setDraftInvoiceNumber("");
       setDraftInvoiceDate(todayInputDate());
-      setDiscountInput("");
+      setDiscountPercentInput("");
       fetchJson<Product[]>("/inventory/stock").then(setProducts).catch(() => undefined);
       setTimeout(() => {
         firstInputRef.current?.focus();
@@ -739,13 +740,13 @@ export default function Invoice() {
               </p>
             </div>
             <div className="rounded-3xl bg-slate-50 p-4">
-              <p className="soft-label">{t("Discount")}</p>
+              <p className="soft-label">{t("Discount %")}</p>
               <input
                 className="field mt-2 bg-white"
                 inputMode="decimal"
-                placeholder={`${t("Discount")} (${invoiceCurrency})`}
-                value={discountInput}
-                onChange={(event) => setDiscountInput(event.target.value)}
+                placeholder={t("Discount percent")}
+                value={discountPercentInput}
+                onChange={(event) => setDiscountPercentInput(event.target.value)}
               />
             </div>
           </div>
@@ -850,6 +851,7 @@ export default function Invoice() {
               {discount > 0 ? (
                 <div className="mb-2 text-sm font-bold text-slate-500">
                   {t("Subtotal")}: <Money value={total} /> | {t("Discount")}: <Money value={discount} />
+                  {" "}({discountPercent.toFixed(2)}%)
                 </div>
               ) : null}
               <div className="soft-label">{t("Total")}</div>

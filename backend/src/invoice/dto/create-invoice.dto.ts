@@ -10,6 +10,7 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  Max,
   MinLength,
   Min,
   ValidateNested,
@@ -47,11 +48,12 @@ export class CreateInvoiceDto {
   @IsDateString()
   invoice_date?: string;
 
-  @ApiProperty({ example: 2.5, required: false })
+  @ApiProperty({ example: 5, required: false })
   @IsOptional()
   @IsNumber({ maxDecimalPlaces: 3 })
   @Min(0)
-  discount_amount?: number;
+  @Max(100)
+  discount_percent?: number;
 
   @ApiProperty({ example: 'INV-2026-001' })
   @IsString()

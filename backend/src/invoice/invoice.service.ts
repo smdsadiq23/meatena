@@ -131,6 +131,10 @@ export class InvoiceService implements OnModuleInit {
       ALTER TABLE invoice
       ADD COLUMN IF NOT EXISTS discount_amount numeric(10, 3) NOT NULL DEFAULT 0
     `);
+    await this.dataSource.query(`
+      ALTER TABLE invoice
+      ADD COLUMN IF NOT EXISTS discount_percent numeric(7, 3) NOT NULL DEFAULT 0
+    `);
   }
 
   async create(data: CreateInvoiceDto) {
@@ -185,19 +189,17 @@ export class InvoiceService implements OnModuleInit {
         };
       });
 
-      const discount_amount = roundMoney(
-        transactionCurrency === 'USD'
-          ? Number(data.discount_amount ?? 0) / exchangeRate
-          : Number(data.discount_amount ?? 0),
-      );
+      const discount_percent = Number(data.discount_percent ?? 0);
 
-      if (!Number.isFinite(discount_amount) || discount_amount < 0) {
-        throw new BadRequestException('Discount must be zero or greater');
+      if (
+        !Number.isFinite(discount_percent) ||
+        discount_percent < 0 ||
+        discount_percent > 100
+      ) {
+        throw new BadRequestException('Discount percent must be between 0 and 100');
       }
 
-      if (discount_amount > subtotal) {
-        throw new BadRequestException('Discount cannot be greater than invoice subtotal');
-      }
+      const discount_amount = roundMoney((subtotal * discount_percent) / 100);
 
       const total = roundMoney(subtotal - discount_amount);
 
@@ -255,6 +257,7 @@ export class InvoiceService implements OnModuleInit {
         contact_names: cleanText(data.contact_names),
         subtotal,
         discount_amount,
+        discount_percent,
         total,
         previous_balance,
         grand_total,

@@ -391,7 +391,7 @@ const SERVER_PRESETS = [
 const emptyInvoiceForm = {
   invoiceNumber: '',
   invoiceDate: todayInputDate(),
-  discount: '',
+  discountPercent: '',
   type: 'credit' as 'cash' | 'credit',
 };
 
@@ -832,9 +832,12 @@ export default function App() {
       sum + Number(item.weight || 0) * toBaseKwd(Number(item.price || 0), invoiceCurrency),
     0,
   );
-  const enteredInvoiceDiscount = Number(invoiceForm.discount || 0);
-  const invoiceDiscount = Number.isFinite(enteredInvoiceDiscount)
-    ? Math.max(toBaseKwd(enteredInvoiceDiscount, invoiceCurrency), 0)
+  const enteredInvoiceDiscountPercent = Number(invoiceForm.discountPercent || 0);
+  const invoiceDiscountPercent = Number.isFinite(enteredInvoiceDiscountPercent)
+    ? Math.max(enteredInvoiceDiscountPercent, 0)
+    : Number.NaN;
+  const invoiceDiscount = Number.isFinite(invoiceDiscountPercent)
+    ? (invoiceTotal * invoiceDiscountPercent) / 100
     : Number.NaN;
   const invoiceNetTotal = Number.isFinite(invoiceDiscount)
     ? Math.max(invoiceTotal - invoiceDiscount, 0)
@@ -1368,13 +1371,13 @@ export default function App() {
       return;
     }
 
-    if (!Number.isFinite(invoiceDiscount)) {
-      setStatus('Enter a valid discount amount.');
+    if (!Number.isFinite(invoiceDiscountPercent)) {
+      setStatus('Enter a valid discount percent.');
       return;
     }
 
-    if (invoiceDiscount > invoiceTotal) {
-      setStatus('Discount cannot be greater than invoice subtotal.');
+    if (invoiceDiscountPercent > 100) {
+      setStatus('Discount percent cannot be greater than 100.');
       return;
     }
 
@@ -1407,7 +1410,7 @@ export default function App() {
           exchange_rate: currencyRate,
           include_previous_balance: includePreviousBalance,
           invoice_date: invoiceForm.invoiceDate.trim(),
-          discount_amount: Number(invoiceForm.discount || 0),
+          discount_percent: Number(invoiceForm.discountPercent || 0),
           invoice_number: invoiceForm.invoiceNumber.trim(),
           invoice_title: selectedProfile.invoice_title.trim(),
           invoice_title_ar: selectedProfile.invoice_title_ar?.trim() || undefined,
@@ -1429,7 +1432,7 @@ export default function App() {
         ...current,
         invoiceNumber: '',
         invoiceDate: todayInputDate(),
-        discount: '',
+        discountPercent: '',
       }));
       setInvoiceCurrency('KWD');
       setCurrentDisplayCurrency('KWD');
@@ -2509,9 +2512,9 @@ export default function App() {
             <View style={[styles.fieldBlock, styles.flex]}>
               <TextInput
                 style={styles.input}
-                value={invoiceForm.discount}
-                onChangeText={value => setInvoiceForm(current => ({ ...current, discount: value }))}
-                placeholder={`Discount ${invoiceCurrency}`}
+                value={invoiceForm.discountPercent}
+                onChangeText={value => setInvoiceForm(current => ({ ...current, discountPercent: value }))}
+                placeholder="Discount %"
                 keyboardType="decimal-pad"
               />
             </View>
@@ -2630,7 +2633,7 @@ export default function App() {
                   {selectedCustomer?.name ?? 'No customer selected'}
                 </Text>
                 <Text style={styles.rowSubtitle}>
-                  Date: {invoiceForm.invoiceDate || 'Not entered'} | Discount: {currency(invoiceDiscount)}
+                  Date: {invoiceForm.invoiceDate || 'Not entered'} | Discount: {Number.isFinite(invoiceDiscountPercent) ? invoiceDiscountPercent : 0}%
                 </Text>
               </View>
               <MoneyText value={currency(selectedCustomerId ? customerBalance : 0)} />
@@ -2709,7 +2712,7 @@ export default function App() {
               <Text style={styles.kicker}>Total</Text>
               {invoiceDiscount > 0 ? (
                 <Text style={styles.rowSubtitle}>
-                  Subtotal {currency(invoiceTotal)} | Discount {currency(invoiceDiscount)}
+                  Subtotal {currency(invoiceTotal)} | Discount {currency(invoiceDiscount)} ({invoiceDiscountPercent.toFixed(2)}%)
                 </Text>
               ) : null}
               <Text style={styles.totalValue}>{currency(invoiceNetTotal)}</Text>
