@@ -762,9 +762,9 @@ export default function Invoice() {
             ))}
           </div>
 
-          <div className="overflow-x-auto pb-2">
-            <div className="min-w-[1120px]">
-              <div className="mb-2 grid grid-cols-[minmax(240px,1.5fr)_90px_120px_120px_140px_170px_64px] gap-2 text-sm font-bold uppercase tracking-[0.14em] text-slate-600">
+          <div className="pb-2">
+            <div>
+              <div className="mb-2 grid grid-cols-[minmax(170px,1.35fr)_76px_105px_105px_125px_145px_58px] gap-2 text-sm font-bold uppercase tracking-[0.14em] text-slate-600">
                 <div>{t("Product")}</div>
                 <div>{t("Pieces")}</div>
                 <div>{t("Weight")}</div>
@@ -778,10 +778,10 @@ export default function Invoice() {
                 {items.map((item, index) => (
                   <div
                     key={index}
-                    className="grid grid-cols-[minmax(240px,1.5fr)_90px_120px_120px_140px_170px_64px] gap-2"
+                    className="grid grid-cols-[minmax(170px,1.35fr)_76px_105px_105px_125px_145px_58px] gap-2"
                   >
                     <select
-                      className="field h-[58px] px-4 py-0 text-base"
+                      className="field h-[56px] px-3 py-0 text-sm"
                       value={item.productId}
                       onChange={(e) => updateItem(index, "productId", e.target.value)}
                     >
@@ -795,7 +795,7 @@ export default function Invoice() {
                     </select>
 
                     <input
-                      className="field h-[58px] px-4 py-0 text-base"
+                      className="field h-[56px] px-3 py-0 text-sm"
                       placeholder="pcs"
                       value={item.pieces}
                       onChange={(e) => updateItem(index, "pieces", e.target.value)}
@@ -808,7 +808,7 @@ export default function Invoice() {
                         }
                         weightRefs.current[index] = element;
                       }}
-                      className="field h-[58px] px-4 py-0 text-base"
+                      className="field h-[56px] px-3 py-0 text-sm"
                       placeholder="kg"
                       value={item.weight}
                       onChange={(e) => updateItem(index, "weight", e.target.value)}
@@ -817,7 +817,7 @@ export default function Invoice() {
 
                     <input
                       id={`price-${index}`}
-                      className="field h-[58px] px-4 py-0 text-base"
+                      className="field h-[56px] px-3 py-0 text-sm"
                       placeholder={`${t("Price")} (${invoiceCurrency})`}
                       value={item.price}
                       onChange={(e) => updateItem(index, "price", e.target.value)}
@@ -825,21 +825,21 @@ export default function Invoice() {
                     />
 
                     <input
-                      className="field h-[58px] px-4 py-0 text-base"
+                      className="field h-[56px] px-3 py-0 text-sm"
                       inputMode="decimal"
                       placeholder={t("Discount")}
                       value={item.discount}
                       onChange={(e) => updateItem(index, "discount", e.target.value)}
                     />
 
-                    <div className="flex h-[58px] items-center justify-center rounded-2xl bg-slate-100 px-4 text-lg font-black text-slate-950">
+                    <div className="flex h-[56px] items-center justify-center rounded-2xl bg-slate-100 px-3 text-base font-black text-slate-950">
                       <span className="whitespace-nowrap">
                         {formatCurrency(lineNetAmount(item), invoiceCurrency)}
                       </span>
                     </div>
 
                     <button
-                      className="h-[58px] w-[58px] rounded-2xl bg-red-600 font-semibold text-white"
+                      className="h-[56px] w-[56px] rounded-2xl bg-red-600 font-semibold text-white"
                       onClick={() => removeRow(index)}
                     >
                       X
