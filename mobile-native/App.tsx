@@ -82,6 +82,27 @@ type Supplier = {
   balance?: number | string;
 };
 
+type SupplierStatementRow = {
+  id: string;
+  date: string;
+  type: 'purchase' | 'payment';
+  reference: string;
+  description: string;
+  charge: number | string;
+  payment: number | string;
+  balance: number | string;
+};
+
+type SupplierStatement = {
+  supplier: Supplier;
+  rows: SupplierStatementRow[];
+  totals: {
+    charges: number | string;
+    payments: number | string;
+    closing_balance: number | string;
+  };
+};
+
 type Purchase = {
   id: number;
   supplier_id: number;
@@ -785,6 +806,7 @@ export default function App() {
   const [inventorySummary, setInventorySummary] = useState<InventorySummary | null>(null);
   const [reorderSuggestions, setReorderSuggestions] = useState<ReorderSuggestion[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [supplierStatement, setSupplierStatement] = useState<SupplierStatement | null>(null);
   const [purchases, setPurchases] = useState<Purchase[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
@@ -1710,6 +1732,22 @@ export default function App() {
         },
       ],
     );
+  }
+
+  async function openSupplierStatement(supplier: Supplier) {
+    setSelectedSupplierId(supplier.id);
+    setBusy(true);
+    setStatus('');
+
+    try {
+      const response = await apiFetch(`/suppliers/${supplier.id}/statement`);
+      setSupplierStatement((await response.json()) as SupplierStatement);
+      setStatus(`Supplier statement loaded for ${supplier.name}.`);
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : 'Could not load supplier statement.');
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function createCustomer() {
@@ -3475,6 +3513,7 @@ export default function App() {
             ) : (
               <View style={styles.twoCols}>
                 <SecondaryButton title="Edit Supplier" onPress={() => startEditSupplier(supplier)} disabled={busy} />
+                <SecondaryButton title="Statement" onPress={() => openSupplierStatement(supplier)} disabled={busy} />
                 {selectedSupplierId === supplier.id ? (
                   <SecondaryButton title="Delete Supplier" onPress={deleteSelectedSupplier} disabled={busy} />
                 ) : null}
@@ -3482,6 +3521,29 @@ export default function App() {
             )}
           </View>
         ))}
+        {supplierStatement ? (
+          <View style={styles.inlineEditor}>
+            <Text style={styles.subhead}>Supplier statement</Text>
+            <Metric label="Supplier" value={supplierStatement.supplier.name} />
+            <View style={styles.metricGrid}>
+              <Metric label="Purchases" value={currency(supplierStatement.totals.charges)} />
+              <Metric label="Payments / Advance" value={currency(supplierStatement.totals.payments)} />
+              <Metric label="Closing Balance" value={currency(supplierStatement.totals.closing_balance)} />
+            </View>
+            {supplierStatement.rows.slice(-10).reverse().map(row => (
+              <Row
+                key={row.id}
+                title={row.reference || row.description}
+                subtitle={`${row.type === 'purchase' ? 'Purchase' : 'Payment'} | Charge ${currencyInline(row.charge)} | Paid ${currencyInline(row.payment)}`}
+                right={currency(row.balance)}
+              />
+            ))}
+            {!supplierStatement.rows.length ? (
+              <Text style={styles.mutedDark}>No purchases or payments recorded for this supplier.</Text>
+            ) : null}
+            <SecondaryButton title="Close Statement" onPress={() => setSupplierStatement(null)} />
+          </View>
+        ) : null}
       </View>
     );
   }

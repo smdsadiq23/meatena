@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { fetchJson, fetchJsonOrThrow } from "../../lib/auth";
+import { downloadAuthenticatedFile, fetchJson, fetchJsonOrThrow } from "../../lib/auth";
 import { formatDualCurrency, Money } from "../../lib/currency";
 
 type Supplier = {
@@ -22,6 +22,27 @@ type SupplierPayment = {
   date: string;
 };
 
+type SupplierStatementRow = {
+  id: string;
+  date: string;
+  type: "purchase" | "payment";
+  reference: string;
+  description: string;
+  charge: number;
+  payment: number;
+  balance: number;
+};
+
+type SupplierStatement = {
+  supplier: Supplier;
+  rows: SupplierStatementRow[];
+  totals: {
+    charges: number;
+    payments: number;
+    closing_balance: number;
+  };
+};
+
 const emptySupplier = { name: "", mobile: "", address: "" };
 const emptyPayment = {
   supplier_id: "",
@@ -40,6 +61,8 @@ export default function SuppliersPage() {
   const [status, setStatus] = useState("");
   const [statusType, setStatusType] = useState<"success" | "error">("success");
   const [loading, setLoading] = useState(false);
+  const [statement, setStatement] = useState<SupplierStatement | null>(null);
+  const [statementLoading, setStatementLoading] = useState(false);
 
   const loadSuppliers = async (preserveStatus = false) => {
     if (!preserveStatus) {
@@ -179,6 +202,35 @@ export default function SuppliersPage() {
     }
   };
 
+  const openSupplierStatement = async (supplier: Supplier) => {
+    setStatementLoading(true);
+    setStatus("");
+
+    try {
+      const data = await fetchJson<SupplierStatement>(`/suppliers/${supplier.id}/statement`);
+      setStatement(data);
+    } catch (error) {
+      setStatusType("error");
+      setStatus(error instanceof Error ? error.message : "Could not load supplier statement.");
+    } finally {
+      setStatementLoading(false);
+    }
+  };
+
+  const downloadSupplierStatement = async (supplier: Supplier) => {
+    setStatus("");
+
+    try {
+      await downloadAuthenticatedFile(
+        `/suppliers/${supplier.id}/statement/pdf`,
+        `supplier-statement-${supplier.id}.pdf`
+      );
+    } catch (error) {
+      setStatusType("error");
+      setStatus(error instanceof Error ? error.message : "Could not download supplier statement.");
+    }
+  };
+
   return (
     <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
       <section className="panel p-6 md:p-8">
@@ -207,19 +259,106 @@ export default function SuppliersPage() {
                   <p className="mt-1 text-2xl font-black text-red-600">
                     <Money value={supplier.balance ?? 0} />
                   </p>
-                  <button
-                    type="button"
-                    className="rounded-2xl border border-red-100 bg-red-50 px-4 py-2 text-sm font-bold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
-                    onClick={() => void deleteSupplier(supplier)}
-                    disabled={loading}
-                  >
-                    Delete
-                  </button>
+                  <div className="flex flex-wrap gap-2 md:justify-end">
+                    <button
+                      type="button"
+                      className="rounded-2xl bg-slate-950 px-4 py-2 text-sm font-bold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+                      onClick={() => void openSupplierStatement(supplier)}
+                      disabled={statementLoading}
+                    >
+                      Statement
+                    </button>
+                    <button
+                      type="button"
+                      className="rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-900 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                      onClick={() => void downloadSupplierStatement(supplier)}
+                    >
+                      PDF
+                    </button>
+                    <button
+                      type="button"
+                      className="rounded-2xl border border-red-100 bg-red-50 px-4 py-2 text-sm font-bold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+                      onClick={() => void deleteSupplier(supplier)}
+                      disabled={loading}
+                    >
+                      Delete
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
           ))}
         </div>
+      </section>
+
+      <section className="panel p-6 md:p-8">
+        <p className="soft-label">Supplier Statement</p>
+        <h2 className="mt-2 text-2xl font-bold text-slate-950">
+          {statement?.supplier.name ?? "Open a supplier ledger"}
+        </h2>
+        {statement ? (
+          <>
+            <div className="mt-5 grid gap-3 sm:grid-cols-3">
+              <div className="rounded-2xl bg-slate-50 p-4">
+                <p className="soft-label">Purchases</p>
+                <p className="mt-2 text-lg font-black text-slate-950">
+                  <Money value={statement.totals.charges} />
+                </p>
+              </div>
+              <div className="rounded-2xl bg-emerald-50 p-4">
+                <p className="soft-label">Payments / Advance</p>
+                <p className="mt-2 text-lg font-black text-emerald-700">
+                  <Money value={statement.totals.payments} />
+                </p>
+              </div>
+              <div className="rounded-2xl bg-red-50 p-4">
+                <p className="soft-label">Closing Balance</p>
+                <p className="mt-2 text-lg font-black text-red-700">
+                  <Money value={statement.totals.closing_balance} />
+                </p>
+              </div>
+            </div>
+            <div className="mt-5 overflow-hidden rounded-2xl border border-slate-200">
+              <div className="grid grid-cols-[1fr_1fr_1fr] gap-2 bg-slate-950 px-4 py-3 text-xs font-black uppercase tracking-[0.16em] text-white md:grid-cols-[1fr_1.1fr_1fr_1fr_1fr]">
+                <span>Date</span>
+                <span className="hidden md:block">Reference</span>
+                <span className="text-right">Charge</span>
+                <span className="text-right">Payment</span>
+                <span className="text-right">Balance</span>
+              </div>
+              {statement.rows.map((row) => (
+                <div
+                  key={row.id}
+                  className="grid grid-cols-[1fr_1fr_1fr] gap-2 border-t border-slate-100 px-4 py-3 text-sm md:grid-cols-[1fr_1.1fr_1fr_1fr_1fr]"
+                >
+                  <span className="font-bold text-slate-900">
+                    {new Date(row.date).toLocaleDateString()}
+                  </span>
+                  <span className="hidden text-slate-600 md:block">{row.reference}</span>
+                  <span className="text-right text-red-700">
+                    {row.charge ? <Money value={row.charge} /> : "-"}
+                  </span>
+                  <span className="text-right text-emerald-700">
+                    {row.payment ? <Money value={row.payment} /> : "-"}
+                  </span>
+                  <span className="text-right font-black text-slate-950">
+                    <Money value={row.balance} />
+                  </span>
+                </div>
+              ))}
+              {statement.rows.length === 0 ? (
+                <div className="px-4 py-5 text-sm font-medium text-slate-600">
+                  No purchases or payments recorded for this supplier.
+                </div>
+              ) : null}
+            </div>
+          </>
+        ) : (
+          <div className="mt-5 rounded-2xl bg-slate-50 p-5 text-sm font-medium text-slate-600">
+            Select Statement on any supplier to review purchases, payments, advances, and closing
+            balance.
+          </div>
+        )}
       </section>
 
       <section className="space-y-6">

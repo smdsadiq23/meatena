@@ -3,12 +3,16 @@ import {
   Controller,
   Delete,
   Get,
+  Header,
   Param,
   ParseIntPipe,
   Patch,
   Post,
+  Res,
   UseGuards,
 } from '@nestjs/common';
+import type { Response } from 'express';
+import { AppSettingService } from '../app-setting/app-setting.service';
 import {
   ApiBearerAuth,
   ApiCreatedResponse,
@@ -21,6 +25,7 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { UserRole } from '../user/user-role.enum';
 import { CreateSupplierDto } from './dto/create-supplier.dto';
 import { UpdateSupplierDto } from './dto/update-supplier.dto';
+import { generateSupplierStatementPDF } from './supplier-statement-pdf.service';
 import { SupplierService } from './supplier.service';
 
 @ApiTags('suppliers')
@@ -29,7 +34,10 @@ import { SupplierService } from './supplier.service';
 @Roles(UserRole.Admin)
 @Controller('suppliers')
 export class SupplierController {
-  constructor(private readonly service: SupplierService) {}
+  constructor(
+    private readonly service: SupplierService,
+    private readonly appSettingService: AppSettingService,
+  ) {}
 
   @ApiCreatedResponse({ description: 'Supplier created successfully.' })
   @Post()
@@ -41,6 +49,30 @@ export class SupplierController {
   @Get()
   findAll() {
     return this.service.findAll();
+  }
+
+  @ApiOkResponse({ description: 'Supplier payable statement.' })
+  @Get(':id/statement')
+  getStatement(@Param('id', ParseIntPipe) id: number) {
+    return this.service.getStatement(id);
+  }
+
+  @ApiOkResponse({ description: 'Download supplier payable statement PDF.' })
+  @Get(':id/statement/pdf')
+  @Header('Content-Type', 'application/pdf')
+  async getStatementPdf(
+    @Param('id', ParseIntPipe) id: number,
+    @Res() res: Response,
+  ) {
+    const data = await this.service.getStatement(id);
+    const currency = await this.appSettingService.getCurrencyRate();
+    generateSupplierStatementPDF(
+      data.supplier,
+      data.rows,
+      data.totals,
+      res,
+      currency.kwd_to_usd_rate,
+    );
   }
 
   @ApiOkResponse({ description: 'Supplier updated successfully.' })
