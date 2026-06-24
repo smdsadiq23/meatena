@@ -23,7 +23,7 @@ export class StockMovement {
   @Column({ nullable: true })
   reference_id: number;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   note: string | null;
 
   @Column()
