@@ -120,6 +120,7 @@ export class InvoiceController {
     @Query('period') period: string,
     @Query('date') date: string | undefined,
     @Query('currency') currency: string | undefined,
+    @Query('payment_status') paymentStatus: string | undefined,
     @Res() res: Response,
   ) {
     const data = await this.service.getConsolidatedInvoicePdfData({
@@ -127,6 +128,7 @@ export class InvoiceController {
       period,
       date,
       currency,
+      paymentStatus,
     });
 
     return generateInvoicePDF(
@@ -137,6 +139,7 @@ export class InvoiceController {
       res,
       undefined,
       data.itemDateLabels,
+      data.itemStatusLabels,
     );
   }
 

@@ -40,6 +40,7 @@ type ProductInvoiceName = {
 };
 
 type ConsolidatedInvoicePeriod = 'daily' | 'weekly';
+type ConsolidatedPaymentFilter = 'outstanding' | 'paid' | 'all';
 
 export type ConsolidatedInvoicePdfData = {
   invoice: InvoiceWithNumber;
@@ -47,6 +48,7 @@ export type ConsolidatedInvoicePdfData = {
   customer: Customer;
   productNames: Map<number, ProductInvoiceName>;
   itemDateLabels: Map<number, string>;
+  itemStatusLabels: Map<number, string>;
 };
 
 function cleanText(value?: string | null) {
@@ -535,6 +537,7 @@ export class InvoiceService implements OnModuleInit {
     period: string;
     date?: string;
     currency?: string;
+    paymentStatus?: string;
   }): Promise<ConsolidatedInvoicePdfData> {
     if (!Number.isInteger(params.customerId) || params.customerId <= 0) {
       throw new BadRequestException('Customer is required');
@@ -543,9 +546,15 @@ export class InvoiceService implements OnModuleInit {
     const period: ConsolidatedInvoicePeriod =
       params.period === 'weekly' ? 'weekly' : 'daily';
     const currency = params.currency === 'USD' ? 'USD' : 'KWD';
+    const paymentFilter: ConsolidatedPaymentFilter =
+      params.paymentStatus === 'paid'
+        ? 'paid'
+        : params.paymentStatus === 'all'
+          ? 'all'
+          : 'outstanding';
     const { startKey, endKey } = getConsolidatedRange(period, params.date);
     const customer = await this.getCustomer(params.customerId);
-    const invoices = (
+    const matchingInvoices = (
       await this.invoiceRepo.find({
         where: { customer_id: params.customerId },
         order: { date: 'ASC', id: 'ASC' },
@@ -562,9 +571,59 @@ export class InvoiceService implements OnModuleInit {
       );
     });
 
+    const matchingInvoiceIds = matchingInvoices.map((invoice) => invoice.id);
+    const payments = matchingInvoiceIds.length
+      ? await this.paymentRepo.find({ where: { invoice_id: In(matchingInvoiceIds) } })
+      : [];
+    const paidByInvoice = new Map<number, number>();
+
+    for (const payment of payments) {
+      if (!payment.invoice_id || payment.status === 'reversed') {
+        continue;
+      }
+
+      paidByInvoice.set(
+        payment.invoice_id,
+        roundMoney((paidByInvoice.get(payment.invoice_id) ?? 0) + Number(payment.amount)),
+      );
+    }
+
+    const statusByInvoice = new Map<number, 'paid' | 'partial' | 'unpaid'>();
+    const outstandingByInvoice = new Map<number, number>();
+
+    for (const invoice of matchingInvoices) {
+      const paid = paidByInvoice.get(invoice.id) ?? 0;
+      const outstanding = roundMoney(Math.max(Number(invoice.total) - paid, 0));
+      const paymentStatus =
+        outstanding <= 0 ? 'paid' : paid > 0 ? 'partial' : 'unpaid';
+
+      statusByInvoice.set(invoice.id, paymentStatus);
+      outstandingByInvoice.set(invoice.id, outstanding);
+    }
+
+    const invoices = matchingInvoices.filter((invoice) => {
+      const status = statusByInvoice.get(invoice.id) ?? 'unpaid';
+
+      if (paymentFilter === 'paid') {
+        return status === 'paid';
+      }
+
+      if (paymentFilter === 'outstanding') {
+        return status === 'unpaid' || status === 'partial';
+      }
+
+      return true;
+    });
+
     if (!invoices.length) {
+      const filterLabel =
+        paymentFilter === 'all'
+          ? ''
+          : paymentFilter === 'paid'
+            ? ' paid'
+            : ' outstanding';
       throw new NotFoundException(
-        `No ${period} ${currency} invoices found for ${customer.name}.`,
+        `No ${period}${filterLabel} ${currency} invoices found for ${customer.name}.`,
       );
     }
 
@@ -581,6 +640,7 @@ export class InvoiceService implements OnModuleInit {
     const productNames = await this.getProductNamesForItems(items);
     const invoiceById = new Map(invoices.map((invoice) => [invoice.id, invoice]));
     const itemDateLabels = new Map<number, string>();
+    const itemStatusLabels = new Map<number, string>();
 
     for (const item of items) {
       const invoice = invoiceById.get(item.invoice_id);
@@ -590,10 +650,21 @@ export class InvoiceService implements OnModuleInit {
           item.id,
           `${invoiceDate.getUTCDate()}/${invoiceDate.getUTCMonth() + 1}/${invoiceDate.getUTCFullYear()}`,
         );
+        itemStatusLabels.set(
+          item.id,
+          (statusByInvoice.get(invoice.id) ?? 'unpaid').toUpperCase(),
+        );
       }
     }
 
     const profileInvoice = invoices[invoices.length - 1];
+    const titlePrefix = period === 'weekly' ? 'Weekly' : 'Daily';
+    const titleKind =
+      paymentFilter === 'paid'
+        ? 'Paid Invoice'
+        : paymentFilter === 'all'
+          ? 'Invoice Summary'
+          : 'Outstanding Invoice';
     const subtotal = roundMoney(
       invoices.reduce((sum, invoice) => sum + Number(invoice.subtotal ?? invoice.total), 0),
     );
@@ -613,6 +684,7 @@ export class InvoiceService implements OnModuleInit {
         id: 0,
         date: `${startKey}T12:00:00.000Z`,
         invoice_number: invoiceNumber,
+        invoice_title: `${titlePrefix} ${titleKind}`,
         subtotal,
         discount_amount,
         discount_percent: 0,
@@ -626,6 +698,7 @@ export class InvoiceService implements OnModuleInit {
       customer,
       productNames,
       itemDateLabels,
+      itemStatusLabels,
     };
   }
 

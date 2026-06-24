@@ -473,6 +473,7 @@ export function generateInvoicePDF(
   res: Response,
   _kwdToUsdRate?: number,
   itemDateLabels?: Map<number, string>,
+  itemStatusLabels?: Map<number, string>,
 ) {
   const doc = new PDFDocument({
     layout: 'portrait',
@@ -713,9 +714,16 @@ export function generateInvoicePDF(
 
     doc.moveTo(tableX, y + rowH).lineTo(tableX + tableW, y + rowH).stroke();
     const itemDate = itemDateLabels?.get(item.id) ?? invoiceDate;
+    const itemStatus = itemStatusLabels?.get(item.id);
     const rowTextY = isCombinedInvoice ? y + 8 : y + 13;
     drawCentered(String(index + 1), colX[0], rowTextY, cols[0], { size: 12 });
-    drawCentered(itemDate, colX[1], rowTextY, cols[1], { size: 12 });
+    drawCentered(itemDate, colX[1], isCombinedInvoice && itemStatus ? y + 5 : rowTextY, cols[1], { size: 12 });
+    if (isCombinedInvoice && itemStatus) {
+      drawCentered(itemStatus, colX[1], y + 20, cols[1], {
+        font: 'Helvetica-Bold',
+        size: 6.8,
+      });
+    }
     drawCentered(description, colX[2], isCombinedInvoice ? y + 6 : y + 10, cols[2], { size: 11 });
     if (descriptionArabic) {
       drawCentered(descriptionArabic, colX[2], isCombinedInvoice ? y + 20 : y + 30, cols[2], {

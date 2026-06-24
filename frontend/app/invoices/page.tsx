@@ -48,6 +48,9 @@ export default function InvoicesPage() {
   const [combinedPeriod, setCombinedPeriod] = useState<"daily" | "weekly">("daily");
   const [combinedDate, setCombinedDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [combinedCurrency, setCombinedCurrency] = useState<"KWD" | "USD">(displayCurrency);
+  const [combinedPaymentStatus, setCombinedPaymentStatus] = useState<
+    "outstanding" | "paid" | "all"
+  >("outstanding");
 
   const loadInvoices = async () => {
     const data = await fetchJson<Invoice[]>("/invoices");
@@ -80,7 +83,7 @@ export default function InvoicesPage() {
 
     const customerName =
       customerNameById.get(Number(combinedCustomerId)) ?? `customer-${combinedCustomerId}`;
-    const fileName = `${combinedPeriod}-${customerName}-${combinedDate}-${combinedCurrency}.pdf`
+    const fileName = `${combinedPeriod}-${combinedPaymentStatus}-${customerName}-${combinedDate}-${combinedCurrency}.pdf`
       .replace(/[^a-z0-9._-]+/gi, "-")
       .toLowerCase();
 
@@ -88,7 +91,7 @@ export default function InvoicesPage() {
 
     try {
       await downloadAuthenticatedFile(
-        `/invoices/consolidated/pdf?customer_id=${combinedCustomerId}&period=${combinedPeriod}&date=${combinedDate}&currency=${combinedCurrency}`,
+        `/invoices/consolidated/pdf?customer_id=${combinedCustomerId}&period=${combinedPeriod}&date=${combinedDate}&currency=${combinedCurrency}&payment_status=${combinedPaymentStatus}`,
         fileName
       );
     } catch (error) {
@@ -189,7 +192,7 @@ export default function InvoicesPage() {
             </button>
           </div>
 
-          <div className="mt-4 grid gap-3 md:grid-cols-4">
+          <div className="mt-4 grid gap-3 md:grid-cols-5">
             <label className="space-y-2">
               <span className="soft-label">Customer</span>
               <select
@@ -233,6 +236,23 @@ export default function InvoicesPage() {
               >
                 <option value="KWD">KWD invoices</option>
                 <option value="USD">USD invoices</option>
+              </select>
+            </label>
+            <label className="space-y-2">
+              <span className="soft-label">Bill Status</span>
+              <select
+                className="input"
+                value={combinedPaymentStatus}
+                onChange={(event) => {
+                  const value = event.target.value;
+                  setCombinedPaymentStatus(
+                    value === "paid" ? "paid" : value === "all" ? "all" : "outstanding"
+                  );
+                }}
+              >
+                <option value="outstanding">Outstanding only</option>
+                <option value="paid">Paid only</option>
+                <option value="all">All active invoices</option>
               </select>
             </label>
           </div>
