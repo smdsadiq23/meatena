@@ -86,6 +86,8 @@ type Purchase = {
   id: number;
   supplier_id: number;
   invoice_no?: string | null;
+  purchase_date?: string | null;
+  goods_received_date?: string | null;
   transaction_currency?: TransactionCurrency;
   exchange_rate?: number | string;
   subtotal?: number | string;
@@ -632,6 +634,8 @@ const emptySupplierForm = { name: '', mobile: '', address: '' };
 const emptyPurchaseForm = {
   supplierId: '',
   invoiceNo: '',
+  purchaseDate: '',
+  goodsReceivedDate: '',
   pieces: '',
   weight: '',
   costPerKg: '',
@@ -1926,6 +1930,8 @@ export default function App() {
         body: JSON.stringify({
           supplier_id: selectedSupplierId,
           invoice_no: purchaseForm.invoiceNo.trim() || undefined,
+          purchase_date: purchaseForm.purchaseDate.trim() || undefined,
+          goods_received_date: purchaseForm.goodsReceivedDate.trim() || undefined,
           transaction_currency: purchaseCurrency,
           exchange_rate: currencyRate,
           discount_percent: Number(purchaseForm.discountPercent || 0),
@@ -1973,6 +1979,9 @@ export default function App() {
       setPurchaseEditForm({
         supplierId: String(detail.supplier_id),
         invoiceNo: detail.invoice_no ?? '',
+        purchaseDate: detail.purchase_date ?? detail.created_at?.slice(0, 10) ?? '',
+        goodsReceivedDate:
+          detail.goods_received_date ?? detail.purchase_date ?? detail.created_at?.slice(0, 10) ?? '',
         pieces: firstItem?.pieces ? String(firstItem.pieces) : '',
         weight: firstItem?.weight ? String(firstItem.weight) : '',
         costPerKg: displayCost ? displayCost.toFixed(3) : '',
@@ -2025,6 +2034,8 @@ export default function App() {
         body: JSON.stringify({
           supplier_id: selectedSupplierId,
           invoice_no: purchaseEditForm.invoiceNo.trim() || undefined,
+          purchase_date: purchaseEditForm.purchaseDate.trim() || undefined,
+          goods_received_date: purchaseEditForm.goodsReceivedDate.trim() || undefined,
           transaction_currency: purchaseEditCurrency,
           exchange_rate: currencyRate,
           discount_percent: Number(purchaseEditForm.discountPercent || 0),
@@ -3203,6 +3214,20 @@ export default function App() {
           onChangeText={value => setPurchaseForm(current => ({ ...current, invoiceNo: value }))}
           placeholder="Supplier invoice no."
         />
+        <View style={styles.twoColsEven}>
+          <TextInput
+            style={[styles.input, styles.flex]}
+            value={purchaseForm.purchaseDate}
+            onChangeText={value => setPurchaseForm(current => ({ ...current, purchaseDate: value }))}
+            placeholder="Purchase date YYYY-MM-DD"
+          />
+          <TextInput
+            style={[styles.input, styles.flex]}
+            value={purchaseForm.goodsReceivedDate}
+            onChangeText={value => setPurchaseForm(current => ({ ...current, goodsReceivedDate: value }))}
+            placeholder="Received date YYYY-MM-DD"
+          />
+        </View>
         <TextInput
           style={styles.input}
           value={purchaseForm.pieces}
@@ -3254,6 +3279,10 @@ export default function App() {
               subtitle={`${suppliers.find(supplier => supplier.id === purchase.supplier_id)?.name ?? 'Supplier'} | ${purchase.invoice_no || 'No invoice'}`}
               right={currency(purchase.balance_due ?? purchase.total ?? purchase.total_amount)}
             />
+            <Text style={styles.mutedDark}>
+              Purchase: {purchase.purchase_date || purchase.created_at?.slice(0, 10) || '-'} | Received:{' '}
+              {purchase.goods_received_date || purchase.purchase_date || purchase.created_at?.slice(0, 10) || '-'}
+            </Text>
             {editingPurchaseId === purchase.id ? (
               <View style={styles.inlineEditor}>
                 <Text style={styles.subhead}>Edit purchase</Text>
@@ -3275,6 +3304,20 @@ export default function App() {
                   onChangeText={value => setPurchaseEditForm(current => ({ ...current, invoiceNo: value }))}
                   placeholder="Supplier invoice no."
                 />
+                <View style={styles.twoColsEven}>
+                  <TextInput
+                    style={[styles.input, styles.flex]}
+                    value={purchaseEditForm.purchaseDate}
+                    onChangeText={value => setPurchaseEditForm(current => ({ ...current, purchaseDate: value }))}
+                    placeholder="Purchase date YYYY-MM-DD"
+                  />
+                  <TextInput
+                    style={[styles.input, styles.flex]}
+                    value={purchaseEditForm.goodsReceivedDate}
+                    onChangeText={value => setPurchaseEditForm(current => ({ ...current, goodsReceivedDate: value }))}
+                    placeholder="Received date YYYY-MM-DD"
+                  />
+                </View>
                 <TextInput
                   style={styles.input}
                   value={purchaseEditForm.pieces}

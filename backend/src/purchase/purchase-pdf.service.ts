@@ -56,7 +56,9 @@ export function generatePurchasePDF(
   doc.text(`Supplier: ${supplier.name}`);
   doc.text(`Mobile: ${supplier.mobile ?? '-'}`);
   doc.text(`Supplier Invoice: ${purchase.invoice_no ?? '-'}`);
-  doc.text(`Date: ${new Date(purchase.date).toLocaleString()}`);
+  doc.text(`Purchase Date: ${purchase.purchase_date ?? new Date(purchase.date).toLocaleDateString()}`);
+  doc.text(`Goods Received: ${purchase.goods_received_date ?? purchase.purchase_date ?? new Date(purchase.date).toLocaleDateString()}`);
+  doc.text(`Recorded At: ${new Date(purchase.date).toLocaleString()}`);
 
   doc.moveDown();
 

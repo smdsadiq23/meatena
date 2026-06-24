@@ -25,6 +25,8 @@ type Purchase = {
   id: number;
   supplier_id: number;
   invoice_no?: string;
+  purchase_date?: string | null;
+  goods_received_date?: string | null;
   transaction_currency?: "KWD" | "USD";
   exchange_rate?: number | string;
   subtotal?: number | string;
@@ -68,6 +70,8 @@ export default function PurchasesPage() {
   const [purchases, setPurchases] = useState<Purchase[]>([]);
   const [supplierId, setSupplierId] = useState("");
   const [invoiceNo, setInvoiceNo] = useState("");
+  const [purchaseDate, setPurchaseDate] = useState("");
+  const [goodsReceivedDate, setGoodsReceivedDate] = useState("");
   const [discountPercent, setDiscountPercent] = useState("");
   const [advancePaid, setAdvancePaid] = useState("");
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
@@ -77,6 +81,8 @@ export default function PurchasesPage() {
   const [editingPurchaseId, setEditingPurchaseId] = useState<number | null>(null);
   const [editSupplierId, setEditSupplierId] = useState("");
   const [editInvoiceNo, setEditInvoiceNo] = useState("");
+  const [editPurchaseDate, setEditPurchaseDate] = useState("");
+  const [editGoodsReceivedDate, setEditGoodsReceivedDate] = useState("");
   const [editDiscountPercent, setEditDiscountPercent] = useState("");
   const [editAdvancePaid, setEditAdvancePaid] = useState("");
   const [editPurchaseCurrency, setEditPurchaseCurrency] = useState<"KWD" | "USD">("KWD");
@@ -261,6 +267,8 @@ export default function PurchasesPage() {
         body: JSON.stringify({
           supplier_id: Number(supplierId),
           invoice_no: invoiceNo || undefined,
+          purchase_date: purchaseDate || undefined,
+          goods_received_date: goodsReceivedDate || undefined,
           transaction_currency: purchaseCurrency,
           exchange_rate: currencyRate,
           discount_percent: Number(discountPercent || 0),
@@ -288,6 +296,8 @@ export default function PurchasesPage() {
       }
 
       setInvoiceNo("");
+      setPurchaseDate("");
+      setGoodsReceivedDate("");
       setDiscountPercent("");
       setAdvancePaid("");
       setReceiptFile(null);
@@ -318,6 +328,8 @@ export default function PurchasesPage() {
       setEditingPurchaseId(purchase.id);
       setEditSupplierId(String(detail.supplier_id));
       setEditInvoiceNo(detail.invoice_no || "");
+      setEditPurchaseDate(detail.purchase_date || detail.date?.slice(0, 10) || "");
+      setEditGoodsReceivedDate(detail.goods_received_date || detail.purchase_date || detail.date?.slice(0, 10) || "");
       setEditDiscountPercent(detail.discount_percent ? String(detail.discount_percent) : "");
       setEditAdvancePaid(
         detail.advance_paid
@@ -389,6 +401,8 @@ export default function PurchasesPage() {
         body: JSON.stringify({
           supplier_id: Number(editSupplierId),
           invoice_no: editInvoiceNo || undefined,
+          purchase_date: editPurchaseDate || undefined,
+          goods_received_date: editGoodsReceivedDate || undefined,
           transaction_currency: editPurchaseCurrency,
           exchange_rate: editExchangeRate,
           discount_percent: Number(editDiscountPercent || 0),
@@ -404,6 +418,8 @@ export default function PurchasesPage() {
       setEditingPurchaseId(null);
       setEditSupplierId("");
       setEditInvoiceNo("");
+      setEditPurchaseDate("");
+      setEditGoodsReceivedDate("");
       setEditDiscountPercent("");
       setEditAdvancePaid("");
       setEditPurchaseCurrency("KWD");
@@ -516,6 +532,26 @@ export default function PurchasesPage() {
           <input className="field" placeholder="Supplier invoice no." value={invoiceNo} onChange={(e) => setInvoiceNo(e.target.value)} />
         </div>
         <div className="mt-4 grid gap-4 md:grid-cols-2">
+          <label className="space-y-2">
+            <span className="soft-label">Purchase Date</span>
+            <input
+              className="field"
+              type="date"
+              value={purchaseDate}
+              onChange={(e) => setPurchaseDate(e.target.value)}
+            />
+          </label>
+          <label className="space-y-2">
+            <span className="soft-label">Goods Received Date</span>
+            <input
+              className="field"
+              type="date"
+              value={goodsReceivedDate}
+              onChange={(e) => setGoodsReceivedDate(e.target.value)}
+            />
+          </label>
+        </div>
+        <div className="mt-4 grid gap-4 md:grid-cols-2">
           <input
             className="field"
             inputMode="decimal"
@@ -622,6 +658,26 @@ export default function PurchasesPage() {
                     <input className="field bg-white" placeholder="Supplier invoice no." value={editInvoiceNo} onChange={(e) => setEditInvoiceNo(e.target.value)} />
                   </div>
                   <div className="grid gap-3 md:grid-cols-2">
+                    <label className="space-y-2">
+                      <span className="soft-label">Purchase Date</span>
+                      <input
+                        className="field bg-white"
+                        type="date"
+                        value={editPurchaseDate}
+                        onChange={(e) => setEditPurchaseDate(e.target.value)}
+                      />
+                    </label>
+                    <label className="space-y-2">
+                      <span className="soft-label">Goods Received Date</span>
+                      <input
+                        className="field bg-white"
+                        type="date"
+                        value={editGoodsReceivedDate}
+                        onChange={(e) => setEditGoodsReceivedDate(e.target.value)}
+                      />
+                    </label>
+                  </div>
+                  <div className="grid gap-3 md:grid-cols-2">
                     <input
                       className="field bg-white"
                       inputMode="decimal"
@@ -706,7 +762,10 @@ export default function PurchasesPage() {
                       <Money value={purchase.balance_due ?? purchase.total} />
                     </p>
                   </div>
-                  <div className="text-slate-500">{new Date(purchase.date).toLocaleString()}</div>
+                  <div className="text-slate-500">
+                    <p>Purchase: {purchase.purchase_date || new Date(purchase.date).toLocaleDateString()}</p>
+                    <p>Received: {purchase.goods_received_date || purchase.purchase_date || new Date(purchase.date).toLocaleDateString()}</p>
+                  </div>
                   <div>
                     {purchase.receipt_file_name ? (
                       <button

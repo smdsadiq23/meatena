@@ -3,6 +3,7 @@ import { Type } from 'class-transformer';
 import {
   ArrayMinSize,
   IsArray,
+  IsDateString,
   IsIn,
   IsInt,
   IsNumber,
@@ -24,6 +25,16 @@ export class CreatePurchaseDto {
   @IsOptional()
   @IsString()
   invoice_no?: string;
+
+  @ApiProperty({ example: '2026-06-24', required: false })
+  @IsOptional()
+  @IsDateString()
+  purchase_date?: string;
+
+  @ApiProperty({ example: '2026-06-24', required: false })
+  @IsOptional()
+  @IsDateString()
+  goods_received_date?: string;
 
   @ApiProperty({ example: 'KWD', enum: ['KWD', 'USD'], required: false })
   @IsOptional()

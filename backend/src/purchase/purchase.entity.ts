@@ -12,6 +12,12 @@ export class Purchase {
   date: string;
 
   @Column({ type: 'varchar', nullable: true })
+  purchase_date: string | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  goods_received_date: string | null;
+
+  @Column({ type: 'varchar', nullable: true })
   invoice_no: string | null;
 
   @Column({ type: 'varchar', default: 'KWD' })

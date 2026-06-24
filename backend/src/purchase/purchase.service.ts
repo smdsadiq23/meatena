@@ -68,6 +68,14 @@ export class PurchaseService implements OnModuleInit {
       ALTER TABLE purchase
       ADD COLUMN IF NOT EXISTS balance_due numeric(12, 3) NOT NULL DEFAULT 0
     `);
+    await this.dataSource.query(`
+      ALTER TABLE purchase
+      ADD COLUMN IF NOT EXISTS purchase_date varchar
+    `);
+    await this.dataSource.query(`
+      ALTER TABLE purchase
+      ADD COLUMN IF NOT EXISTS goods_received_date varchar
+    `);
   }
 
   private calculatePurchaseTotals(
@@ -163,9 +171,13 @@ export class PurchaseService implements OnModuleInit {
       }
 
       const date = new Date().toISOString();
+      const purchaseDate = data.purchase_date || date.slice(0, 10);
+      const goodsReceivedDate = data.goods_received_date || purchaseDate;
       const purchase = await manager.getRepository(Purchase).save({
         supplier_id: data.supplier_id,
         invoice_no: data.invoice_no?.trim() || null,
+        purchase_date: purchaseDate,
+        goods_received_date: goodsReceivedDate,
         transaction_currency: transactionCurrency,
         exchange_rate: roundMoney(exchangeRate),
         date,
@@ -190,7 +202,7 @@ export class PurchaseService implements OnModuleInit {
             quantity_kg: item.weight,
             reference_type: 'purchase',
             reference_id: purchase.id,
-            date,
+            date: goodsReceivedDate,
           },
           manager,
         );
@@ -347,6 +359,9 @@ export class PurchaseService implements OnModuleInit {
 
       purchase.supplier_id = data.supplier_id;
       purchase.invoice_no = data.invoice_no?.trim() || null;
+      purchase.purchase_date = data.purchase_date || purchase.purchase_date || purchase.date.slice(0, 10);
+      purchase.goods_received_date =
+        data.goods_received_date || purchase.goods_received_date || purchase.purchase_date;
       purchase.transaction_currency = transactionCurrency;
       purchase.exchange_rate = roundMoney(exchangeRate);
       purchase.subtotal = totals.subtotal;
