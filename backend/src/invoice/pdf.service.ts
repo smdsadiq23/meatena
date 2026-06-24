@@ -114,16 +114,21 @@ function drawArabicPhoneDigits(
   phone: string,
   x: number,
   y: number,
+  size = 12,
+  digitWidth = 7.2,
 ) {
-  const digitWidth = 7.2;
-
   phone.split('').forEach((digit, index) => {
-    doc.font('Arabic').fontSize(12).text(digit, x + index * digitWidth, y, {
+    doc.font('Arabic').fontSize(size).text(digit, x + index * digitWidth, y, {
       width: digitWidth,
       align: 'center',
       lineBreak: false,
     });
   });
+}
+
+function toArabicDigits(value: string) {
+  const digits = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+  return value.replace(/\d/g, (digit) => digits[Number(digit)] ?? digit);
 }
 
 function drawArabicSlashPhrase(
@@ -496,7 +501,7 @@ export function generateInvoicePDF(
   const leftX = 24;
   const tableX = 18;
   const tableW = pageWidth - tableX * 2;
-  const tableY = 258;
+  const tableY = 276;
   const headerH = 70;
   const rowH = 45;
   const totalH = 38;
@@ -587,73 +592,73 @@ export function generateInvoicePDF(
   doc.fillColor('#000000');
 
   contacts.forEach((contact, index) => {
-    const y = 116 + index * 13;
-    doc.font('Helvetica-Bold').fontSize(7.5).text(`${contact.name} :`, leftX, y, {
-      width: 62,
+    const y = 112 + index * 22;
+    doc.font('Helvetica-Bold').fontSize(14).text(`${contact.name} :`, leftX, y, {
+      width: 105,
       lineBreak: false,
     });
-    doc.font('Helvetica-Bold').fontSize(7.5).text(contact.phone, leftX + 72, y, {
-      width: 58,
+    doc.font('Helvetica-Bold').fontSize(14).text(contact.phone, leftX + 118, y, {
+      width: 92,
       lineBreak: false,
     });
-    doc.font('Arabic').fontSize(8.5).text(rtlVisual(arabicContactNames[index]), pageWidth - 96, y - 1, {
-      width: 55,
+    doc.font('Arabic').fontSize(18).text(rtlVisual(arabicContactNames[index]), pageWidth - 100, y - 3, {
+      width: 82,
       align: 'right',
       lineBreak: false,
     });
-    doc.font('Helvetica-Bold').fontSize(8).text(':', pageWidth - 105, y, {
-      width: 5,
+    doc.font('Helvetica-Bold').fontSize(15).text(':', pageWidth - 126, y, {
+      width: 8,
       lineBreak: false,
     });
-    doc.font('Helvetica-Bold').fontSize(8).text(contact.phone, pageWidth - 157, y, {
-      width: 48,
-      align: 'right',
-      lineBreak: false,
-    });
+    drawArabicPhoneDigits(doc, toArabicDigits(contact.phone), pageWidth - 212, y - 2, 17, 9.5);
   });
 
-  doc.font('Arabic').fontSize(7).text(rtlVisual(activityArabic), 222, 116, {
-    width: 150,
+  doc.font('Arabic').fontSize(12).text(rtlVisual(activityArabic), 202, 111, {
+    width: 195,
     align: 'center',
+    lineBreak: false,
   });
-  doc.font('Helvetica-Bold').fontSize(7).text(activityEnglish, 222, 127, {
-    width: 150,
+  doc.font('Helvetica-Bold').fontSize(12).text(activityEnglish, 202, 127, {
+    width: 195,
     align: 'center',
+    lineBreak: false,
   });
 
-  doc.font('Arabic').fontSize(7).text(rtlVisual(titleArabic), 222, 149, {
-    width: 150,
+  doc.font('Arabic').fontSize(12).text(rtlVisual(titleArabic), 202, 166, {
+    width: 195,
     align: 'center',
+    lineBreak: false,
   });
-  doc.font('Helvetica-Bold').fontSize(8).text(titleEnglish, 222, 159, {
-    width: 150,
+  doc.font('Helvetica-Bold').fontSize(13).text(titleEnglish, 202, 182, {
+    width: 195,
     align: 'center',
     underline: true,
+    lineBreak: false,
   });
 
-  doc.font('Helvetica-Bold').fontSize(14).text('No.:', leftX, 184, {
-    width: 40,
+  doc.font('Helvetica-Bold').fontSize(20).text('No.:', leftX, 199, {
+    width: 55,
     lineBreak: false,
   });
-  doc.fillColor('#c01822').font('Helvetica').fontSize(13).text(invoice.invoice_number, leftX + 45, 184, {
-    width: 72,
+  doc.fillColor('#c01822').font('Helvetica').fontSize(22).text(invoice.invoice_number, leftX + 74, 197, {
+    width: 90,
     lineBreak: false,
   });
-  doc.fillColor('#000000').font('Helvetica-Bold').fontSize(9).text('Date', 382, 184, {
-    width: 35,
+  doc.fillColor('#000000').font('Helvetica-Bold').fontSize(17).text('Date', 383, 200, {
+    width: 60,
     lineBreak: false,
   });
-  doc.font('Helvetica').fontSize(9).text(invoiceDate, 436, 184, {
-    width: 70,
+  doc.font('Helvetica').fontSize(16).text(invoiceDate, 440, 201, {
+    width: 84,
     lineBreak: false,
   });
-  doc.font('Arabic').fontSize(10).text(rtlVisual('التاريخ:'), pageWidth - 75, 183, {
-    width: 58,
+  doc.font('Arabic').fontSize(18).text(rtlVisual('التاريخ:'), pageWidth - 70, 198, {
+    width: 54,
     align: 'right',
     lineBreak: false,
   });
 
-  const requestY = 212;
+  const requestY = 228;
   const requestH = 40;
   doc.roundedRect(leftX - 2, requestY, pageWidth - (leftX - 2) * 2, requestH, 8).stroke();
   doc.font('Helvetica-Bold').fontSize(12).text('Mr./Messers', leftX + 6, requestY + 15, {
