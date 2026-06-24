@@ -88,6 +88,12 @@ type Purchase = {
   invoice_no?: string | null;
   transaction_currency?: TransactionCurrency;
   exchange_rate?: number | string;
+  subtotal?: number | string;
+  discount_percent?: number | string;
+  discount_amount?: number | string;
+  advance_paid?: number | string;
+  balance_due?: number | string;
+  total?: number | string;
   total_amount?: number | string;
   receipt_original_name?: string | null;
   receipt_file_name?: string | null;
@@ -623,7 +629,15 @@ function TextInput(props: TextInputProps) {
 }
 
 const emptySupplierForm = { name: '', mobile: '', address: '' };
-const emptyPurchaseForm = { supplierId: '', invoiceNo: '', pieces: '', weight: '', costPerKg: '' };
+const emptyPurchaseForm = {
+  supplierId: '',
+  invoiceNo: '',
+  pieces: '',
+  weight: '',
+  costPerKg: '',
+  discountPercent: '',
+  advancePaid: '',
+};
 const emptyExpenseForm = { title: '', category: 'misc', amount: '' };
 const emptyShiftForm = { countedCash: '', countedKnet: '', notes: '' };
 const emptyUserForm = { username: '', password: '', role: 'staff' as Role };
@@ -827,6 +841,33 @@ export default function App() {
     selectedCurrency === 'USD' ? value / currencyRate : value;
   const displayUnitPrice = (value: number, selectedCurrency: TransactionCurrency) =>
     selectedCurrency === 'USD' ? value * currencyRate : value;
+  const purchaseSubtotal =
+    Number(purchaseForm.weight || 0) *
+    toBaseKwd(Number(purchaseForm.costPerKg || 0), purchaseCurrency);
+  const purchaseDiscountPercent = Number(purchaseForm.discountPercent || 0);
+  const purchaseDiscountAmount = Number.isFinite(purchaseDiscountPercent)
+    ? Math.max((purchaseSubtotal * purchaseDiscountPercent) / 100, 0)
+    : Number.NaN;
+  const purchaseNetTotal = Number.isFinite(purchaseDiscountAmount)
+    ? Math.max(purchaseSubtotal - purchaseDiscountAmount, 0)
+    : purchaseSubtotal;
+  const purchaseAdvancePaid = toBaseKwd(Number(purchaseForm.advancePaid || 0), purchaseCurrency);
+  const purchaseBalanceDue = Math.max(purchaseNetTotal - purchaseAdvancePaid, 0);
+  const editPurchaseSubtotal =
+    Number(purchaseEditForm.weight || 0) *
+    toBaseKwd(Number(purchaseEditForm.costPerKg || 0), purchaseEditCurrency);
+  const editPurchaseDiscountPercent = Number(purchaseEditForm.discountPercent || 0);
+  const editPurchaseDiscountAmount = Number.isFinite(editPurchaseDiscountPercent)
+    ? Math.max((editPurchaseSubtotal * editPurchaseDiscountPercent) / 100, 0)
+    : Number.NaN;
+  const editPurchaseNetTotal = Number.isFinite(editPurchaseDiscountAmount)
+    ? Math.max(editPurchaseSubtotal - editPurchaseDiscountAmount, 0)
+    : editPurchaseSubtotal;
+  const editPurchaseAdvancePaid = toBaseKwd(
+    Number(purchaseEditForm.advancePaid || 0),
+    purchaseEditCurrency,
+  );
+  const editPurchaseBalanceDue = Math.max(editPurchaseNetTotal - editPurchaseAdvancePaid, 0);
   const invoiceTotal = invoiceItems.reduce(
     (sum, item) =>
       sum + Number(item.weight || 0) * toBaseKwd(Number(item.price || 0), invoiceCurrency),
@@ -1862,6 +1903,20 @@ export default function App() {
       return;
     }
 
+    if (
+      !Number.isFinite(purchaseDiscountPercent) ||
+      purchaseDiscountPercent < 0 ||
+      purchaseDiscountPercent > 100
+    ) {
+      setStatus('Enter a discount percent between 0 and 100.');
+      return;
+    }
+
+    if (!Number.isFinite(purchaseAdvancePaid) || purchaseAdvancePaid < 0 || purchaseAdvancePaid > purchaseNetTotal) {
+      setStatus('Advance paid must be between zero and the purchase total.');
+      return;
+    }
+
     setBusy(true);
     setStatus('');
 
@@ -1873,6 +1928,8 @@ export default function App() {
           invoice_no: purchaseForm.invoiceNo.trim() || undefined,
           transaction_currency: purchaseCurrency,
           exchange_rate: currencyRate,
+          discount_percent: Number(purchaseForm.discountPercent || 0),
+          advance_paid: Number(purchaseForm.advancePaid || 0),
           items: [
             {
               product_id: selectedProductId,
@@ -1919,6 +1976,14 @@ export default function App() {
         pieces: firstItem?.pieces ? String(firstItem.pieces) : '',
         weight: firstItem?.weight ? String(firstItem.weight) : '',
         costPerKg: displayCost ? displayCost.toFixed(3) : '',
+        discountPercent: detail.discount_percent ? String(detail.discount_percent) : '',
+        advancePaid: detail.advance_paid
+          ? String(
+              nextCurrency === 'USD'
+                ? Number(detail.advance_paid) * nextRate
+                : detail.advance_paid,
+            )
+          : '',
       });
     } catch (error) {
       setStatus(error instanceof Error ? error.message : 'Could not open purchase edit.');
@@ -1933,6 +1998,24 @@ export default function App() {
       return;
     }
 
+    if (
+      !Number.isFinite(editPurchaseDiscountPercent) ||
+      editPurchaseDiscountPercent < 0 ||
+      editPurchaseDiscountPercent > 100
+    ) {
+      setStatus('Enter a discount percent between 0 and 100.');
+      return;
+    }
+
+    if (
+      !Number.isFinite(editPurchaseAdvancePaid) ||
+      editPurchaseAdvancePaid < 0 ||
+      editPurchaseAdvancePaid > editPurchaseNetTotal
+    ) {
+      setStatus('Advance paid must be between zero and the purchase total.');
+      return;
+    }
+
     setBusy(true);
     setStatus('');
 
@@ -1944,6 +2027,8 @@ export default function App() {
           invoice_no: purchaseEditForm.invoiceNo.trim() || undefined,
           transaction_currency: purchaseEditCurrency,
           exchange_rate: currencyRate,
+          discount_percent: Number(purchaseEditForm.discountPercent || 0),
+          advance_paid: Number(purchaseEditForm.advancePaid || 0),
           items: [
             {
               product_id: selectedProductId,
@@ -3139,6 +3224,27 @@ export default function App() {
           placeholder={`Cost per kg ${purchaseCurrency}`}
           keyboardType="decimal-pad"
         />
+        <View style={styles.twoColsEven}>
+          <TextInput
+            style={[styles.input, styles.flex]}
+            value={purchaseForm.discountPercent}
+            onChangeText={value => setPurchaseForm(current => ({ ...current, discountPercent: value }))}
+            placeholder="Discount %"
+            keyboardType="decimal-pad"
+          />
+          <TextInput
+            style={[styles.input, styles.flex]}
+            value={purchaseForm.advancePaid}
+            onChangeText={value => setPurchaseForm(current => ({ ...current, advancePaid: value }))}
+            placeholder={`Advance paid ${purchaseCurrency}`}
+            keyboardType="decimal-pad"
+          />
+        </View>
+        <View style={styles.metricGrid}>
+          <Metric label="Net Purchase" value={currency(purchaseNetTotal)} />
+          <Metric label="Advance Paid" value={currency(purchaseAdvancePaid)} />
+          <Metric label="Supplier Credit" value={currency(purchaseBalanceDue)} />
+        </View>
         <PrimaryButton title="Record Purchase" onPress={recordPurchase} disabled={busy} />
         <Text style={styles.subhead}>Recent purchases</Text>
         {purchases.slice(0, 8).map(purchase => (
@@ -3146,7 +3252,7 @@ export default function App() {
             <Row
               title={`Purchase #${purchase.id}`}
               subtitle={`${suppliers.find(supplier => supplier.id === purchase.supplier_id)?.name ?? 'Supplier'} | ${purchase.invoice_no || 'No invoice'}`}
-              right={currency(purchase.total_amount)}
+              right={currency(purchase.balance_due ?? purchase.total ?? purchase.total_amount)}
             />
             {editingPurchaseId === purchase.id ? (
               <View style={styles.inlineEditor}>
@@ -3190,6 +3296,27 @@ export default function App() {
                   placeholder={`Cost per kg ${purchaseEditCurrency}`}
                   keyboardType="decimal-pad"
                 />
+                <View style={styles.twoColsEven}>
+                  <TextInput
+                    style={[styles.input, styles.flex]}
+                    value={purchaseEditForm.discountPercent}
+                    onChangeText={value => setPurchaseEditForm(current => ({ ...current, discountPercent: value }))}
+                    placeholder="Discount %"
+                    keyboardType="decimal-pad"
+                  />
+                  <TextInput
+                    style={[styles.input, styles.flex]}
+                    value={purchaseEditForm.advancePaid}
+                    onChangeText={value => setPurchaseEditForm(current => ({ ...current, advancePaid: value }))}
+                    placeholder={`Advance paid ${purchaseEditCurrency}`}
+                    keyboardType="decimal-pad"
+                  />
+                </View>
+                <View style={styles.metricGrid}>
+                  <Metric label="Net Purchase" value={currency(editPurchaseNetTotal)} />
+                  <Metric label="Advance Paid" value={currency(editPurchaseAdvancePaid)} />
+                  <Metric label="Supplier Credit" value={currency(editPurchaseBalanceDue)} />
+                </View>
                 <View style={styles.twoCols}>
                   <PrimaryButton title="Save Purchase" onPress={savePurchaseEdit} disabled={busy} />
                   <SecondaryButton title="Cancel" onPress={() => setEditingPurchaseId(noEdit)} disabled={busy} />

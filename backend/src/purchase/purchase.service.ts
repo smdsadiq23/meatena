@@ -48,6 +48,67 @@ export class PurchaseService implements OnModuleInit {
       ALTER TABLE purchase
       ADD COLUMN IF NOT EXISTS exchange_rate numeric(12, 6) NOT NULL DEFAULT 3.25
     `);
+    await this.dataSource.query(`
+      ALTER TABLE purchase
+      ADD COLUMN IF NOT EXISTS subtotal numeric(12, 3) NOT NULL DEFAULT 0
+    `);
+    await this.dataSource.query(`
+      ALTER TABLE purchase
+      ADD COLUMN IF NOT EXISTS discount_percent numeric(7, 3) NOT NULL DEFAULT 0
+    `);
+    await this.dataSource.query(`
+      ALTER TABLE purchase
+      ADD COLUMN IF NOT EXISTS discount_amount numeric(12, 3) NOT NULL DEFAULT 0
+    `);
+    await this.dataSource.query(`
+      ALTER TABLE purchase
+      ADD COLUMN IF NOT EXISTS advance_paid numeric(12, 3) NOT NULL DEFAULT 0
+    `);
+    await this.dataSource.query(`
+      ALTER TABLE purchase
+      ADD COLUMN IF NOT EXISTS balance_due numeric(12, 3) NOT NULL DEFAULT 0
+    `);
+  }
+
+  private calculatePurchaseTotals(
+    subtotal: number,
+    data: Pick<CreatePurchaseDto, 'discount_percent' | 'advance_paid' | 'transaction_currency'>,
+    exchangeRate: number,
+  ) {
+    const discountPercent = Number(data.discount_percent ?? 0);
+
+    if (
+      !Number.isFinite(discountPercent) ||
+      discountPercent < 0 ||
+      discountPercent > 100
+    ) {
+      throw new BadRequestException('Discount percent must be between 0 and 100');
+    }
+
+    const discountAmount = roundMoney((subtotal * discountPercent) / 100);
+    const total = roundMoney(subtotal - discountAmount);
+    const advancePaid = roundMoney(
+      data.transaction_currency === 'USD'
+        ? Number(data.advance_paid ?? 0) / exchangeRate
+        : Number(data.advance_paid ?? 0),
+    );
+
+    if (!Number.isFinite(advancePaid) || advancePaid < 0) {
+      throw new BadRequestException('Advance paid must be zero or greater');
+    }
+
+    if (advancePaid > total) {
+      throw new BadRequestException('Advance paid cannot exceed purchase total');
+    }
+
+    return {
+      subtotal,
+      discount_percent: roundMoney(discountPercent),
+      discount_amount: discountAmount,
+      advance_paid: advancePaid,
+      total,
+      balance_due: roundMoney(total - advancePaid),
+    };
   }
 
   create(data: CreatePurchaseDto) {
@@ -67,7 +128,7 @@ export class PurchaseService implements OnModuleInit {
         throw new NotFoundException('Supplier not found');
       }
 
-      let total = 0;
+      let subtotal = 0;
       const calculatedItems = data.items.map((item) => {
         const costPerKg = roundMoney(
           transactionCurrency === 'USD'
@@ -75,7 +136,7 @@ export class PurchaseService implements OnModuleInit {
             : item.cost_per_kg,
         );
         const amount = roundMoney(item.weight * costPerKg);
-        total = roundMoney(total + amount);
+        subtotal = roundMoney(subtotal + amount);
 
         return {
           product_id: item.product_id,
@@ -85,6 +146,11 @@ export class PurchaseService implements OnModuleInit {
           amount,
         };
       });
+      const totals = this.calculatePurchaseTotals(
+        subtotal,
+        { ...data, transaction_currency: transactionCurrency },
+        exchangeRate,
+      );
 
       for (const item of calculatedItems) {
         const product = await manager
@@ -103,7 +169,12 @@ export class PurchaseService implements OnModuleInit {
         transaction_currency: transactionCurrency,
         exchange_rate: roundMoney(exchangeRate),
         date,
-        total,
+        subtotal: totals.subtotal,
+        discount_percent: totals.discount_percent,
+        discount_amount: totals.discount_amount,
+        advance_paid: totals.advance_paid,
+        total: totals.total,
+        balance_due: totals.balance_due,
       });
 
       for (const item of calculatedItems) {
@@ -125,7 +196,7 @@ export class PurchaseService implements OnModuleInit {
         );
       }
 
-      supplier.balance = roundMoney(Number(supplier.balance) + total);
+      supplier.balance = roundMoney(Number(supplier.balance) + totals.balance_due);
       await manager.getRepository(Supplier).save(supplier);
 
       return {
@@ -188,7 +259,7 @@ export class PurchaseService implements OnModuleInit {
         throw new NotFoundException('Supplier not found');
       }
 
-      let total = 0;
+      let subtotal = 0;
       const calculatedItems = data.items.map((item) => {
         const costPerKg = roundMoney(
           transactionCurrency === 'USD'
@@ -196,7 +267,7 @@ export class PurchaseService implements OnModuleInit {
             : item.cost_per_kg,
         );
         const amount = roundMoney(item.weight * costPerKg);
-        total = roundMoney(total + amount);
+        subtotal = roundMoney(subtotal + amount);
 
         return {
           product_id: item.product_id,
@@ -206,6 +277,11 @@ export class PurchaseService implements OnModuleInit {
           amount,
         };
       });
+      const totals = this.calculatePurchaseTotals(
+        subtotal,
+        { ...data, transaction_currency: transactionCurrency },
+        exchangeRate,
+      );
 
       for (const item of calculatedItems) {
         const product = await productRepo.findOne({ where: { id: item.product_id } });
@@ -256,12 +332,16 @@ export class PurchaseService implements OnModuleInit {
 
       if (oldSupplier.id === nextSupplier.id) {
         oldSupplier.balance = roundMoney(
-          Number(oldSupplier.balance) - Number(purchase.total) + total,
+          Number(oldSupplier.balance) -
+            Number(purchase.balance_due ?? purchase.total) +
+            totals.balance_due,
         );
         await supplierRepo.save(oldSupplier);
       } else {
-        oldSupplier.balance = roundMoney(Number(oldSupplier.balance) - Number(purchase.total));
-        nextSupplier.balance = roundMoney(Number(nextSupplier.balance) + total);
+        oldSupplier.balance = roundMoney(
+          Number(oldSupplier.balance) - Number(purchase.balance_due ?? purchase.total),
+        );
+        nextSupplier.balance = roundMoney(Number(nextSupplier.balance) + totals.balance_due);
         await supplierRepo.save([oldSupplier, nextSupplier]);
       }
 
@@ -269,7 +349,12 @@ export class PurchaseService implements OnModuleInit {
       purchase.invoice_no = data.invoice_no?.trim() || null;
       purchase.transaction_currency = transactionCurrency;
       purchase.exchange_rate = roundMoney(exchangeRate);
-      purchase.total = total;
+      purchase.subtotal = totals.subtotal;
+      purchase.discount_percent = totals.discount_percent;
+      purchase.discount_amount = totals.discount_amount;
+      purchase.advance_paid = totals.advance_paid;
+      purchase.total = totals.total;
+      purchase.balance_due = totals.balance_due;
       const savedPurchase = await purchaseRepo.save(purchase);
 
       return {

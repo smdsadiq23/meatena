@@ -23,6 +23,21 @@ export class Purchase {
   @Column('decimal', { precision: 12, scale: 3, default: 0 })
   total: number;
 
+  @Column('decimal', { precision: 12, scale: 3, default: 0 })
+  subtotal: number;
+
+  @Column('decimal', { precision: 7, scale: 3, default: 0 })
+  discount_percent: number;
+
+  @Column('decimal', { precision: 12, scale: 3, default: 0 })
+  discount_amount: number;
+
+  @Column('decimal', { precision: 12, scale: 3, default: 0 })
+  advance_paid: number;
+
+  @Column('decimal', { precision: 12, scale: 3, default: 0 })
+  balance_due: number;
+
   @Column({ type: 'varchar', nullable: true })
   receipt_original_name: string | null;
 

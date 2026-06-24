@@ -27,6 +27,11 @@ type Purchase = {
   invoice_no?: string;
   transaction_currency?: "KWD" | "USD";
   exchange_rate?: number | string;
+  subtotal?: number | string;
+  discount_percent?: number | string;
+  discount_amount?: number | string;
+  advance_paid?: number | string;
+  balance_due?: number | string;
   total: number;
   date: string;
   receipt_original_name?: string | null;
@@ -63,6 +68,8 @@ export default function PurchasesPage() {
   const [purchases, setPurchases] = useState<Purchase[]>([]);
   const [supplierId, setSupplierId] = useState("");
   const [invoiceNo, setInvoiceNo] = useState("");
+  const [discountPercent, setDiscountPercent] = useState("");
+  const [advancePaid, setAdvancePaid] = useState("");
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
   const [purchaseCurrency, setPurchaseCurrency] = useState<"KWD" | "USD">("KWD");
   const [productForm, setProductForm] = useState(emptyProduct);
@@ -70,6 +77,8 @@ export default function PurchasesPage() {
   const [editingPurchaseId, setEditingPurchaseId] = useState<number | null>(null);
   const [editSupplierId, setEditSupplierId] = useState("");
   const [editInvoiceNo, setEditInvoiceNo] = useState("");
+  const [editDiscountPercent, setEditDiscountPercent] = useState("");
+  const [editAdvancePaid, setEditAdvancePaid] = useState("");
   const [editPurchaseCurrency, setEditPurchaseCurrency] = useState<"KWD" | "USD">("KWD");
   const [editExchangeRate, setEditExchangeRate] = useState(currencyRate);
   const [editItems, setEditItems] = useState<PurchaseItem[]>([emptyItem]);
@@ -129,6 +138,13 @@ export default function PurchasesPage() {
         toBaseKwd(Number(item.cost_per_kg || 0), purchaseCurrency),
     0
   );
+  const parsedDiscountPercent = Number(discountPercent || 0);
+  const discountAmount = Number.isFinite(parsedDiscountPercent)
+    ? Math.max((total * parsedDiscountPercent) / 100, 0)
+    : Number.NaN;
+  const netTotal = Number.isFinite(discountAmount) ? Math.max(total - discountAmount, 0) : total;
+  const advancePaidBase = toBaseKwd(Number(advancePaid || 0), purchaseCurrency);
+  const balanceDue = Math.max(netTotal - advancePaidBase, 0);
 
   const editTotal = editItems.reduce(
     (sum, item) =>
@@ -137,6 +153,19 @@ export default function PurchasesPage() {
         toBaseKwd(Number(item.cost_per_kg || 0), editPurchaseCurrency, editExchangeRate),
     0
   );
+  const parsedEditDiscountPercent = Number(editDiscountPercent || 0);
+  const editDiscountAmount = Number.isFinite(parsedEditDiscountPercent)
+    ? Math.max((editTotal * parsedEditDiscountPercent) / 100, 0)
+    : Number.NaN;
+  const editNetTotal = Number.isFinite(editDiscountAmount)
+    ? Math.max(editTotal - editDiscountAmount, 0)
+    : editTotal;
+  const editAdvancePaidBase = toBaseKwd(
+    Number(editAdvancePaid || 0),
+    editPurchaseCurrency,
+    editExchangeRate,
+  );
+  const editBalanceDue = Math.max(editNetTotal - editAdvancePaidBase, 0);
 
   const updateItem = (
     index: number,
@@ -211,6 +240,18 @@ export default function PurchasesPage() {
       return;
     }
 
+    if (!Number.isFinite(parsedDiscountPercent) || parsedDiscountPercent < 0 || parsedDiscountPercent > 100) {
+      setStatusType("error");
+      setStatus("Enter a discount percent between 0 and 100.");
+      return;
+    }
+
+    if (!Number.isFinite(advancePaidBase) || advancePaidBase < 0 || advancePaidBase > netTotal) {
+      setStatusType("error");
+      setStatus("Advance paid must be between zero and the purchase total.");
+      return;
+    }
+
     setLoading(true);
     setStatus("");
 
@@ -222,6 +263,8 @@ export default function PurchasesPage() {
           invoice_no: invoiceNo || undefined,
           transaction_currency: purchaseCurrency,
           exchange_rate: currencyRate,
+          discount_percent: Number(discountPercent || 0),
+          advance_paid: Number(advancePaid || 0),
           items: items.map((item) => ({
             product_id: Number(item.product_id),
             pieces: item.pieces ? Number(item.pieces) : undefined,
@@ -245,6 +288,8 @@ export default function PurchasesPage() {
       }
 
       setInvoiceNo("");
+      setDiscountPercent("");
+      setAdvancePaid("");
       setReceiptFile(null);
       setPurchaseCurrency("KWD");
       setDisplayCurrency("KWD");
@@ -273,6 +318,16 @@ export default function PurchasesPage() {
       setEditingPurchaseId(purchase.id);
       setEditSupplierId(String(detail.supplier_id));
       setEditInvoiceNo(detail.invoice_no || "");
+      setEditDiscountPercent(detail.discount_percent ? String(detail.discount_percent) : "");
+      setEditAdvancePaid(
+        detail.advance_paid
+          ? String(
+              detail.transaction_currency === "USD"
+                ? Number(detail.advance_paid) * Number(detail.exchange_rate ?? currencyRate)
+                : detail.advance_paid
+            )
+          : ""
+      );
       setEditPurchaseCurrency(detail.transaction_currency ?? "KWD");
       setDisplayCurrency(detail.transaction_currency ?? "KWD");
       setEditExchangeRate(Number(detail.exchange_rate ?? currencyRate));
@@ -309,6 +364,22 @@ export default function PurchasesPage() {
       return;
     }
 
+    if (
+      !Number.isFinite(parsedEditDiscountPercent) ||
+      parsedEditDiscountPercent < 0 ||
+      parsedEditDiscountPercent > 100
+    ) {
+      setStatusType("error");
+      setStatus("Enter a discount percent between 0 and 100.");
+      return;
+    }
+
+    if (!Number.isFinite(editAdvancePaidBase) || editAdvancePaidBase < 0 || editAdvancePaidBase > editNetTotal) {
+      setStatusType("error");
+      setStatus("Advance paid must be between zero and the purchase total.");
+      return;
+    }
+
     setLoading(true);
     setStatus("");
 
@@ -320,6 +391,8 @@ export default function PurchasesPage() {
           invoice_no: editInvoiceNo || undefined,
           transaction_currency: editPurchaseCurrency,
           exchange_rate: editExchangeRate,
+          discount_percent: Number(editDiscountPercent || 0),
+          advance_paid: Number(editAdvancePaid || 0),
           items: editItems.map((item) => ({
             product_id: Number(item.product_id),
             pieces: item.pieces ? Number(item.pieces) : undefined,
@@ -331,6 +404,8 @@ export default function PurchasesPage() {
       setEditingPurchaseId(null);
       setEditSupplierId("");
       setEditInvoiceNo("");
+      setEditDiscountPercent("");
+      setEditAdvancePaid("");
       setEditPurchaseCurrency("KWD");
       setDisplayCurrency("KWD");
       setEditExchangeRate(currencyRate);
@@ -440,6 +515,22 @@ export default function PurchasesPage() {
           </select>
           <input className="field" placeholder="Supplier invoice no." value={invoiceNo} onChange={(e) => setInvoiceNo(e.target.value)} />
         </div>
+        <div className="mt-4 grid gap-4 md:grid-cols-2">
+          <input
+            className="field"
+            inputMode="decimal"
+            placeholder="Discount %"
+            value={discountPercent}
+            onChange={(e) => setDiscountPercent(e.target.value)}
+          />
+          <input
+            className="field"
+            inputMode="decimal"
+            placeholder={`Advance paid (${purchaseCurrency})`}
+            value={advancePaid}
+            onChange={(e) => setAdvancePaid(e.target.value)}
+          />
+        </div>
         <div className="mt-4 flex flex-wrap items-center gap-3">
           <p className="soft-label">Purchase Currency</p>
           {(["KWD", "USD"] as const).map((currency) => (
@@ -492,8 +583,17 @@ export default function PurchasesPage() {
         <div className="mt-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <button className="btn-secondary" onClick={() => setItems((current) => [...current, emptyItem])} disabled={loading}>Add Row</button>
           <div className="text-right">
-            <p className="soft-label">Purchase Total</p>
-            <p className="text-3xl font-black text-green-600"><Money value={total} /></p>
+            {discountAmount > 0 || advancePaidBase > 0 ? (
+              <p className="mb-2 text-sm font-bold text-slate-500">
+                Subtotal <Money value={total} /> | Discount <Money value={discountAmount} /> | Advance{" "}
+                <Money value={advancePaidBase} />
+              </p>
+            ) : null}
+            <p className="soft-label">Supplier Credit Balance</p>
+            <p className="text-3xl font-black text-green-600"><Money value={balanceDue} /></p>
+            <p className="mt-1 text-sm font-bold text-slate-500">
+              Net purchase <Money value={netTotal} />
+            </p>
             <p className="mt-1 text-sm font-bold text-slate-500">
               Entering prices in {purchaseCurrency}
             </p>
@@ -520,6 +620,22 @@ export default function PurchasesPage() {
                       ))}
                     </select>
                     <input className="field bg-white" placeholder="Supplier invoice no." value={editInvoiceNo} onChange={(e) => setEditInvoiceNo(e.target.value)} />
+                  </div>
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <input
+                      className="field bg-white"
+                      inputMode="decimal"
+                      placeholder="Discount %"
+                      value={editDiscountPercent}
+                      onChange={(e) => setEditDiscountPercent(e.target.value)}
+                    />
+                    <input
+                      className="field bg-white"
+                      inputMode="decimal"
+                      placeholder={`Advance paid (${editPurchaseCurrency})`}
+                      value={editAdvancePaid}
+                      onChange={(e) => setEditAdvancePaid(e.target.value)}
+                    />
                   </div>
                   <div className="flex flex-wrap items-center gap-3">
                     <p className="soft-label">Purchase Currency</p>
@@ -559,8 +675,11 @@ export default function PurchasesPage() {
                   <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                     <button className="btn-secondary" onClick={() => setEditItems((current) => [...current, emptyItem])} disabled={loading}>Add Row</button>
                     <div className="text-right">
-                      <p className="soft-label">Edited Total</p>
-                      <p className="text-2xl font-black text-green-600"><Money value={editTotal} /></p>
+                      <p className="soft-label">Edited Supplier Credit Balance</p>
+                      <p className="text-2xl font-black text-green-600"><Money value={editBalanceDue} /></p>
+                      <p className="mt-1 text-sm font-bold text-slate-500">
+                        Net purchase <Money value={editNetTotal} /> | Advance <Money value={editAdvancePaidBase} />
+                      </p>
                     </div>
                   </div>
 
@@ -581,6 +700,10 @@ export default function PurchasesPage() {
                     <Money value={purchase.total} />
                     <p className="mt-1 text-xs font-black uppercase tracking-[0.12em] text-slate-400">
                       Entered {purchase.transaction_currency ?? "KWD"}
+                    </p>
+                    <p className="mt-1 text-xs font-bold text-slate-500">
+                      Advance <Money value={purchase.advance_paid ?? 0} /> | Credit{" "}
+                      <Money value={purchase.balance_due ?? purchase.total} />
                     </p>
                   </div>
                   <div className="text-slate-500">{new Date(purchase.date).toLocaleString()}</div>

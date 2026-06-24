@@ -100,8 +100,28 @@ export function generatePurchasePDF(
   y += 18;
 
   doc.font('Helvetica-Bold');
-  doc.text('TOTAL', col.cost, y);
+  doc.text('Subtotal', col.cost, y);
+  doc.text(dualCurrency(purchase.subtotal ?? purchase.total, kwdToUsdRate), col.amount, y, { width: 90 });
+  y += 18;
+
+  if (Number(purchase.discount_amount ?? 0) > 0) {
+    doc.text(`Discount ${Number(purchase.discount_percent ?? 0).toFixed(2)}%`, col.cost, y);
+    doc.text(`-${dualCurrency(purchase.discount_amount, kwdToUsdRate)}`, col.amount, y, { width: 90 });
+    y += 18;
+  }
+
+  doc.text('Net Total', col.cost, y);
   doc.text(dualCurrency(purchase.total, kwdToUsdRate), col.amount, y, { width: 90 });
+  y += 18;
+
+  if (Number(purchase.advance_paid ?? 0) > 0) {
+    doc.text('Advance Paid', col.cost, y);
+    doc.text(`-${dualCurrency(purchase.advance_paid, kwdToUsdRate)}`, col.amount, y, { width: 90 });
+    y += 18;
+  }
+
+  doc.text('Supplier Credit Balance', col.cost, y);
+  doc.text(dualCurrency(purchase.balance_due ?? purchase.total, kwdToUsdRate), col.amount, y, { width: 90 });
 
   doc.moveDown(4);
   doc

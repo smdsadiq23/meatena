@@ -8,6 +8,7 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  Max,
   Min,
   ValidateNested,
 } from 'class-validator';
@@ -33,6 +34,19 @@ export class CreatePurchaseDto {
   @IsOptional()
   @IsNumber({ maxDecimalPlaces: 6 })
   exchange_rate?: number;
+
+  @ApiProperty({ example: 5, required: false })
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 3 })
+  @Min(0)
+  @Max(100)
+  discount_percent?: number;
+
+  @ApiProperty({ example: 100, required: false })
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 3 })
+  @Min(0)
+  advance_paid?: number;
 
   @ApiProperty({ type: [CreatePurchaseItemDto] })
   @IsArray()
