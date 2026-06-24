@@ -189,17 +189,20 @@ export class InvoiceService implements OnModuleInit {
         };
       });
 
-      const discount_percent = Number(data.discount_percent ?? 0);
+      const enteredDiscountAmount = Number(data.discount_amount ?? 0);
+      const discount_amount = roundMoney(
+        transactionCurrency === 'USD'
+          ? enteredDiscountAmount / exchangeRate
+          : enteredDiscountAmount,
+      );
 
       if (
-        !Number.isFinite(discount_percent) ||
-        discount_percent < 0 ||
-        discount_percent > 100
+        !Number.isFinite(discount_amount) ||
+        discount_amount < 0 ||
+        discount_amount > subtotal
       ) {
-        throw new BadRequestException('Discount percent must be between 0 and 100');
+        throw new BadRequestException('Discount amount must be between zero and the invoice subtotal');
       }
-
-      const discount_amount = roundMoney((subtotal * discount_percent) / 100);
 
       const total = roundMoney(subtotal - discount_amount);
 
@@ -257,7 +260,7 @@ export class InvoiceService implements OnModuleInit {
         contact_names: cleanText(data.contact_names),
         subtotal,
         discount_amount,
-        discount_percent,
+        discount_percent: 0,
         total,
         previous_balance,
         grand_total,

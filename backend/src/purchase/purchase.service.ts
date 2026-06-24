@@ -80,20 +80,24 @@ export class PurchaseService implements OnModuleInit {
 
   private calculatePurchaseTotals(
     subtotal: number,
-    data: Pick<CreatePurchaseDto, 'discount_percent' | 'advance_paid' | 'transaction_currency'>,
+    data: Pick<CreatePurchaseDto, 'discount_amount' | 'advance_paid' | 'transaction_currency'>,
     exchangeRate: number,
   ) {
-    const discountPercent = Number(data.discount_percent ?? 0);
+    const enteredDiscountAmount = Number(data.discount_amount ?? 0);
+    const discountAmount = roundMoney(
+      data.transaction_currency === 'USD'
+        ? enteredDiscountAmount / exchangeRate
+        : enteredDiscountAmount,
+    );
 
     if (
-      !Number.isFinite(discountPercent) ||
-      discountPercent < 0 ||
-      discountPercent > 100
+      !Number.isFinite(discountAmount) ||
+      discountAmount < 0 ||
+      discountAmount > subtotal
     ) {
-      throw new BadRequestException('Discount percent must be between 0 and 100');
+      throw new BadRequestException('Discount amount must be between zero and the purchase subtotal');
     }
 
-    const discountAmount = roundMoney((subtotal * discountPercent) / 100);
     const total = roundMoney(subtotal - discountAmount);
     const advancePaid = roundMoney(
       data.transaction_currency === 'USD'
@@ -111,7 +115,7 @@ export class PurchaseService implements OnModuleInit {
 
     return {
       subtotal,
-      discount_percent: roundMoney(discountPercent),
+      discount_percent: 0,
       discount_amount: discountAmount,
       advance_paid: advancePaid,
       total,

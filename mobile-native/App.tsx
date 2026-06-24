@@ -399,7 +399,7 @@ const SERVER_PRESETS = [
 const emptyInvoiceForm = {
   invoiceNumber: '',
   invoiceDate: todayInputDate(),
-  discountPercent: '',
+  discountAmount: '',
   type: 'credit' as 'cash' | 'credit',
 };
 
@@ -639,7 +639,7 @@ const emptyPurchaseForm = {
   pieces: '',
   weight: '',
   costPerKg: '',
-  discountPercent: '',
+  discountAmount: '',
   advancePaid: '',
 };
 const emptyExpenseForm = { title: '', category: 'misc', amount: '' };
@@ -848,9 +848,9 @@ export default function App() {
   const purchaseSubtotal =
     Number(purchaseForm.weight || 0) *
     toBaseKwd(Number(purchaseForm.costPerKg || 0), purchaseCurrency);
-  const purchaseDiscountPercent = Number(purchaseForm.discountPercent || 0);
-  const purchaseDiscountAmount = Number.isFinite(purchaseDiscountPercent)
-    ? Math.max((purchaseSubtotal * purchaseDiscountPercent) / 100, 0)
+  const enteredPurchaseDiscountAmount = Number(purchaseForm.discountAmount || 0);
+  const purchaseDiscountAmount = Number.isFinite(enteredPurchaseDiscountAmount)
+    ? Math.max(toBaseKwd(enteredPurchaseDiscountAmount, purchaseCurrency), 0)
     : Number.NaN;
   const purchaseNetTotal = Number.isFinite(purchaseDiscountAmount)
     ? Math.max(purchaseSubtotal - purchaseDiscountAmount, 0)
@@ -860,9 +860,9 @@ export default function App() {
   const editPurchaseSubtotal =
     Number(purchaseEditForm.weight || 0) *
     toBaseKwd(Number(purchaseEditForm.costPerKg || 0), purchaseEditCurrency);
-  const editPurchaseDiscountPercent = Number(purchaseEditForm.discountPercent || 0);
-  const editPurchaseDiscountAmount = Number.isFinite(editPurchaseDiscountPercent)
-    ? Math.max((editPurchaseSubtotal * editPurchaseDiscountPercent) / 100, 0)
+  const enteredEditPurchaseDiscountAmount = Number(purchaseEditForm.discountAmount || 0);
+  const editPurchaseDiscountAmount = Number.isFinite(enteredEditPurchaseDiscountAmount)
+    ? Math.max(toBaseKwd(enteredEditPurchaseDiscountAmount, purchaseEditCurrency), 0)
     : Number.NaN;
   const editPurchaseNetTotal = Number.isFinite(editPurchaseDiscountAmount)
     ? Math.max(editPurchaseSubtotal - editPurchaseDiscountAmount, 0)
@@ -877,12 +877,9 @@ export default function App() {
       sum + Number(item.weight || 0) * toBaseKwd(Number(item.price || 0), invoiceCurrency),
     0,
   );
-  const enteredInvoiceDiscountPercent = Number(invoiceForm.discountPercent || 0);
-  const invoiceDiscountPercent = Number.isFinite(enteredInvoiceDiscountPercent)
-    ? Math.max(enteredInvoiceDiscountPercent, 0)
-    : Number.NaN;
-  const invoiceDiscount = Number.isFinite(invoiceDiscountPercent)
-    ? (invoiceTotal * invoiceDiscountPercent) / 100
+  const enteredInvoiceDiscountAmount = Number(invoiceForm.discountAmount || 0);
+  const invoiceDiscount = Number.isFinite(enteredInvoiceDiscountAmount)
+    ? Math.max(toBaseKwd(enteredInvoiceDiscountAmount, invoiceCurrency), 0)
     : Number.NaN;
   const invoiceNetTotal = Number.isFinite(invoiceDiscount)
     ? Math.max(invoiceTotal - invoiceDiscount, 0)
@@ -1416,13 +1413,13 @@ export default function App() {
       return;
     }
 
-    if (!Number.isFinite(invoiceDiscountPercent)) {
-      setStatus('Enter a valid discount percent.');
+    if (!Number.isFinite(invoiceDiscount)) {
+      setStatus('Enter a valid discount amount.');
       return;
     }
 
-    if (invoiceDiscountPercent > 100) {
-      setStatus('Discount percent cannot be greater than 100.');
+    if (invoiceDiscount > invoiceTotal) {
+      setStatus('Discount amount cannot be greater than subtotal.');
       return;
     }
 
@@ -1455,7 +1452,7 @@ export default function App() {
           exchange_rate: currencyRate,
           include_previous_balance: includePreviousBalance,
           invoice_date: invoiceForm.invoiceDate.trim(),
-          discount_percent: Number(invoiceForm.discountPercent || 0),
+          discount_amount: Number(invoiceForm.discountAmount || 0),
           invoice_number: invoiceForm.invoiceNumber.trim(),
           invoice_title: selectedProfile.invoice_title.trim(),
           invoice_title_ar: selectedProfile.invoice_title_ar?.trim() || undefined,
@@ -1477,7 +1474,7 @@ export default function App() {
         ...current,
         invoiceNumber: '',
         invoiceDate: todayInputDate(),
-        discountPercent: '',
+        discountAmount: '',
       }));
       setInvoiceCurrency('KWD');
       setCurrentDisplayCurrency('KWD');
@@ -1908,11 +1905,11 @@ export default function App() {
     }
 
     if (
-      !Number.isFinite(purchaseDiscountPercent) ||
-      purchaseDiscountPercent < 0 ||
-      purchaseDiscountPercent > 100
+      !Number.isFinite(purchaseDiscountAmount) ||
+      purchaseDiscountAmount < 0 ||
+      purchaseDiscountAmount > purchaseSubtotal
     ) {
-      setStatus('Enter a discount percent between 0 and 100.');
+      setStatus('Enter a discount amount between zero and the purchase subtotal.');
       return;
     }
 
@@ -1934,7 +1931,7 @@ export default function App() {
           goods_received_date: purchaseForm.goodsReceivedDate.trim() || undefined,
           transaction_currency: purchaseCurrency,
           exchange_rate: currencyRate,
-          discount_percent: Number(purchaseForm.discountPercent || 0),
+          discount_amount: Number(purchaseForm.discountAmount || 0),
           advance_paid: Number(purchaseForm.advancePaid || 0),
           items: [
             {
@@ -1985,7 +1982,9 @@ export default function App() {
         pieces: firstItem?.pieces ? String(firstItem.pieces) : '',
         weight: firstItem?.weight ? String(firstItem.weight) : '',
         costPerKg: displayCost ? displayCost.toFixed(3) : '',
-        discountPercent: detail.discount_percent ? String(detail.discount_percent) : '',
+        discountAmount: detail.discount_amount
+          ? String(nextCurrency === 'USD' ? Number(detail.discount_amount) * nextRate : detail.discount_amount)
+          : '',
         advancePaid: detail.advance_paid
           ? String(
               nextCurrency === 'USD'
@@ -2008,11 +2007,11 @@ export default function App() {
     }
 
     if (
-      !Number.isFinite(editPurchaseDiscountPercent) ||
-      editPurchaseDiscountPercent < 0 ||
-      editPurchaseDiscountPercent > 100
+      !Number.isFinite(editPurchaseDiscountAmount) ||
+      editPurchaseDiscountAmount < 0 ||
+      editPurchaseDiscountAmount > editPurchaseSubtotal
     ) {
-      setStatus('Enter a discount percent between 0 and 100.');
+      setStatus('Enter a discount amount between zero and the purchase subtotal.');
       return;
     }
 
@@ -2038,7 +2037,7 @@ export default function App() {
           goods_received_date: purchaseEditForm.goodsReceivedDate.trim() || undefined,
           transaction_currency: purchaseEditCurrency,
           exchange_rate: currencyRate,
-          discount_percent: Number(purchaseEditForm.discountPercent || 0),
+          discount_amount: Number(purchaseEditForm.discountAmount || 0),
           advance_paid: Number(purchaseEditForm.advancePaid || 0),
           items: [
             {
@@ -2608,9 +2607,9 @@ export default function App() {
             <View style={[styles.fieldBlock, styles.flex]}>
               <TextInput
                 style={styles.input}
-                value={invoiceForm.discountPercent}
-                onChangeText={value => setInvoiceForm(current => ({ ...current, discountPercent: value }))}
-                placeholder="Discount %"
+                value={invoiceForm.discountAmount}
+                onChangeText={value => setInvoiceForm(current => ({ ...current, discountAmount: value }))}
+                placeholder="Discount amount"
                 keyboardType="decimal-pad"
               />
             </View>
@@ -2729,7 +2728,7 @@ export default function App() {
                   {selectedCustomer?.name ?? 'No customer selected'}
                 </Text>
                 <Text style={styles.rowSubtitle}>
-                  Date: {invoiceForm.invoiceDate || 'Not entered'} | Discount: {Number.isFinite(invoiceDiscountPercent) ? invoiceDiscountPercent : 0}%
+                  Date: {invoiceForm.invoiceDate || 'Not entered'} | Discount: {currency(invoiceDiscount || 0)}
                 </Text>
               </View>
               <MoneyText value={currency(selectedCustomerId ? customerBalance : 0)} />
@@ -2808,7 +2807,7 @@ export default function App() {
               <Text style={styles.kicker}>Total</Text>
               {invoiceDiscount > 0 ? (
                 <Text style={styles.rowSubtitle}>
-                  Subtotal {currency(invoiceTotal)} | Discount {currency(invoiceDiscount)} ({invoiceDiscountPercent.toFixed(2)}%)
+                  Subtotal {currency(invoiceTotal)} | Discount {currency(invoiceDiscount)}
                 </Text>
               ) : null}
               <Text style={styles.totalValue}>{currency(invoiceNetTotal)}</Text>
@@ -3252,9 +3251,9 @@ export default function App() {
         <View style={styles.twoColsEven}>
           <TextInput
             style={[styles.input, styles.flex]}
-            value={purchaseForm.discountPercent}
-            onChangeText={value => setPurchaseForm(current => ({ ...current, discountPercent: value }))}
-            placeholder="Discount %"
+            value={purchaseForm.discountAmount}
+            onChangeText={value => setPurchaseForm(current => ({ ...current, discountAmount: value }))}
+            placeholder="Discount amount"
             keyboardType="decimal-pad"
           />
           <TextInput
@@ -3342,9 +3341,9 @@ export default function App() {
                 <View style={styles.twoColsEven}>
                   <TextInput
                     style={[styles.input, styles.flex]}
-                    value={purchaseEditForm.discountPercent}
-                    onChangeText={value => setPurchaseEditForm(current => ({ ...current, discountPercent: value }))}
-                    placeholder="Discount %"
+                    value={purchaseEditForm.discountAmount}
+                    onChangeText={value => setPurchaseEditForm(current => ({ ...current, discountAmount: value }))}
+                    placeholder="Discount amount"
                     keyboardType="decimal-pad"
                   />
                   <TextInput

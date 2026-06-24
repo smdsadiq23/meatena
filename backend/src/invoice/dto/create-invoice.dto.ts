@@ -10,7 +10,6 @@ import {
   IsNumber,
   IsOptional,
   IsString,
-  Max,
   MinLength,
   Min,
   ValidateNested,
@@ -52,7 +51,12 @@ export class CreateInvoiceDto {
   @IsOptional()
   @IsNumber({ maxDecimalPlaces: 3 })
   @Min(0)
-  @Max(100)
+  discount_amount?: number;
+
+  @ApiProperty({ example: 5, required: false, deprecated: true })
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 3 })
+  @Min(0)
   discount_percent?: number;
 
   @ApiProperty({ example: 'INV-2026-001' })

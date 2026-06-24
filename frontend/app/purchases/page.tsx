@@ -72,7 +72,7 @@ export default function PurchasesPage() {
   const [invoiceNo, setInvoiceNo] = useState("");
   const [purchaseDate, setPurchaseDate] = useState("");
   const [goodsReceivedDate, setGoodsReceivedDate] = useState("");
-  const [discountPercent, setDiscountPercent] = useState("");
+  const [discountAmountInput, setDiscountAmountInput] = useState("");
   const [advancePaid, setAdvancePaid] = useState("");
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
   const [purchaseCurrency, setPurchaseCurrency] = useState<"KWD" | "USD">("KWD");
@@ -83,7 +83,7 @@ export default function PurchasesPage() {
   const [editInvoiceNo, setEditInvoiceNo] = useState("");
   const [editPurchaseDate, setEditPurchaseDate] = useState("");
   const [editGoodsReceivedDate, setEditGoodsReceivedDate] = useState("");
-  const [editDiscountPercent, setEditDiscountPercent] = useState("");
+  const [editDiscountAmountInput, setEditDiscountAmountInput] = useState("");
   const [editAdvancePaid, setEditAdvancePaid] = useState("");
   const [editPurchaseCurrency, setEditPurchaseCurrency] = useState<"KWD" | "USD">("KWD");
   const [editExchangeRate, setEditExchangeRate] = useState(currencyRate);
@@ -144,9 +144,9 @@ export default function PurchasesPage() {
         toBaseKwd(Number(item.cost_per_kg || 0), purchaseCurrency),
     0
   );
-  const parsedDiscountPercent = Number(discountPercent || 0);
-  const discountAmount = Number.isFinite(parsedDiscountPercent)
-    ? Math.max((total * parsedDiscountPercent) / 100, 0)
+  const parsedDiscountAmount = Number(discountAmountInput || 0);
+  const discountAmount = Number.isFinite(parsedDiscountAmount)
+    ? Math.max(toBaseKwd(parsedDiscountAmount, purchaseCurrency), 0)
     : Number.NaN;
   const netTotal = Number.isFinite(discountAmount) ? Math.max(total - discountAmount, 0) : total;
   const advancePaidBase = toBaseKwd(Number(advancePaid || 0), purchaseCurrency);
@@ -159,9 +159,9 @@ export default function PurchasesPage() {
         toBaseKwd(Number(item.cost_per_kg || 0), editPurchaseCurrency, editExchangeRate),
     0
   );
-  const parsedEditDiscountPercent = Number(editDiscountPercent || 0);
-  const editDiscountAmount = Number.isFinite(parsedEditDiscountPercent)
-    ? Math.max((editTotal * parsedEditDiscountPercent) / 100, 0)
+  const parsedEditDiscountAmount = Number(editDiscountAmountInput || 0);
+  const editDiscountAmount = Number.isFinite(parsedEditDiscountAmount)
+    ? Math.max(toBaseKwd(parsedEditDiscountAmount, editPurchaseCurrency, editExchangeRate), 0)
     : Number.NaN;
   const editNetTotal = Number.isFinite(editDiscountAmount)
     ? Math.max(editTotal - editDiscountAmount, 0)
@@ -246,9 +246,9 @@ export default function PurchasesPage() {
       return;
     }
 
-    if (!Number.isFinite(parsedDiscountPercent) || parsedDiscountPercent < 0 || parsedDiscountPercent > 100) {
+    if (!Number.isFinite(discountAmount) || discountAmount < 0 || discountAmount > total) {
       setStatusType("error");
-      setStatus("Enter a discount percent between 0 and 100.");
+      setStatus("Enter a discount amount between zero and the purchase subtotal.");
       return;
     }
 
@@ -271,7 +271,7 @@ export default function PurchasesPage() {
           goods_received_date: goodsReceivedDate || undefined,
           transaction_currency: purchaseCurrency,
           exchange_rate: currencyRate,
-          discount_percent: Number(discountPercent || 0),
+          discount_amount: Number(discountAmountInput || 0),
           advance_paid: Number(advancePaid || 0),
           items: items.map((item) => ({
             product_id: Number(item.product_id),
@@ -298,7 +298,7 @@ export default function PurchasesPage() {
       setInvoiceNo("");
       setPurchaseDate("");
       setGoodsReceivedDate("");
-      setDiscountPercent("");
+      setDiscountAmountInput("");
       setAdvancePaid("");
       setReceiptFile(null);
       setPurchaseCurrency("KWD");
@@ -330,7 +330,15 @@ export default function PurchasesPage() {
       setEditInvoiceNo(detail.invoice_no || "");
       setEditPurchaseDate(detail.purchase_date || detail.date?.slice(0, 10) || "");
       setEditGoodsReceivedDate(detail.goods_received_date || detail.purchase_date || detail.date?.slice(0, 10) || "");
-      setEditDiscountPercent(detail.discount_percent ? String(detail.discount_percent) : "");
+      setEditDiscountAmountInput(
+        detail.discount_amount
+          ? String(
+              detail.transaction_currency === "USD"
+                ? Number(detail.discount_amount) * Number(detail.exchange_rate ?? currencyRate)
+                : detail.discount_amount
+            )
+          : ""
+      );
       setEditAdvancePaid(
         detail.advance_paid
           ? String(
@@ -377,12 +385,12 @@ export default function PurchasesPage() {
     }
 
     if (
-      !Number.isFinite(parsedEditDiscountPercent) ||
-      parsedEditDiscountPercent < 0 ||
-      parsedEditDiscountPercent > 100
+      !Number.isFinite(editDiscountAmount) ||
+      editDiscountAmount < 0 ||
+      editDiscountAmount > editTotal
     ) {
       setStatusType("error");
-      setStatus("Enter a discount percent between 0 and 100.");
+      setStatus("Enter a discount amount between zero and the purchase subtotal.");
       return;
     }
 
@@ -405,7 +413,7 @@ export default function PurchasesPage() {
           goods_received_date: editGoodsReceivedDate || undefined,
           transaction_currency: editPurchaseCurrency,
           exchange_rate: editExchangeRate,
-          discount_percent: Number(editDiscountPercent || 0),
+          discount_amount: Number(editDiscountAmountInput || 0),
           advance_paid: Number(editAdvancePaid || 0),
           items: editItems.map((item) => ({
             product_id: Number(item.product_id),
@@ -420,7 +428,7 @@ export default function PurchasesPage() {
       setEditInvoiceNo("");
       setEditPurchaseDate("");
       setEditGoodsReceivedDate("");
-      setEditDiscountPercent("");
+      setEditDiscountAmountInput("");
       setEditAdvancePaid("");
       setEditPurchaseCurrency("KWD");
       setDisplayCurrency("KWD");
@@ -555,9 +563,9 @@ export default function PurchasesPage() {
           <input
             className="field"
             inputMode="decimal"
-            placeholder="Discount %"
-            value={discountPercent}
-            onChange={(e) => setDiscountPercent(e.target.value)}
+            placeholder={`Discount (${purchaseCurrency})`}
+            value={discountAmountInput}
+            onChange={(e) => setDiscountAmountInput(e.target.value)}
           />
           <input
             className="field"
@@ -681,9 +689,9 @@ export default function PurchasesPage() {
                     <input
                       className="field bg-white"
                       inputMode="decimal"
-                      placeholder="Discount %"
-                      value={editDiscountPercent}
-                      onChange={(e) => setEditDiscountPercent(e.target.value)}
+                      placeholder={`Discount (${editPurchaseCurrency})`}
+                      value={editDiscountAmountInput}
+                      onChange={(e) => setEditDiscountAmountInput(e.target.value)}
                     />
                     <input
                       className="field bg-white"

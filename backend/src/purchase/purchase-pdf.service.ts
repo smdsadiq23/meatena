@@ -107,7 +107,7 @@ export function generatePurchasePDF(
   y += 18;
 
   if (Number(purchase.discount_amount ?? 0) > 0) {
-    doc.text(`Discount ${Number(purchase.discount_percent ?? 0).toFixed(2)}%`, col.cost, y);
+    doc.text('Discount', col.cost, y);
     doc.text(`-${dualCurrency(purchase.discount_amount, kwdToUsdRate)}`, col.amount, y, { width: 90 });
     y += 18;
   }
