@@ -330,6 +330,7 @@ type InvoiceItemForm = {
   pieces: string;
   weight: string;
   price: string;
+  discount: string;
 };
 
 type KnetLink = {
@@ -420,7 +421,6 @@ const SERVER_PRESETS = [
 const emptyInvoiceForm = {
   invoiceNumber: '',
   invoiceDate: todayInputDate(),
-  discountAmount: '',
   type: 'credit' as 'cash' | 'credit',
 };
 
@@ -820,9 +820,14 @@ export default function App() {
   const [selectedSupplierId, setSelectedSupplierId] = useState<number | null>(null);
   const [invoiceForm, setInvoiceForm] = useState(emptyInvoiceForm);
   const [invoiceCurrency, setInvoiceCurrency] = useState<TransactionCurrency>('KWD');
+  const [combinedCustomerId, setCombinedCustomerId] = useState<number | null>(null);
+  const [combinedPeriod, setCombinedPeriod] = useState<'daily' | 'weekly'>('daily');
+  const [combinedDate, setCombinedDate] = useState(todayInputDate);
+  const [combinedCurrency, setCombinedCurrency] = useState<TransactionCurrency>('KWD');
+  const [combinedPaymentStatus, setCombinedPaymentStatus] = useState<'outstanding' | 'paid' | 'all'>('outstanding');
   const [includePreviousBalance, setIncludePreviousBalance] = useState(false);
   const [invoiceItems, setInvoiceItems] = useState<InvoiceItemForm[]>([
-    { productId: null, pieces: '', weight: '', price: '' },
+    { productId: null, pieces: '', weight: '', price: '', discount: '' },
   ]);
   const [supplierForm, setSupplierForm] = useState(emptySupplierForm);
   const [purchaseCurrency, setPurchaseCurrency] = useState<TransactionCurrency>('KWD');
@@ -894,18 +899,30 @@ export default function App() {
     purchaseEditCurrency,
   );
   const editPurchaseBalanceDue = editPurchaseNetTotal - editPurchaseAdvancePaid;
+  const lineGrossAmount = (item: InvoiceItemForm) =>
+    Number(item.weight || 0) * toBaseKwd(Number(item.price || 0), invoiceCurrency);
+  const lineDiscountAmount = (item: InvoiceItemForm) => {
+    const discount = Number(item.discount || 0);
+    return Number.isFinite(discount) ? Math.max(toBaseKwd(discount, invoiceCurrency), 0) : Number.NaN;
+  };
+  const lineNetAmount = (item: InvoiceItemForm) => {
+    const gross = lineGrossAmount(item);
+    const discount = lineDiscountAmount(item);
+    return Number.isFinite(discount) ? Math.max(gross - discount, 0) : Number.NaN;
+  };
   const invoiceTotal = invoiceItems.reduce(
     (sum, item) =>
-      sum + Number(item.weight || 0) * toBaseKwd(Number(item.price || 0), invoiceCurrency),
+      sum + lineGrossAmount(item),
     0,
   );
-  const enteredInvoiceDiscountAmount = Number(invoiceForm.discountAmount || 0);
-  const invoiceDiscount = Number.isFinite(enteredInvoiceDiscountAmount)
-    ? Math.max(toBaseKwd(enteredInvoiceDiscountAmount, invoiceCurrency), 0)
-    : Number.NaN;
-  const invoiceNetTotal = Number.isFinite(invoiceDiscount)
-    ? Math.max(invoiceTotal - invoiceDiscount, 0)
-    : invoiceTotal;
+  const invoiceDiscount = invoiceItems.reduce((sum, item) => {
+    const discount = lineDiscountAmount(item);
+    return Number.isFinite(discount) ? sum + discount : Number.NaN;
+  }, 0);
+  const invoiceNetTotal = invoiceItems.reduce((sum, item) => {
+    const amount = lineNetAmount(item);
+    return Number.isFinite(amount) ? sum + amount : Number.NaN;
+  }, 0);
   const customerBalance = Number(selectedCustomer?.balance ?? 0);
   const creditLimit = Number(selectedCustomer?.credit_limit ?? 0);
   const projectedBalance = customerBalance + invoiceNetTotal;
@@ -1200,6 +1217,12 @@ export default function App() {
     });
   }, [loadData]);
 
+  useEffect(() => {
+    if (!combinedCustomerId && customers.length > 0) {
+      setCombinedCustomerId(customers[0].id);
+    }
+  }, [combinedCustomerId, customers]);
+
   async function login() {
     if (!username.trim() || !password.trim()) {
       setStatus('Enter username and password.');
@@ -1331,7 +1354,7 @@ export default function App() {
   }
 
   function addInvoiceItem() {
-    setInvoiceItems(current => [...current, { productId: null, pieces: '', weight: '', price: '' }]);
+    setInvoiceItems(current => [...current, { productId: null, pieces: '', weight: '', price: '', discount: '' }]);
   }
 
   function removeInvoiceItem(index: number) {
@@ -1341,7 +1364,15 @@ export default function App() {
   function resetInvoiceForm() {
     setInvoiceForm({ ...emptyInvoiceForm, invoiceDate: todayInputDate() });
     setIncludePreviousBalance(false);
-    setInvoiceItems([{ productId: selectedProductId, pieces: '', weight: '', price: String(selectedProduct?.price_per_kg ?? '') }]);
+    setInvoiceItems([
+      {
+        productId: selectedProductId,
+        pieces: '',
+        weight: '',
+        price: String(selectedProduct?.price_per_kg ?? ''),
+        discount: '',
+      },
+    ]);
   }
 
   function editSelectedProfile() {
@@ -1422,6 +1453,7 @@ export default function App() {
         pieces: item.pieces ? Number(item.pieces) : undefined,
         weight: Number(item.weight),
         price_per_kg: Number(item.price),
+        discount_amount: Number(item.discount || 0),
       }))
       .filter(item => item.product_id && item.weight > 0 && item.price_per_kg >= 0);
 
@@ -1435,13 +1467,13 @@ export default function App() {
       return;
     }
 
-    if (!Number.isFinite(invoiceDiscount)) {
-      setStatus('Enter a valid discount amount.');
+    if (!Number.isFinite(invoiceDiscount) || !Number.isFinite(invoiceNetTotal)) {
+      setStatus('Enter valid item discount amounts.');
       return;
     }
 
-    if (invoiceDiscount > invoiceTotal) {
-      setStatus('Discount amount cannot be greater than subtotal.');
+    if (invoiceItems.some(item => lineDiscountAmount(item) > lineGrossAmount(item))) {
+      setStatus('Each item discount cannot be greater than that item amount.');
       return;
     }
 
@@ -1474,7 +1506,7 @@ export default function App() {
           exchange_rate: currencyRate,
           include_previous_balance: includePreviousBalance,
           invoice_date: invoiceForm.invoiceDate.trim(),
-          discount_amount: Number(invoiceForm.discountAmount || 0),
+          discount_amount: validItems.reduce((sum, item) => sum + Number(item.discount_amount || 0), 0),
           invoice_number: invoiceForm.invoiceNumber.trim(),
           invoice_title: selectedProfile.invoice_title.trim(),
           invoice_title_ar: selectedProfile.invoice_title_ar?.trim() || undefined,
@@ -1496,12 +1528,19 @@ export default function App() {
         ...current,
         invoiceNumber: '',
         invoiceDate: todayInputDate(),
-        discountAmount: '',
       }));
       setInvoiceCurrency('KWD');
       setCurrentDisplayCurrency('KWD');
       setIncludePreviousBalance(false);
-      setInvoiceItems([{ productId: selectedProductId, pieces: '', weight: '', price: String(selectedProduct?.price_per_kg ?? '') }]);
+      setInvoiceItems([
+        {
+          productId: selectedProductId,
+          pieces: '',
+          weight: '',
+          price: String(selectedProduct?.price_per_kg ?? ''),
+          discount: '',
+        },
+      ]);
       await loadData();
     } catch (error) {
       setStatus(error instanceof Error ? error.message : 'Could not create invoice.');
@@ -2335,6 +2374,22 @@ export default function App() {
     });
   }
 
+  function openCombinedInvoicePdf() {
+    if (!combinedCustomerId) {
+      setStatus('Choose a customer before downloading a combined invoice.');
+      return;
+    }
+
+    const params = new URLSearchParams({
+      customer_id: String(combinedCustomerId),
+      period: combinedPeriod,
+      date: combinedDate,
+      currency: combinedCurrency,
+      payment_status: combinedPaymentStatus,
+    });
+    openAuthenticatedPath(`/invoices/consolidated/pdf?${params.toString()}`);
+  }
+
   async function pickReceiptFile() {
     const [file] = await pick({
       type: [types.pdf, types.images],
@@ -2632,25 +2687,12 @@ export default function App() {
             onChangeText={value => setInvoiceForm(current => ({ ...current, invoiceNumber: value }))}
             placeholder="Invoice number"
           />
-          <View style={styles.twoCols}>
-            <View style={[styles.fieldBlock, styles.flex]}>
-              <TextInput
-                style={styles.input}
-                value={invoiceForm.invoiceDate}
-                onChangeText={value => setInvoiceForm(current => ({ ...current, invoiceDate: value }))}
-                placeholder="Invoice date YYYY-MM-DD"
-              />
-            </View>
-            <View style={[styles.fieldBlock, styles.flex]}>
-              <TextInput
-                style={styles.input}
-                value={invoiceForm.discountAmount}
-                onChangeText={value => setInvoiceForm(current => ({ ...current, discountAmount: value }))}
-                placeholder="Discount amount"
-                keyboardType="decimal-pad"
-              />
-            </View>
-          </View>
+          <TextInput
+            style={styles.input}
+            value={invoiceForm.invoiceDate}
+            onChangeText={value => setInvoiceForm(current => ({ ...current, invoiceDate: value }))}
+            placeholder="Invoice date YYYY-MM-DD"
+          />
           <Text style={styles.subhead}>Invoice profile</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.selectorRow}>
             {invoiceProfiles.map(profile => (
@@ -2764,9 +2806,7 @@ export default function App() {
                 <Text style={styles.rowSubtitle}>
                   {selectedCustomer?.name ?? 'No customer selected'}
                 </Text>
-                <Text style={styles.rowSubtitle}>
-                  Date: {invoiceForm.invoiceDate || 'Not entered'} | Discount: {currency(invoiceDiscount || 0)}
-                </Text>
+                <Text style={styles.rowSubtitle}>Date: {invoiceForm.invoiceDate || 'Not entered'}</Text>
               </View>
               <MoneyText value={currency(selectedCustomerId ? customerBalance : 0)} />
             </View>
@@ -2783,13 +2823,13 @@ export default function App() {
             }} />
           </View>
           {invoiceItems.map((item, index) => {
-            const lineAmount =
-              Number(item.weight || 0) * toBaseKwd(Number(item.price || 0), invoiceCurrency);
+            const lineAmount = lineNetAmount(item);
+            const displayedLineAmount = Number.isFinite(lineAmount) ? lineAmount : 0;
             return (
               <View key={index} style={styles.lineItem}>
                 <View style={styles.lineItemHeader}>
                   <Text style={styles.rowTitle}>Item {index + 1}</Text>
-                  <Text style={styles.rowRight}>{currency(lineAmount)}</Text>
+                  <Text style={styles.rowRight}>{currency(displayedLineAmount)}</Text>
                 </View>
                 <ProductPicker
                   products={products}
@@ -2829,6 +2869,16 @@ export default function App() {
                       placeholder={`Enter price ${invoiceCurrency}`}
                     keyboardType="decimal-pad"
                   />
+                  </View>
+                  <View style={styles.fieldBlock}>
+                    <Text style={styles.fieldLabel}>Discount</Text>
+                    <TextInput
+                      style={styles.input}
+                      value={item.discount}
+                      onChangeText={value => updateInvoiceItem(index, { discount: value })}
+                      placeholder={`Discount ${invoiceCurrency}`}
+                      keyboardType="decimal-pad"
+                    />
                   </View>
                 </View>
                 {invoiceItems.length > 1 ? (
@@ -3558,6 +3608,36 @@ export default function App() {
         <Text style={styles.kicker}>Front Counter</Text>
         <Text style={styles.screenTitle}>Invoice History</Text>
         {invoiceDetailLoading ? <Text style={styles.mutedDark}>Loading invoice detail...</Text> : null}
+        <View style={styles.inlineEditor}>
+          <Text style={styles.subhead}>Combined invoice</Text>
+          <CustomerPicker customers={customers} value={combinedCustomerId} onChange={setCombinedCustomerId} />
+          <View style={styles.twoCols}>
+            <Pill label="Daily" active={combinedPeriod === 'daily'} onPress={() => setCombinedPeriod('daily')} />
+            <Pill label="Weekly" active={combinedPeriod === 'weekly'} onPress={() => setCombinedPeriod('weekly')} />
+          </View>
+          <TextInput
+            style={styles.input}
+            value={combinedDate}
+            onChangeText={setCombinedDate}
+            placeholder="YYYY-MM-DD"
+          />
+          <View style={styles.twoCols}>
+            <Pill label="KWD" active={combinedCurrency === 'KWD'} onPress={() => setCombinedCurrency('KWD')} />
+            <Pill label="USD" active={combinedCurrency === 'USD'} onPress={() => setCombinedCurrency('USD')} />
+          </View>
+          <View style={styles.formGrid}>
+            <View style={styles.twoCols}>
+              <Pill
+                label="Outstanding"
+                active={combinedPaymentStatus === 'outstanding'}
+                onPress={() => setCombinedPaymentStatus('outstanding')}
+              />
+              <Pill label="Paid" active={combinedPaymentStatus === 'paid'} onPress={() => setCombinedPaymentStatus('paid')} />
+            </View>
+            <Pill label="All invoices" active={combinedPaymentStatus === 'all'} onPress={() => setCombinedPaymentStatus('all')} />
+          </View>
+          <PrimaryButton title="Download Combined PDF" onPress={openCombinedInvoicePdf} disabled={busy} />
+        </View>
         {invoices.slice(0, 12).map(invoice => (
           <View key={invoice.id} style={styles.stackItem}>
             <Row
