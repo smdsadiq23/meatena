@@ -24,6 +24,12 @@ type StockMovementInput = {
   date?: string;
 };
 
+const EDITABLE_MOVEMENT_REFERENCE_TYPES = new Set([
+  null,
+  undefined,
+  'stock_movement_reversal',
+]);
+
 @Injectable()
 export class InventoryService {
   constructor(
@@ -195,6 +201,8 @@ export class InventoryService {
         throw new NotFoundException('Stock movement not found');
       }
 
+      this.ensureEditableMovement(movement);
+
       const oldProductId = movement.product_id;
 
       if (data.product_id !== undefined && data.product_id !== movement.product_id) {
@@ -259,6 +267,8 @@ export class InventoryService {
         throw new NotFoundException('Stock movement not found');
       }
 
+      this.ensureEditableMovement(movement);
+
       await movementRepo.delete(id);
       await this.recalculateProductStock(movement.product_id, manager);
 
@@ -276,6 +286,8 @@ export class InventoryService {
       if (!movement) {
         throw new NotFoundException('Stock movement not found');
       }
+
+      this.ensureEditableMovement(movement);
 
       const existingReversal = await movementRepo.findOne({
         where: {
@@ -387,6 +399,23 @@ export class InventoryService {
     }
 
     return quantity;
+  }
+
+  private ensureEditableMovement(movement: StockMovement) {
+    if (EDITABLE_MOVEMENT_REFERENCE_TYPES.has(movement.reference_type)) {
+      return;
+    }
+
+    const label =
+      movement.reference_type === 'invoice'
+        ? 'invoice'
+        : movement.reference_type === 'purchase'
+          ? 'purchase'
+          : movement.reference_type?.replace(/_/g, ' ') ?? 'transaction';
+
+    throw new BadRequestException(
+      `This stock movement is linked to a ${label}. Edit or void the source ${label} instead so invoices, purchases, reports, and stock stay matched.`,
+    );
   }
 
   private async recalculateProductStock(

@@ -123,6 +123,34 @@ function toIsoDateTime(value: string) {
   return Number.isNaN(date.getTime()) ? value : date.toISOString();
 }
 
+function canEditMovement(movement: Movement) {
+  return !movement.reference_type || movement.reference_type === "stock_movement_reversal";
+}
+
+function movementSourceLabel(movement: Movement) {
+  if (!movement.reference_type) {
+    return "Manual";
+  }
+
+  if (movement.reference_type === "invoice") {
+    return `Invoice #${movement.reference_id ?? ""}`.trim();
+  }
+
+  if (movement.reference_type === "purchase") {
+    return `Purchase #${movement.reference_id ?? ""}`.trim();
+  }
+
+  if (movement.reference_type === "invoice_void") {
+    return `Invoice void #${movement.reference_id ?? ""}`.trim();
+  }
+
+  if (movement.reference_type === "purchase_edit") {
+    return `Purchase edit #${movement.reference_id ?? ""}`.trim();
+  }
+
+  return movement.reference_type.replace(/_/g, " ");
+}
+
 export default function InventoryPage() {
   const isAdmin = getAuthUser()?.role === "admin";
   const [stock, setStock] = useState<StockItem[]>([]);
@@ -774,11 +802,16 @@ export default function InventoryPage() {
               ) : (
                 <div className="grid gap-3 md:grid-cols-[1.4fr_0.8fr_0.9fr_1.1fr_1.1fr_auto] md:items-center">
                   <div className="font-bold text-slate-950">{productNameById.get(movement.product_id) ?? `Product #${movement.product_id}`}</div>
-                  <div className="capitalize text-slate-700">{movement.type}</div>
+                  <div className="text-slate-700">
+                    <span className="block capitalize">{movement.type}</span>
+                    <span className="text-xs font-bold uppercase tracking-[0.14em] text-slate-400">
+                      {movementSourceLabel(movement)}
+                    </span>
+                  </div>
                   <div>{Number(movement.quantity_kg).toFixed(3)} kg</div>
                   <div>{Number(movement.balance_after_kg).toFixed(3)} kg balance</div>
                   <div className="text-slate-500">{new Date(movement.date).toLocaleString()}</div>
-                  {isAdmin ? (
+                  {isAdmin && canEditMovement(movement) ? (
                     <div className="flex flex-wrap gap-2 md:justify-end">
                       <button
                         type="button"
@@ -797,6 +830,10 @@ export default function InventoryPage() {
                         Delete
                       </button>
                     </div>
+                  ) : isAdmin ? (
+                    <span className="text-right text-xs font-bold uppercase tracking-[0.16em] text-slate-400">
+                      Edit source
+                    </span>
                   ) : (
                     <span />
                   )}
