@@ -12,18 +12,28 @@ type StatementRow = {
   balance: number;
 };
 
-function getLogoPath() {
-  const logoPaths = [
-    path.join(process.cwd(), 'src/assets/logo.png'),
-    path.join(process.cwd(), 'dist/assets/logo.png'),
-    path.join(__dirname, '../assets/logo.png'),
+function getLetterheadPath() {
+  const imagePaths = [
+    path.join(process.cwd(), 'src/assets/letterheads/jcm-letterhead.jpeg'),
+    path.join(process.cwd(), 'dist/assets/letterheads/jcm-letterhead.jpeg'),
+    path.join(__dirname, '../assets/letterheads/jcm-letterhead.jpeg'),
   ];
 
-  return logoPaths.find((logoPath) => fs.existsSync(logoPath));
+  return imagePaths.find((imagePath) => fs.existsSync(imagePath)) ?? null;
 }
 
 function getArabicFontPath() {
   const fontPaths = [
+    '/usr/share/fonts/google-noto/NotoSansArabic-Regular.ttf',
+    '/usr/share/fonts/google-noto/NotoNaskhArabic-Regular.ttf',
+    '/usr/share/fonts/google-noto-naskh-arabic/NotoNaskhArabic-Regular.ttf',
+    '/usr/share/fonts/google-noto-naskh-arabic-vf/NotoNaskhArabic[wght].ttf',
+    '/usr/share/fonts/google-noto-sans-arabic/NotoSansArabic-Regular.ttf',
+    '/usr/share/fonts/google-noto-sans-arabic-vf/NotoSansArabic[wdth,wght].ttf',
+    '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
+    '/Library/Fonts/Arial Unicode.ttf',
+    '/System/Library/Fonts/Supplemental/Arial Unicode.ttf',
+    '/System/Library/Fonts/GeezaPro.ttc',
     path.join(process.cwd(), 'src/assets/fonts/arabic.ttf'),
     path.join(process.cwd(), 'dist/assets/fonts/arabic.ttf'),
     path.join(__dirname, '../assets/fonts/arabic.ttf'),
@@ -40,6 +50,20 @@ function formatDate(value: string) {
   }
 
   return date.toISOString().slice(0, 10);
+}
+
+function rtlVisual(text: string) {
+  return text
+    .split('\n')
+    .map((line) =>
+      line
+        .trim()
+        .split(/\s+/)
+        .filter(Boolean)
+        .reverse()
+        .join(' '),
+    )
+    .join('\n');
 }
 
 function labelType(value: string) {
@@ -74,6 +98,61 @@ function drawMoney(
     .text(usd, x, y + 10, { width, align: 'right' });
 }
 
+function drawCleanLetterheadFooter(doc: PDFKit.PDFDocument) {
+  const pageWidth = doc.page.width;
+  const footerTop = 740;
+  const lineBlueY = 747;
+  const lineRedY = 750;
+  const textWidth = pageWidth - 40;
+
+  doc.save();
+  doc.rect(0, footerTop, pageWidth, doc.page.height - footerTop).fill('#ffffff');
+
+  doc
+    .lineWidth(1)
+    .strokeColor('#1b4b9b')
+    .moveTo(14, lineBlueY)
+    .lineTo(pageWidth - 14, lineBlueY)
+    .stroke();
+  doc
+    .strokeColor('#c01822')
+    .moveTo(14, lineRedY)
+    .lineTo(pageWidth - 14, lineRedY)
+    .stroke();
+
+  doc
+    .fillColor('#1b2f6b')
+    .font('Times-Roman')
+    .fontSize(10)
+    .text('Shuwaikh Industrial Area 3, Block No.1, Street No.71, Building No.222, Shop No.06', 20, 758, {
+      width: textWidth,
+      align: 'center',
+      lineBreak: false,
+    });
+
+  doc
+    .fillColor('#c01822')
+    .font('Arabic')
+    .fontSize(9)
+    .text(rtlVisual('منطقة الشويخ الصناعية ٣، قطعة رقم ١، شارع رقم ٧١، مبنى رقم ٢٢٢، محل رقم ٠٦'), 20, 770, {
+      width: textWidth,
+      align: 'center',
+      lineBreak: false,
+    });
+
+  doc
+    .fillColor('#1b2f6b')
+    .font('Times-Roman')
+    .fontSize(8.4)
+    .text('javedmeatsupply@gmail.com', 20, 790, {
+      width: textWidth,
+      align: 'center',
+      lineBreak: false,
+    });
+
+  doc.restore();
+}
+
 export function generateStatementPDF(
   customer: Customer,
   rows: StatementRow[],
@@ -82,7 +161,7 @@ export function generateStatementPDF(
 ) {
   const doc = new PDFDocument({ margin: 36, size: 'A4' });
   doc.registerFont('Arabic', getArabicFontPath());
-  const logoPath = getLogoPath();
+  const letterheadPath = getLetterheadPath();
   const closingBalance = rows.at(-1)?.balance ?? 0;
   const charges = rows
     .filter((row) => row.amount >= 0)
@@ -99,52 +178,57 @@ export function generateStatementPDF(
 
   doc.pipe(res);
 
-  if (logoPath) {
-    doc.image(logoPath, 36, 28, { width: 76 });
+  if (letterheadPath) {
+    doc.image(letterheadPath, 0, 0, {
+      width: doc.page.width,
+      height: doc.page.height,
+    });
   }
 
-  doc.font('Helvetica-Bold').fontSize(16).text('Customer Statement', 130, 36);
-  doc.font('Arabic').fontSize(14).text('كشف حساب العميل', 380, 36, {
+  doc.font('Helvetica-Bold').fontSize(16).fillColor('#0f172a').text('Customer Statement', 36, 122, {
+    width: 250,
+  });
+  doc.font('Arabic').fontSize(14).text(rtlVisual('كشف حساب العميل'), 344, 122, {
+    width: 215,
     align: 'right',
   });
   doc
     .font('Helvetica')
     .fontSize(10)
     .fillColor('#475569')
-    .text('Al-Majad Al-Basat Selling Meat Company', 130, 58)
-    .text(`Generated: ${new Date().toISOString().slice(0, 10)}`, 130, 74);
+    .text(`Generated: ${new Date().toISOString().slice(0, 10)}`, 36, 146);
 
-  doc.roundedRect(36, 112, 523, 86, 8).fillAndStroke('#f8fafc', '#e2e8f0');
+  doc.roundedRect(36, 172, 523, 86, 8).fillAndStroke('#f8fafc', '#e2e8f0');
   doc
     .fillColor('#0f172a')
     .font('Helvetica-Bold')
     .fontSize(12)
-    .text(customer.name, 54, 130);
+    .text(customer.name, 54, 190);
   doc
     .font('Helvetica')
     .fontSize(10)
     .fillColor('#475569')
-    .text(`Mobile: ${customer.mobile ?? '-'}`, 54, 150)
-    .text(`Address: ${customer.address ?? '-'}`, 54, 166);
+    .text(`Mobile: ${customer.mobile ?? '-'}`, 54, 210)
+    .text(`Address: ${customer.address ?? '-'}`, 54, 226);
 
   const summaryX = 326;
   doc
     .font('Helvetica-Bold')
     .fillColor('#0f172a')
-    .text('Closing Balance', summaryX, 130)
+    .text('Closing Balance', summaryX, 190)
     .fontSize(18)
-    .text(dualCurrency(closingBalance, kwdToUsdRate), summaryX, 148)
+    .text(dualCurrency(closingBalance, kwdToUsdRate), summaryX, 208)
     .font('Helvetica')
     .fontSize(9)
     .fillColor('#64748b')
     .text(
       `Charges ${dualCurrency(charges, kwdToUsdRate)} | Receipts ${dualCurrency(receipts, kwdToUsdRate)}`,
       summaryX,
-      174,
+      234,
       { width: 210 },
     );
 
-  let y = 230;
+  let y = 290;
   const columns = {
     date: 40,
     type: 126,
@@ -173,8 +257,15 @@ export function generateStatementPDF(
   }
 
   rows.forEach((row, index) => {
-    if (y > 760) {
+    if (y > 724) {
+      drawCleanLetterheadFooter(doc);
       doc.addPage();
+      if (letterheadPath) {
+        doc.image(letterheadPath, 0, 0, {
+          width: doc.page.width,
+          height: doc.page.height,
+        });
+      }
       y = 48;
     }
 
@@ -210,18 +301,7 @@ export function generateStatementPDF(
     .strokeColor('#e2e8f0')
     .stroke();
 
-  doc
-    .fontSize(8)
-    .fillColor('#64748b')
-    .text(
-      'This statement is system generated from the customer ledger.',
-      36,
-      800,
-      {
-        align: 'center',
-        width: 523,
-      },
-    );
+  drawCleanLetterheadFooter(doc);
 
   doc.end();
 }
