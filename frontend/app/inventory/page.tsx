@@ -516,57 +516,104 @@ export default function InventoryPage() {
             {stock.map((item) => (
               <div key={item.id} className="rounded-3xl border border-black/8 bg-white px-5 py-4">
                 {editingProduct.id === item.id ? (
-                  <div className="space-y-3">
-                    <div className="grid gap-3 md:grid-cols-[1.2fr_1.2fr_0.8fr_0.8fr_0.8fr]">
-                      <input
-                        className="field"
-                        placeholder="Product name"
-                        value={editingProduct.name}
-                        onChange={(event) =>
-                          setEditingProduct((current) => ({ ...current, name: event.target.value }))
-                        }
-                      />
-                      <input
-                        className="field"
-                        dir="rtl"
-                        placeholder="Arabic description"
-                        value={editingProduct.name_ar}
-                        onChange={(event) =>
-                          setEditingProduct((current) => ({ ...current, name_ar: event.target.value }))
-                        }
-                      />
-                      <input
-                        className="field"
-                        placeholder="SKU"
-                        value={editingProduct.sku}
-                        onChange={(event) =>
-                          setEditingProduct((current) => ({ ...current, sku: event.target.value }))
-                        }
-                      />
-                      <input
-                        className="field"
-                        placeholder="Selling price"
-                        value={editingProduct.price_per_kg}
-                        onChange={(event) =>
-                          setEditingProduct((current) => ({
-                            ...current,
-                            price_per_kg: event.target.value,
-                          }))
-                        }
-                      />
-                      <input
-                        className="field"
-                        placeholder="Low stock kg"
-                        value={editingProduct.low_stock_kg}
-                        onChange={(event) =>
-                          setEditingProduct((current) => ({
-                            ...current,
-                            low_stock_kg: event.target.value,
-                          }))
-                        }
-                      />
+                  <div className="space-y-5">
+                    <div className="flex flex-col gap-3 border-b border-slate-100 pb-4 md:flex-row md:items-start md:justify-between">
+                      <div>
+                        <p className="soft-label">Edit product details</p>
+                        <h3 className="mt-1 text-xl font-black text-slate-950">{item.name}</h3>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
+                        <div className="rounded-2xl bg-slate-50 px-4 py-3">
+                          <p className="soft-label">Pieces</p>
+                          <p className="mt-1 font-black text-slate-950">{Number(item.stock_pieces ?? 0)}</p>
+                        </div>
+                        <div className="rounded-2xl bg-slate-50 px-4 py-3">
+                          <p className="soft-label">Weight</p>
+                          <p className="mt-1 whitespace-nowrap font-black text-slate-950">
+                            {Number(item.stock_kg).toFixed(3)} kg
+                          </p>
+                        </div>
+                        <div className="rounded-2xl bg-slate-50 px-4 py-3">
+                          <p className="soft-label">Alert</p>
+                          <p className={item.low_stock ? "mt-1 font-black text-red-600" : "mt-1 font-black text-emerald-700"}>
+                            {item.low_stock ? "Low" : "OK"}
+                          </p>
+                        </div>
+                        <div className="rounded-2xl bg-slate-50 px-4 py-3">
+                          <p className="soft-label">Current price</p>
+                          <p className="mt-1 font-black text-slate-950">
+                            <Money value={item.price_per_kg} className="items-start" />
+                          </p>
+                        </div>
+                      </div>
                     </div>
-                    <div className="flex flex-wrap gap-3">
+
+                    <div className="grid gap-4 lg:grid-cols-2">
+                      <label className="space-y-2">
+                        <span className="soft-label">Product name</span>
+                        <input
+                          className="field"
+                          placeholder="Product name"
+                          value={editingProduct.name}
+                          onChange={(event) =>
+                            setEditingProduct((current) => ({ ...current, name: event.target.value }))
+                          }
+                        />
+                      </label>
+                      <label className="space-y-2">
+                        <span className="soft-label">Arabic description</span>
+                        <input
+                          className="field"
+                          dir="rtl"
+                          placeholder="Arabic description"
+                          value={editingProduct.name_ar}
+                          onChange={(event) =>
+                            setEditingProduct((current) => ({ ...current, name_ar: event.target.value }))
+                          }
+                        />
+                      </label>
+                      <label className="space-y-2">
+                        <span className="soft-label">SKU</span>
+                        <input
+                          className="field"
+                          placeholder="SKU"
+                          value={editingProduct.sku}
+                          onChange={(event) =>
+                            setEditingProduct((current) => ({ ...current, sku: event.target.value }))
+                          }
+                        />
+                      </label>
+                      <label className="space-y-2">
+                        <span className="soft-label">Selling price per kg</span>
+                        <input
+                          className="field"
+                          placeholder="Selling price"
+                          value={editingProduct.price_per_kg}
+                          onChange={(event) =>
+                            setEditingProduct((current) => ({
+                              ...current,
+                              price_per_kg: event.target.value,
+                            }))
+                          }
+                        />
+                      </label>
+                      <label className="space-y-2 lg:max-w-sm">
+                        <span className="soft-label">Low stock alert kg</span>
+                        <input
+                          className="field"
+                          placeholder="Low stock kg"
+                          value={editingProduct.low_stock_kg}
+                          onChange={(event) =>
+                            setEditingProduct((current) => ({
+                              ...current,
+                              low_stock_kg: event.target.value,
+                            }))
+                          }
+                        />
+                      </label>
+                    </div>
+
+                    <div className="flex flex-wrap gap-3 border-t border-slate-100 pt-4">
                       <button className="btn-primary px-5" onClick={() => void updateProduct()} disabled={loading}>
                         Save Product
                       </button>
