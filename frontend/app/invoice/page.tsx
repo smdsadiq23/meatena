@@ -6,7 +6,13 @@ import {
   fetchJson,
   fetchJsonOrThrow,
 } from "../../lib/auth";
-import { formatDualCurrency, Money, setDisplayCurrency, useCurrencyRate } from "../../lib/currency";
+import {
+  formatCurrency,
+  formatDualCurrency,
+  Money,
+  setDisplayCurrency,
+  useCurrencyRate,
+} from "../../lib/currency";
 import { useLanguage } from "../../lib/use-language";
 const DEFAULT_PRICE = "3.150";
 
@@ -756,83 +762,92 @@ export default function Invoice() {
             ))}
           </div>
 
-          <div className="mb-2 grid grid-cols-[1.35fr_0.55fr_0.75fr_0.75fr_0.75fr_0.9fr_auto] gap-2 text-sm font-bold uppercase tracking-[0.14em] text-slate-600">
-            <div>{t("Product")}</div>
-            <div>{t("Pieces")}</div>
-            <div>{t("Weight")}</div>
-            <div>{t("Price")}</div>
-            <div>{t("Discount")}</div>
-            <div>{t("Amount")}</div>
-            <div />
-          </div>
-
-          <div className="space-y-2">
-            {items.map((item, index) => (
-              <div key={index} className="grid grid-cols-[1.35fr_0.55fr_0.75fr_0.75fr_0.75fr_0.9fr_auto] gap-2">
-                <select
-                  className="field"
-                  value={item.productId}
-                  onChange={(e) => updateItem(index, "productId", e.target.value)}
-                >
-                  <option value="">{t("Counter item")}</option>
-                  {products.map((product) => (
-                    <option key={product.id} value={product.id}>
-                      {product.name} ({Number(product.stock_pieces ?? 0)} pcs /{" "}
-                      {Number(product.stock_kg).toFixed(3)} kg)
-                    </option>
-                  ))}
-                </select>
-
-                <input
-                  className="field"
-                  placeholder="pcs"
-                  value={item.pieces}
-                  onChange={(e) => updateItem(index, "pieces", e.target.value)}
-                />
-
-                <input
-                  ref={(element) => {
-                    if (index === 0) {
-                      firstInputRef.current = element;
-                    }
-                    weightRefs.current[index] = element;
-                  }}
-                  className="field"
-                  placeholder="kg"
-                  value={item.weight}
-                  onChange={(e) => updateItem(index, "weight", e.target.value)}
-                  onKeyDown={(e) => onWeightKeyDown(e, index)}
-                />
-
-                <input
-                  id={`price-${index}`}
-                  className="field"
-                  placeholder={`${t("Price")} (${invoiceCurrency})`}
-                  value={item.price}
-                  onChange={(e) => updateItem(index, "price", e.target.value)}
-                  onKeyDown={(e) => onPriceKeyDown(e, index)}
-                />
-
-                <input
-                  className="field"
-                  inputMode="decimal"
-                  placeholder={`${t("Discount")} (${invoiceCurrency})`}
-                  value={item.discount}
-                  onChange={(e) => updateItem(index, "discount", e.target.value)}
-                />
-
-                <div className="rounded-2xl bg-slate-100 px-4 py-4 text-lg font-bold text-slate-950">
-                  <Money value={lineNetAmount(item)} />
-                </div>
-
-                <button
-                  className="h-[58px] w-[58px] rounded-2xl bg-red-600 font-semibold text-white"
-                  onClick={() => removeRow(index)}
-                >
-                  X
-                </button>
+          <div className="overflow-x-auto pb-2">
+            <div className="min-w-[1120px]">
+              <div className="mb-2 grid grid-cols-[minmax(240px,1.5fr)_90px_120px_120px_140px_170px_64px] gap-2 text-sm font-bold uppercase tracking-[0.14em] text-slate-600">
+                <div>{t("Product")}</div>
+                <div>{t("Pieces")}</div>
+                <div>{t("Weight")}</div>
+                <div>{t("Price")}</div>
+                <div>{t("Discount")}</div>
+                <div>{t("Amount")}</div>
+                <div />
               </div>
-            ))}
+
+              <div className="space-y-2">
+                {items.map((item, index) => (
+                  <div
+                    key={index}
+                    className="grid grid-cols-[minmax(240px,1.5fr)_90px_120px_120px_140px_170px_64px] gap-2"
+                  >
+                    <select
+                      className="field h-[58px] px-4 py-0 text-base"
+                      value={item.productId}
+                      onChange={(e) => updateItem(index, "productId", e.target.value)}
+                    >
+                      <option value="">{t("Counter item")}</option>
+                      {products.map((product) => (
+                        <option key={product.id} value={product.id}>
+                          {product.name} ({Number(product.stock_pieces ?? 0)} pcs /{" "}
+                          {Number(product.stock_kg).toFixed(3)} kg)
+                        </option>
+                      ))}
+                    </select>
+
+                    <input
+                      className="field h-[58px] px-4 py-0 text-base"
+                      placeholder="pcs"
+                      value={item.pieces}
+                      onChange={(e) => updateItem(index, "pieces", e.target.value)}
+                    />
+
+                    <input
+                      ref={(element) => {
+                        if (index === 0) {
+                          firstInputRef.current = element;
+                        }
+                        weightRefs.current[index] = element;
+                      }}
+                      className="field h-[58px] px-4 py-0 text-base"
+                      placeholder="kg"
+                      value={item.weight}
+                      onChange={(e) => updateItem(index, "weight", e.target.value)}
+                      onKeyDown={(e) => onWeightKeyDown(e, index)}
+                    />
+
+                    <input
+                      id={`price-${index}`}
+                      className="field h-[58px] px-4 py-0 text-base"
+                      placeholder={`${t("Price")} (${invoiceCurrency})`}
+                      value={item.price}
+                      onChange={(e) => updateItem(index, "price", e.target.value)}
+                      onKeyDown={(e) => onPriceKeyDown(e, index)}
+                    />
+
+                    <input
+                      className="field h-[58px] px-4 py-0 text-base"
+                      inputMode="decimal"
+                      placeholder={t("Discount")}
+                      value={item.discount}
+                      onChange={(e) => updateItem(index, "discount", e.target.value)}
+                    />
+
+                    <div className="flex h-[58px] items-center justify-center rounded-2xl bg-slate-100 px-4 text-lg font-black text-slate-950">
+                      <span className="whitespace-nowrap">
+                        {formatCurrency(lineNetAmount(item), invoiceCurrency)}
+                      </span>
+                    </div>
+
+                    <button
+                      className="h-[58px] w-[58px] rounded-2xl bg-red-600 font-semibold text-white"
+                      onClick={() => removeRow(index)}
+                    >
+                      X
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
 
           <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
