@@ -172,31 +172,31 @@ export default function InvoicesPage() {
           </div>
         ) : null}
 
-        <div className="mb-6 rounded-3xl border border-slate-100 bg-slate-50 p-4">
-          <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
-            <div>
+        <div className="mb-6 rounded-3xl border border-slate-100 bg-slate-50 p-4 md:p-5">
+          <div className="grid gap-4 xl:grid-cols-[1fr_auto] xl:items-center">
+            <div className="min-w-0">
               <p className="soft-label">Combined Invoice</p>
               <h2 className="mt-1 text-xl font-bold text-slate-950">
                 Daily or weekly customer bill
               </h2>
-              <p className="mt-1 text-sm font-medium text-slate-600">
+              <p className="mt-1 max-w-3xl text-sm font-medium leading-6 text-slate-600">
                 Combine that customer's invoices into one PDF without changing the original invoices.
               </p>
             </div>
             <button
               type="button"
-              className="btn-primary"
+              className="btn-primary w-full whitespace-nowrap text-sm sm:w-auto"
               onClick={() => void downloadCombinedInvoice()}
             >
               Download Combined PDF
             </button>
           </div>
 
-          <div className="mt-4 grid gap-3 md:grid-cols-5">
-            <label className="space-y-2">
+          <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+            <label className="block rounded-2xl border border-slate-200 bg-white p-3">
               <span className="soft-label">Customer</span>
               <select
-                className="input"
+                className="field mt-2 h-12 border-slate-200 bg-white px-3 py-2 text-base font-semibold text-slate-950 shadow-none"
                 value={combinedCustomerId}
                 onChange={(event) => setCombinedCustomerId(event.target.value)}
               >
@@ -207,10 +207,10 @@ export default function InvoicesPage() {
                 ))}
               </select>
             </label>
-            <label className="space-y-2">
+            <label className="block rounded-2xl border border-slate-200 bg-white p-3">
               <span className="soft-label">Period</span>
               <select
-                className="input"
+                className="field mt-2 h-12 border-slate-200 bg-white px-3 py-2 text-base font-semibold text-slate-950 shadow-none"
                 value={combinedPeriod}
                 onChange={(event) => setCombinedPeriod(event.target.value === "weekly" ? "weekly" : "daily")}
               >
@@ -218,19 +218,19 @@ export default function InvoicesPage() {
                 <option value="weekly">Weekly</option>
               </select>
             </label>
-            <label className="space-y-2">
+            <label className="block rounded-2xl border border-slate-200 bg-white p-3">
               <span className="soft-label">Date</span>
               <input
-                className="input"
+                className="field mt-2 h-12 border-slate-200 bg-white px-3 py-2 text-base font-semibold text-slate-950 shadow-none"
                 type="date"
                 value={combinedDate}
                 onChange={(event) => setCombinedDate(event.target.value)}
               />
             </label>
-            <label className="space-y-2">
+            <label className="block rounded-2xl border border-slate-200 bg-white p-3">
               <span className="soft-label">Currency</span>
               <select
-                className="input"
+                className="field mt-2 h-12 border-slate-200 bg-white px-3 py-2 text-base font-semibold text-slate-950 shadow-none"
                 value={combinedCurrency}
                 onChange={(event) => setCombinedCurrency(event.target.value === "USD" ? "USD" : "KWD")}
               >
@@ -238,10 +238,10 @@ export default function InvoicesPage() {
                 <option value="USD">USD invoices</option>
               </select>
             </label>
-            <label className="space-y-2">
+            <label className="block rounded-2xl border border-slate-200 bg-white p-3 md:col-span-2 xl:col-span-1">
               <span className="soft-label">Bill Status</span>
               <select
-                className="input"
+                className="field mt-2 h-12 border-slate-200 bg-white px-3 py-2 text-base font-semibold text-slate-950 shadow-none"
                 value={combinedPaymentStatus}
                 onChange={(event) => {
                   const value = event.target.value;
