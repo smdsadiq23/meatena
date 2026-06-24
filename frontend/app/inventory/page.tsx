@@ -64,6 +64,14 @@ type ReorderSuggestionResponse = {
 const emptyProduct = { name: "", name_ar: "", sku: "", price_per_kg: "", low_stock_kg: "" };
 const emptyAdjustment = { product_id: "", type: "wastage", quantity_kg: "", note: "" };
 const emptyEditProduct = { id: 0, name: "", name_ar: "", sku: "", price_per_kg: "", low_stock_kg: "" };
+const emptyEditMovement = {
+  id: 0,
+  product_id: "",
+  type: "adjustment",
+  quantity_kg: "",
+  date: "",
+  note: "",
+};
 
 function EditIcon() {
   return (
@@ -99,6 +107,22 @@ function TrashIcon() {
   );
 }
 
+function toDateTimeLocal(value: string) {
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
+  return local.toISOString().slice(0, 16);
+}
+
+function toIsoDateTime(value: string) {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value : date.toISOString();
+}
+
 export default function InventoryPage() {
   const isAdmin = getAuthUser()?.role === "admin";
   const [stock, setStock] = useState<StockItem[]>([]);
@@ -107,6 +131,7 @@ export default function InventoryPage() {
   const [reorder, setReorder] = useState<ReorderSuggestionResponse | null>(null);
   const [product, setProduct] = useState(emptyProduct);
   const [editingProduct, setEditingProduct] = useState(emptyEditProduct);
+  const [editingMovement, setEditingMovement] = useState(emptyEditMovement);
   const [adjustment, setAdjustment] = useState(emptyAdjustment);
   const [status, setStatus] = useState("");
   const [statusType, setStatusType] = useState<"success" | "error">("success");
@@ -116,16 +141,6 @@ export default function InventoryPage() {
     () => new Map(stock.map((item) => [item.id, item.name])),
     [stock]
   );
-  const reversedMovementIds = useMemo(
-    () =>
-      new Set(
-        movements
-          .filter((movement) => movement.reference_type === "stock_movement_reversal")
-          .map((movement) => Number(movement.reference_id))
-      ),
-    [movements]
-  );
-
   const loadInventory = async (preserveStatus = false) => {
     if (!preserveStatus) {
       setStatus("");
@@ -237,36 +252,6 @@ export default function InventoryPage() {
     }
   };
 
-  const reverseMovement = async (movement: Movement) => {
-    const productName = productNameById.get(movement.product_id) ?? `Product #${movement.product_id}`;
-    const reason = window.prompt(
-      `Reverse ${Number(movement.quantity_kg).toFixed(3)} kg for ${productName}?\n\nReason for correction:`,
-      "Wrong entry corrected by admin"
-    );
-
-    if (reason === null) {
-      return;
-    }
-
-    setLoading(true);
-    setStatus("");
-
-    try {
-      await fetchJsonOrThrow(`/inventory/movements/${movement.id}/reverse`, {
-        method: "POST",
-        body: JSON.stringify({ reason: reason.trim() || undefined }),
-      });
-      setStatusType("success");
-      setStatus("Stock movement reversed. A correction movement was added to keep the audit trail.");
-      await loadInventory(true);
-    } catch (error) {
-      setStatusType("error");
-      setStatus(error instanceof Error ? error.message : "Could not reverse stock movement.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const deleteProduct = async (item: StockItem) => {
     if (!isAdmin) {
       return;
@@ -342,6 +327,86 @@ export default function InventoryPage() {
     } catch (error) {
       setStatusType("error");
       setStatus(error instanceof Error ? error.message : "Could not update product.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const startEditMovement = (movement: Movement) => {
+    setEditingMovement({
+      id: movement.id,
+      product_id: String(movement.product_id),
+      type: movement.type,
+      quantity_kg: Math.abs(Number(movement.quantity_kg)).toFixed(3),
+      date: toDateTimeLocal(movement.date),
+      note: movement.note || "",
+    });
+    setStatus("");
+  };
+
+  const updateMovement = async () => {
+    if (!editingMovement.id) {
+      return;
+    }
+
+    if (!editingMovement.product_id || !Number(editingMovement.quantity_kg)) {
+      setStatusType("error");
+      setStatus("Choose product and enter quantity.");
+      return;
+    }
+
+    setLoading(true);
+    setStatus("");
+
+    try {
+      await fetchJsonOrThrow(`/inventory/movements/${editingMovement.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          product_id: Number(editingMovement.product_id),
+          type: editingMovement.type,
+          quantity_kg: Number(editingMovement.quantity_kg),
+          date: editingMovement.date ? toIsoDateTime(editingMovement.date) : undefined,
+          note: editingMovement.note.trim() || undefined,
+        }),
+      });
+      setEditingMovement(emptyEditMovement);
+      setStatusType("success");
+      setStatus("Stock movement updated and balances recalculated.");
+      await loadInventory(true);
+    } catch (error) {
+      setStatusType("error");
+      setStatus(error instanceof Error ? error.message : "Could not update stock movement.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const deleteMovement = async (movement: Movement) => {
+    const productName = productNameById.get(movement.product_id) ?? `Product #${movement.product_id}`;
+
+    if (
+      !window.confirm(
+        `Delete this movement for ${productName}?\n\nThis will recalculate the stock balance.`
+      )
+    ) {
+      return;
+    }
+
+    setLoading(true);
+    setStatus("");
+
+    try {
+      const response = await fetchJsonOrThrow<{ message: string }>(
+        `/inventory/movements/${movement.id}`,
+        { method: "DELETE" }
+      );
+      setEditingMovement(emptyEditMovement);
+      setStatusType("success");
+      setStatus(response.message);
+      await loadInventory(true);
+    } catch (error) {
+      setStatusType("error");
+      setStatus(error instanceof Error ? error.message : "Could not delete stock movement.");
     } finally {
       setLoading(false);
     }
@@ -639,30 +704,103 @@ export default function InventoryPage() {
         <h2 className="mb-4 text-xl font-bold text-slate-950">Recent Movements</h2>
         <div className="space-y-2">
           {movements.slice(0, 12).map((movement) => (
-            <div key={movement.id} className="grid gap-3 rounded-2xl bg-slate-50 p-4 text-sm md:grid-cols-[1.4fr_0.8fr_0.9fr_1.1fr_1.1fr_auto] md:items-center">
-              <div className="font-bold text-slate-950">{productNameById.get(movement.product_id) ?? `Product #${movement.product_id}`}</div>
-              <div className="capitalize text-slate-700">{movement.type}</div>
-              <div>{Number(movement.quantity_kg).toFixed(3)} kg</div>
-              <div>{Number(movement.balance_after_kg).toFixed(3)} kg balance</div>
-              <div className="text-slate-500">{new Date(movement.date).toLocaleString()}</div>
-              {isAdmin &&
-              movement.reference_type !== "stock_movement_reversal" &&
-              !reversedMovementIds.has(movement.id) ? (
-                <button
-                  type="button"
-                  className="rounded-2xl border border-red-100 bg-red-50 px-4 py-2 text-sm font-bold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
-                  onClick={() => void reverseMovement(movement)}
-                  disabled={loading}
-                >
-                  Reverse
-                </button>
-              ) : movement.reference_type === "stock_movement_reversal" ||
-                reversedMovementIds.has(movement.id) ? (
-                <span className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">
-                  Corrected
-                </span>
+            <div key={movement.id} className="rounded-2xl bg-slate-50 p-4 text-sm">
+              {editingMovement.id === movement.id ? (
+                <div className="grid gap-3 md:grid-cols-[1.2fr_0.8fr_0.8fr_1fr_1fr_auto] md:items-center">
+                  <select
+                    className="field"
+                    value={editingMovement.product_id}
+                    onChange={(event) =>
+                      setEditingMovement((current) => ({
+                        ...current,
+                        product_id: event.target.value,
+                      }))
+                    }
+                  >
+                    {stock.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.name}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    className="field"
+                    value={editingMovement.type}
+                    onChange={(event) =>
+                      setEditingMovement((current) => ({ ...current, type: event.target.value }))
+                    }
+                  >
+                    <option value="purchase">Purchase</option>
+                    <option value="sale">Sale</option>
+                    <option value="wastage">Wastage</option>
+                    <option value="adjustment">Adjustment</option>
+                  </select>
+                  <input
+                    className="field"
+                    placeholder="Quantity kg"
+                    value={editingMovement.quantity_kg}
+                    onChange={(event) =>
+                      setEditingMovement((current) => ({
+                        ...current,
+                        quantity_kg: event.target.value,
+                      }))
+                    }
+                  />
+                  <input
+                    className="field"
+                    type="datetime-local"
+                    value={editingMovement.date}
+                    onChange={(event) =>
+                      setEditingMovement((current) => ({ ...current, date: event.target.value }))
+                    }
+                  />
+                  <input
+                    className="field"
+                    placeholder="Note"
+                    value={editingMovement.note}
+                    onChange={(event) =>
+                      setEditingMovement((current) => ({ ...current, note: event.target.value }))
+                    }
+                  />
+                  <div className="flex gap-2">
+                    <button className="btn-primary px-4" onClick={() => void updateMovement()} disabled={loading}>
+                      Save
+                    </button>
+                    <button className="btn-secondary px-4" onClick={() => setEditingMovement(emptyEditMovement)}>
+                      Cancel
+                    </button>
+                  </div>
+                </div>
               ) : (
-                <span />
+                <div className="grid gap-3 md:grid-cols-[1.4fr_0.8fr_0.9fr_1.1fr_1.1fr_auto] md:items-center">
+                  <div className="font-bold text-slate-950">{productNameById.get(movement.product_id) ?? `Product #${movement.product_id}`}</div>
+                  <div className="capitalize text-slate-700">{movement.type}</div>
+                  <div>{Number(movement.quantity_kg).toFixed(3)} kg</div>
+                  <div>{Number(movement.balance_after_kg).toFixed(3)} kg balance</div>
+                  <div className="text-slate-500">{new Date(movement.date).toLocaleString()}</div>
+                  {isAdmin ? (
+                    <div className="flex flex-wrap gap-2 md:justify-end">
+                      <button
+                        type="button"
+                        className="rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-800 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+                        onClick={() => startEditMovement(movement)}
+                        disabled={loading}
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        className="rounded-2xl border border-red-100 bg-red-50 px-4 py-2 text-sm font-bold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+                        onClick={() => void deleteMovement(movement)}
+                        disabled={loading}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  ) : (
+                    <span />
+                  )}
+                </div>
               )}
             </div>
           ))}

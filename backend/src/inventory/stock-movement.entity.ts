@@ -24,7 +24,7 @@ export class StockMovement {
   reference_id: number;
 
   @Column({ nullable: true })
-  note: string;
+  note: string | null;
 
   @Column()
   date: string;

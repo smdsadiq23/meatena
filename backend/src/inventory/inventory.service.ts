@@ -11,6 +11,7 @@ import { InvoiceItem } from '../invoice/invoice-item.entity';
 import { Product } from '../product/product.entity';
 import { PurchaseItem } from '../purchase/purchase-item.entity';
 import { CreateStockAdjustmentDto } from './dto/create-stock-adjustment.dto';
+import { UpdateStockMovementDto } from './dto/update-stock-movement.dto';
 import { StockMovement } from './stock-movement.entity';
 
 type StockMovementInput = {
@@ -181,6 +182,92 @@ export class InventoryService {
     return this.movementRepo.find({ order: { date: 'DESC', id: 'DESC' } });
   }
 
+  async updateMovement(
+    id: number,
+    data: UpdateStockMovementDto,
+  ): Promise<StockMovement> {
+    return this.dataSource.transaction<StockMovement>(async (manager) => {
+      const movementRepo = manager.getRepository(StockMovement);
+      const productRepo = manager.getRepository(Product);
+      const movement = await movementRepo.findOne({ where: { id } });
+
+      if (!movement) {
+        throw new NotFoundException('Stock movement not found');
+      }
+
+      const oldProductId = movement.product_id;
+
+      if (data.product_id !== undefined && data.product_id !== movement.product_id) {
+        const product = await productRepo.findOne({
+          where: { id: data.product_id },
+        });
+
+        if (!product) {
+          throw new NotFoundException('Product not found');
+        }
+
+        movement.product_id = data.product_id;
+      }
+
+      if (data.type !== undefined) {
+        movement.type = data.type;
+      }
+
+      if (data.quantity_kg !== undefined) {
+        movement.quantity_kg = this.normalizeMovementQuantity(
+          movement.type,
+          data.quantity_kg,
+        );
+      } else {
+        movement.quantity_kg = this.normalizeMovementQuantity(
+          movement.type,
+          Number(movement.quantity_kg),
+        );
+      }
+
+      if (data.note !== undefined) {
+        movement.note = data.note.trim() || null;
+      }
+
+      if (data.date !== undefined) {
+        movement.date = data.date;
+      }
+
+      await movementRepo.save(movement);
+      await this.recalculateProductStock(oldProductId, manager);
+
+      if (movement.product_id !== oldProductId) {
+        await this.recalculateProductStock(movement.product_id, manager);
+      }
+
+      const updated = await movementRepo.findOne({ where: { id } });
+
+      if (!updated) {
+        throw new NotFoundException('Stock movement not found');
+      }
+
+      return updated;
+    });
+  }
+
+  async deleteMovement(id: number) {
+    return this.dataSource.transaction(async (manager) => {
+      const movementRepo = manager.getRepository(StockMovement);
+      const movement = await movementRepo.findOne({ where: { id } });
+
+      if (!movement) {
+        throw new NotFoundException('Stock movement not found');
+      }
+
+      await movementRepo.delete(id);
+      await this.recalculateProductStock(movement.product_id, manager);
+
+      return {
+        message: `Stock movement #${id} deleted successfully.`,
+      };
+    });
+  }
+
   async reverseMovement(id: number, reason?: string): Promise<StockMovement> {
     return this.dataSource.transaction<StockMovement>(async (manager) => {
       const movementRepo = manager.getRepository(StockMovement);
@@ -283,5 +370,63 @@ export class InventoryService {
       note: data.note,
       date: data.date ?? new Date().toISOString(),
     });
+  }
+
+  private normalizeMovementQuantity(
+    type: StockMovement['type'],
+    quantityKg: number,
+  ) {
+    const quantity = roundMoney(quantityKg);
+
+    if (type === 'sale' || type === 'wastage') {
+      return -Math.abs(quantity);
+    }
+
+    if (type === 'purchase') {
+      return Math.abs(quantity);
+    }
+
+    return quantity;
+  }
+
+  private async recalculateProductStock(
+    productId: number,
+    manager: EntityManager,
+  ) {
+    const productRepo = manager.getRepository(Product);
+    const movementRepo = manager.getRepository(StockMovement);
+    const product = await productRepo.findOne({
+      where: { id: productId },
+      lock: { mode: 'pessimistic_write' },
+    });
+
+    if (!product) {
+      throw new NotFoundException('Product not found');
+    }
+
+    const movements = await movementRepo.find({
+      where: { product_id: productId },
+      order: { date: 'ASC', id: 'ASC' },
+    });
+    let balance = 0;
+
+    for (const movement of movements) {
+      balance = roundMoney(balance + Number(movement.quantity_kg));
+
+      if (balance < 0) {
+        throw new BadRequestException(
+          `This change would make ${product.name} stock negative on ${movement.date}.`,
+        );
+      }
+
+      movement.balance_after_kg = balance;
+    }
+
+    if (movements.length) {
+      await movementRepo.save(movements);
+    }
+
+    product.stock_kg = balance;
+    await productRepo.save(product);
   }
 }

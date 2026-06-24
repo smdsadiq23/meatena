@@ -1,9 +1,11 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   ParseIntPipe,
+  Patch,
   Post,
   Req,
   UseGuards,
@@ -23,6 +25,7 @@ import { UserRole } from '../user/user-role.enum';
 import type { JwtUser } from '../auth/jwt.strategy';
 import { CreateStockAdjustmentDto } from './dto/create-stock-adjustment.dto';
 import { ReverseStockMovementDto } from './dto/reverse-stock-movement.dto';
+import { UpdateStockMovementDto } from './dto/update-stock-movement.dto';
 import { InventoryService } from './inventory.service';
 
 @ApiTags('inventory')
@@ -103,6 +106,42 @@ export class InventoryController {
         reversal_id: result.id,
         reason: body.reason,
       },
+    });
+    return result;
+  }
+
+  @ApiOkResponse({ description: 'Stock movement edited and balances recalculated.' })
+  @Roles(UserRole.Admin)
+  @Patch('movements/:id')
+  async updateMovement(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() body: UpdateStockMovementDto,
+    @Req() req: Request & { user: JwtUser },
+  ) {
+    const result = await this.service.updateMovement(id, body);
+    await this.auditService.record({
+      user: req.user,
+      action: 'inventory.update_movement',
+      entity: 'stock_movement',
+      entity_id: id,
+      metadata: { ...body },
+    });
+    return result;
+  }
+
+  @ApiOkResponse({ description: 'Stock movement deleted and balances recalculated.' })
+  @Roles(UserRole.Admin)
+  @Delete('movements/:id')
+  async deleteMovement(
+    @Param('id', ParseIntPipe) id: number,
+    @Req() req: Request & { user: JwtUser },
+  ) {
+    const result = await this.service.deleteMovement(id);
+    await this.auditService.record({
+      user: req.user,
+      action: 'inventory.delete_movement',
+      entity: 'stock_movement',
+      entity_id: id,
     });
     return result;
   }
