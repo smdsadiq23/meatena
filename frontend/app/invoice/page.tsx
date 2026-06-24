@@ -10,6 +10,10 @@ import { formatDualCurrency, Money, setDisplayCurrency, useCurrencyRate } from "
 import { useLanguage } from "../../lib/use-language";
 const DEFAULT_PRICE = "3.150";
 
+function todayInputDate() {
+  return new Date().toISOString().slice(0, 10);
+}
+
 type Customer = {
   id: number;
   name: string;
@@ -106,6 +110,8 @@ export default function Invoice() {
   const [invoiceId, setInvoiceId] = useState<number | null>(null);
   const [invoiceNumber, setInvoiceNumber] = useState("");
   const [draftInvoiceNumber, setDraftInvoiceNumber] = useState("");
+  const [draftInvoiceDate, setDraftInvoiceDate] = useState(todayInputDate);
+  const [discountInput, setDiscountInput] = useState("");
   const [invoiceCurrency, setInvoiceCurrency] = useState<"KWD" | "USD">("KWD");
   const [includePreviousBalance, setIncludePreviousBalance] = useState(false);
   const [invoiceProfiles, setInvoiceProfiles] = useState<InvoiceProfile[]>([]);
@@ -184,8 +190,13 @@ export default function Invoice() {
     (sum, item) => sum + Number(item.weight || 0) * toBaseKwd(Number(item.price || 0)),
     0
   );
+  const enteredDiscount = Number(discountInput || 0);
+  const discount = Number.isFinite(enteredDiscount)
+    ? Math.max(toBaseKwd(enteredDiscount), 0)
+    : Number.NaN;
+  const netTotal = Number.isFinite(discount) ? Math.max(total - discount, 0) : total;
   const creditLimit = Number(selectedCustomer?.credit_limit ?? 0);
-  const projectedBalance = balance + total;
+  const projectedBalance = balance + netTotal;
   const remainingCredit =
     creditLimit > 0 ? Math.max(creditLimit - projectedBalance, 0) : null;
   const isCreditLimitExceeded = creditLimit > 0 && projectedBalance > creditLimit;
@@ -353,6 +364,8 @@ export default function Invoice() {
     setInvoiceId(null);
     setInvoiceNumber("");
     setDraftInvoiceNumber("");
+    setDraftInvoiceDate(todayInputDate());
+    setDiscountInput("");
     setInvoiceCurrency("KWD");
     setDisplayCurrency("KWD");
     setIncludePreviousBalance(false);
@@ -391,6 +404,24 @@ export default function Invoice() {
       return;
     }
 
+    if (!draftInvoiceDate) {
+      setStatusType("error");
+      setStatus(t("Enter invoice date before creating the invoice."));
+      return;
+    }
+
+    if (!Number.isFinite(discount)) {
+      setStatusType("error");
+      setStatus(t("Enter a valid discount amount."));
+      return;
+    }
+
+    if (discount > total) {
+      setStatusType("error");
+      setStatus(t("Discount cannot be greater than invoice subtotal."));
+      return;
+    }
+
     if (isCreditLimitExceeded) {
       setStatusType("error");
       setStatus(
@@ -413,6 +444,8 @@ export default function Invoice() {
           transaction_currency: invoiceCurrency,
           exchange_rate: currencyRate,
           include_previous_balance: includePreviousBalance,
+          invoice_date: draftInvoiceDate,
+          discount_amount: Number(discountInput || 0),
           invoice_number: draftInvoiceNumber.trim(),
           invoice_title: selectedProfile.invoice_title.trim(),
           invoice_title_ar: selectedProfile.invoice_title_ar?.trim() || undefined,
@@ -441,6 +474,8 @@ export default function Invoice() {
       );
       setItems([{ productId: "", pieces: "", weight: "", price: DEFAULT_PRICE, amount: 0 }]);
       setDraftInvoiceNumber("");
+      setDraftInvoiceDate(todayInputDate());
+      setDiscountInput("");
       fetchJson<Product[]>("/inventory/stock").then(setProducts).catch(() => undefined);
       setTimeout(() => {
         firstInputRef.current?.focus();
@@ -475,12 +510,21 @@ export default function Invoice() {
         <section className="panel p-5 md:p-6">
           <h2 className="mb-3 text-xl font-bold text-slate-950">{t("Invoice Details")}</h2>
           <div className="space-y-3">
-            <input
-              className="field"
-              placeholder={t("Invoice number")}
-              value={draftInvoiceNumber}
-              onChange={(event) => setDraftInvoiceNumber(event.target.value)}
-            />
+            <div className="grid gap-3 sm:grid-cols-2">
+              <input
+                className="field"
+                placeholder={t("Invoice number")}
+                value={draftInvoiceNumber}
+                onChange={(event) => setDraftInvoiceNumber(event.target.value)}
+              />
+              <input
+                className="field"
+                type="date"
+                value={draftInvoiceDate}
+                onChange={(event) => setDraftInvoiceDate(event.target.value)}
+                aria-label={t("Invoice date")}
+              />
+            </div>
             <select
               className="field"
               value={selectedProfile.id ?? ""}
@@ -687,6 +731,24 @@ export default function Invoice() {
               </div>
             </div>
           </div>
+          <div className="mb-4 grid gap-3 md:grid-cols-2">
+            <div className="rounded-3xl bg-slate-50 p-4">
+              <p className="soft-label">{t("Invoice date")}</p>
+              <p className="mt-2 text-lg font-black text-slate-950">
+                {draftInvoiceDate || t("Not entered")}
+              </p>
+            </div>
+            <div className="rounded-3xl bg-slate-50 p-4">
+              <p className="soft-label">{t("Discount")}</p>
+              <input
+                className="field mt-2 bg-white"
+                inputMode="decimal"
+                placeholder={`${t("Discount")} (${invoiceCurrency})`}
+                value={discountInput}
+                onChange={(event) => setDiscountInput(event.target.value)}
+              />
+            </div>
+          </div>
           <div className="mb-4 flex flex-wrap items-center gap-3">
             <p className="soft-label">{t("Billing Currency")}</p>
             {(["KWD", "USD"] as const).map((currency) => (
@@ -785,9 +847,14 @@ export default function Invoice() {
             </button>
 
             <div className="text-right">
+              {discount > 0 ? (
+                <div className="mb-2 text-sm font-bold text-slate-500">
+                  {t("Subtotal")}: <Money value={total} /> | {t("Discount")}: <Money value={discount} />
+                </div>
+              ) : null}
               <div className="soft-label">{t("Total")}</div>
               <div className="text-3xl font-bold text-green-600">
-                <Money value={total} />
+                <Money value={netTotal} />
               </div>
               <p className="mt-1 text-sm font-bold text-slate-500">
                 {t("Entering prices in")} {invoiceCurrency}

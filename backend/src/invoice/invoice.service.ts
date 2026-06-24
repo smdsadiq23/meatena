@@ -62,6 +62,23 @@ function parseRangeDate(value: string | undefined, fallback: Date, endOfDay = fa
   return date;
 }
 
+function parseInvoiceDate(value?: string) {
+  if (!value) {
+    return new Date().toISOString();
+  }
+
+  const isoValue = /^\d{4}-\d{2}-\d{2}$/.test(value)
+    ? `${value}T12:00:00.000Z`
+    : value;
+  const date = new Date(isoValue);
+
+  if (Number.isNaN(date.getTime())) {
+    throw new BadRequestException('Invoice date is invalid');
+  }
+
+  return date.toISOString();
+}
+
 function inDateRange(value: string, start: Date, end: Date) {
   const date = new Date(value);
   return !Number.isNaN(date.getTime()) && date >= start && date <= end;
@@ -106,6 +123,14 @@ export class InvoiceService implements OnModuleInit {
       ALTER TABLE invoice
       ADD COLUMN IF NOT EXISTS include_previous_balance boolean NOT NULL DEFAULT false
     `);
+    await this.dataSource.query(`
+      ALTER TABLE invoice
+      ADD COLUMN IF NOT EXISTS subtotal numeric(10, 3) NOT NULL DEFAULT 0
+    `);
+    await this.dataSource.query(`
+      ALTER TABLE invoice
+      ADD COLUMN IF NOT EXISTS discount_amount numeric(10, 3) NOT NULL DEFAULT 0
+    `);
   }
 
   async create(data: CreateInvoiceDto) {
@@ -141,7 +166,7 @@ export class InvoiceService implements OnModuleInit {
         throw new BadRequestException('At least one invoice item is required');
       }
 
-      let total = 0;
+      let subtotal = 0;
       const calculatedItems = items.map((item) => {
         const pricePerKg = roundMoney(
           transactionCurrency === 'USD'
@@ -149,7 +174,7 @@ export class InvoiceService implements OnModuleInit {
             : item.price_per_kg,
         );
         const amount = roundMoney(item.weight * pricePerKg);
-        total = roundMoney(total + amount);
+        subtotal = roundMoney(subtotal + amount);
 
         return {
           product_id: item.product_id ?? null,
@@ -159,6 +184,22 @@ export class InvoiceService implements OnModuleInit {
           amount,
         };
       });
+
+      const discount_amount = roundMoney(
+        transactionCurrency === 'USD'
+          ? Number(data.discount_amount ?? 0) / exchangeRate
+          : Number(data.discount_amount ?? 0),
+      );
+
+      if (!Number.isFinite(discount_amount) || discount_amount < 0) {
+        throw new BadRequestException('Discount must be zero or greater');
+      }
+
+      if (discount_amount > subtotal) {
+        throw new BadRequestException('Discount cannot be greater than invoice subtotal');
+      }
+
+      const total = roundMoney(subtotal - discount_amount);
 
       for (const item of calculatedItems) {
         if (!item.product_id) {
@@ -193,7 +234,7 @@ export class InvoiceService implements OnModuleInit {
       }
 
       const grand_total = roundMoney(total + previous_balance);
-      const date = new Date().toISOString();
+      const date = parseInvoiceDate(data.invoice_date);
 
       const invoice = await manager.getRepository(Invoice).save({
         customer_id,
@@ -212,6 +253,8 @@ export class InvoiceService implements OnModuleInit {
         company_phone: data.company_phone.trim(),
         company_email: cleanText(data.company_email),
         contact_names: cleanText(data.contact_names),
+        subtotal,
+        discount_amount,
         total,
         previous_balance,
         grand_total,

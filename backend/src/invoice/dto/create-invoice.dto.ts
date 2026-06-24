@@ -4,6 +4,7 @@ import {
   ArrayMinSize,
   IsArray,
   IsBoolean,
+  IsDateString,
   IsIn,
   IsInt,
   IsNumber,
@@ -40,6 +41,17 @@ export class CreateInvoiceDto {
   @IsOptional()
   @IsBoolean()
   include_previous_balance?: boolean;
+
+  @ApiProperty({ example: '2026-06-24', required: false })
+  @IsOptional()
+  @IsDateString()
+  invoice_date?: string;
+
+  @ApiProperty({ example: 2.5, required: false })
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 3 })
+  @Min(0)
+  discount_amount?: number;
 
   @ApiProperty({ example: 'INV-2026-001' })
   @IsString()

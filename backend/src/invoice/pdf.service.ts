@@ -735,7 +735,25 @@ export function generateInvoicePDF(
     doc.text(amountParts.minor, colXs[7] + 3, y + 3, { width: cols.amountF - 6, align: 'center' });
   });
 
+  const discountAmount = Number(invoice.discount_amount ?? 0);
   const totalParts = splitMoney(displayMoneyValue(invoice.total, invoice), currency);
+
+  if (discountAmount > 0) {
+    const discountParts = splitMoney(displayMoneyValue(discountAmount, invoice), currency);
+    doc.font('Helvetica-Bold').fontSize(9).text('Discount', colXs[4] + 2, bodyBottom + 3, {
+      width: cols.unitK + cols.unitF - 4,
+      align: 'center',
+    });
+    doc.text(`-${discountParts.major}`, colXs[6] + 3, bodyBottom + 3, {
+      width: cols.amountK - 6,
+      align: 'center',
+    });
+    doc.text(discountParts.minor, colXs[7] + 3, bodyBottom + 3, {
+      width: cols.amountF - 6,
+      align: 'center',
+    });
+  }
+
   doc.font('Helvetica-Bold').fontSize(11).text(`Total ${moneyMajorLabel(currency)}`, tableX + 8, bodyBottom + 12, {
     width: 95,
   });

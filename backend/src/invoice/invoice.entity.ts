@@ -57,6 +57,12 @@ export class Invoice {
   total: number;
 
   @Column('decimal', { precision: 10, scale: 3, default: 0 })
+  subtotal: number;
+
+  @Column('decimal', { precision: 10, scale: 3, default: 0 })
+  discount_amount: number;
+
+  @Column('decimal', { precision: 10, scale: 3, default: 0 })
   previous_balance: number;
 
   @Column('decimal', { precision: 10, scale: 3, default: 0 })

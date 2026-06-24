@@ -356,6 +356,10 @@ function defaultHistoricFrom() {
   return date.toISOString().slice(0, 10);
 }
 
+function todayInputDate() {
+  return new Date().toISOString().slice(0, 10);
+}
+
 const SERVER_PRESETS = [
   {
     label: 'Cloud server',
@@ -386,6 +390,8 @@ const SERVER_PRESETS = [
 
 const emptyInvoiceForm = {
   invoiceNumber: '',
+  invoiceDate: todayInputDate(),
+  discount: '',
   type: 'credit' as 'cash' | 'credit',
 };
 
@@ -826,9 +832,16 @@ export default function App() {
       sum + Number(item.weight || 0) * toBaseKwd(Number(item.price || 0), invoiceCurrency),
     0,
   );
+  const enteredInvoiceDiscount = Number(invoiceForm.discount || 0);
+  const invoiceDiscount = Number.isFinite(enteredInvoiceDiscount)
+    ? Math.max(toBaseKwd(enteredInvoiceDiscount, invoiceCurrency), 0)
+    : Number.NaN;
+  const invoiceNetTotal = Number.isFinite(invoiceDiscount)
+    ? Math.max(invoiceTotal - invoiceDiscount, 0)
+    : invoiceTotal;
   const customerBalance = Number(selectedCustomer?.balance ?? 0);
   const creditLimit = Number(selectedCustomer?.credit_limit ?? 0);
-  const projectedBalance = customerBalance + invoiceTotal;
+  const projectedBalance = customerBalance + invoiceNetTotal;
   const remainingCredit = creditLimit > 0 ? creditLimit - projectedBalance : null;
   const isCreditLimitExceeded = invoiceForm.type === 'credit' && creditLimit > 0 && projectedBalance > creditLimit;
   const unpaidInvoices = invoices.filter(invoice => Number(invoice.outstanding_amount ?? 0) > 0);
@@ -1259,7 +1272,7 @@ export default function App() {
   }
 
   function resetInvoiceForm() {
-    setInvoiceForm(emptyInvoiceForm);
+    setInvoiceForm({ ...emptyInvoiceForm, invoiceDate: todayInputDate() });
     setIncludePreviousBalance(false);
     setInvoiceItems([{ productId: selectedProductId, pieces: '', weight: '', price: String(selectedProduct?.price_per_kg ?? '') }]);
   }
@@ -1350,6 +1363,21 @@ export default function App() {
       return;
     }
 
+    if (!invoiceForm.invoiceDate.trim()) {
+      setStatus('Enter invoice date before creating the invoice.');
+      return;
+    }
+
+    if (!Number.isFinite(invoiceDiscount)) {
+      setStatus('Enter a valid discount amount.');
+      return;
+    }
+
+    if (invoiceDiscount > invoiceTotal) {
+      setStatus('Discount cannot be greater than invoice subtotal.');
+      return;
+    }
+
     if (
       !invoiceForm.invoiceNumber.trim() ||
       !selectedProfile.invoice_title.trim() ||
@@ -1378,6 +1406,8 @@ export default function App() {
           transaction_currency: invoiceCurrency,
           exchange_rate: currencyRate,
           include_previous_balance: includePreviousBalance,
+          invoice_date: invoiceForm.invoiceDate.trim(),
+          discount_amount: Number(invoiceForm.discount || 0),
           invoice_number: invoiceForm.invoiceNumber.trim(),
           invoice_title: selectedProfile.invoice_title.trim(),
           invoice_title_ar: selectedProfile.invoice_title_ar?.trim() || undefined,
@@ -1398,6 +1428,8 @@ export default function App() {
       setInvoiceForm(current => ({
         ...current,
         invoiceNumber: '',
+        invoiceDate: todayInputDate(),
+        discount: '',
       }));
       setInvoiceCurrency('KWD');
       setCurrentDisplayCurrency('KWD');
@@ -2465,6 +2497,25 @@ export default function App() {
             onChangeText={value => setInvoiceForm(current => ({ ...current, invoiceNumber: value }))}
             placeholder="Invoice number"
           />
+          <View style={styles.twoCols}>
+            <View style={[styles.fieldBlock, styles.flex]}>
+              <TextInput
+                style={styles.input}
+                value={invoiceForm.invoiceDate}
+                onChangeText={value => setInvoiceForm(current => ({ ...current, invoiceDate: value }))}
+                placeholder="Invoice date YYYY-MM-DD"
+              />
+            </View>
+            <View style={[styles.fieldBlock, styles.flex]}>
+              <TextInput
+                style={styles.input}
+                value={invoiceForm.discount}
+                onChangeText={value => setInvoiceForm(current => ({ ...current, discount: value }))}
+                placeholder={`Discount ${invoiceCurrency}`}
+                keyboardType="decimal-pad"
+              />
+            </View>
+          </View>
           <Text style={styles.subhead}>Invoice profile</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.selectorRow}>
             {invoiceProfiles.map(profile => (
@@ -2578,6 +2629,9 @@ export default function App() {
                 <Text style={styles.rowSubtitle}>
                   {selectedCustomer?.name ?? 'No customer selected'}
                 </Text>
+                <Text style={styles.rowSubtitle}>
+                  Date: {invoiceForm.invoiceDate || 'Not entered'} | Discount: {currency(invoiceDiscount)}
+                </Text>
               </View>
               <MoneyText value={currency(selectedCustomerId ? customerBalance : 0)} />
             </View>
@@ -2653,7 +2707,12 @@ export default function App() {
             <SecondaryButton title="+ Add Item" onPress={addInvoiceItem} disabled={busy} />
             <View style={styles.totalBox}>
               <Text style={styles.kicker}>Total</Text>
-              <Text style={styles.totalValue}>{currency(invoiceTotal)}</Text>
+              {invoiceDiscount > 0 ? (
+                <Text style={styles.rowSubtitle}>
+                  Subtotal {currency(invoiceTotal)} | Discount {currency(invoiceDiscount)}
+                </Text>
+              ) : null}
+              <Text style={styles.totalValue}>{currency(invoiceNetTotal)}</Text>
             </View>
           </View>
 
