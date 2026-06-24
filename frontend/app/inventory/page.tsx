@@ -24,6 +24,8 @@ type Movement = {
   balance_after_kg: number;
   date: string;
   note?: string;
+  reference_type?: string | null;
+  reference_id?: number | null;
 };
 
 type InventorySummary = {
@@ -113,6 +115,15 @@ export default function InventoryPage() {
   const productNameById = useMemo(
     () => new Map(stock.map((item) => [item.id, item.name])),
     [stock]
+  );
+  const reversedMovementIds = useMemo(
+    () =>
+      new Set(
+        movements
+          .filter((movement) => movement.reference_type === "stock_movement_reversal")
+          .map((movement) => Number(movement.reference_id))
+      ),
+    [movements]
   );
 
   const loadInventory = async (preserveStatus = false) => {
@@ -221,6 +232,36 @@ export default function InventoryPage() {
     } catch (error) {
       setStatusType("error");
       setStatus(error instanceof Error ? error.message : "Could not adjust stock.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const reverseMovement = async (movement: Movement) => {
+    const productName = productNameById.get(movement.product_id) ?? `Product #${movement.product_id}`;
+    const reason = window.prompt(
+      `Reverse ${Number(movement.quantity_kg).toFixed(3)} kg for ${productName}?\n\nReason for correction:`,
+      "Wrong entry corrected by admin"
+    );
+
+    if (reason === null) {
+      return;
+    }
+
+    setLoading(true);
+    setStatus("");
+
+    try {
+      await fetchJsonOrThrow(`/inventory/movements/${movement.id}/reverse`, {
+        method: "POST",
+        body: JSON.stringify({ reason: reason.trim() || undefined }),
+      });
+      setStatusType("success");
+      setStatus("Stock movement reversed. A correction movement was added to keep the audit trail.");
+      await loadInventory(true);
+    } catch (error) {
+      setStatusType("error");
+      setStatus(error instanceof Error ? error.message : "Could not reverse stock movement.");
     } finally {
       setLoading(false);
     }
@@ -598,12 +639,31 @@ export default function InventoryPage() {
         <h2 className="mb-4 text-xl font-bold text-slate-950">Recent Movements</h2>
         <div className="space-y-2">
           {movements.slice(0, 12).map((movement) => (
-            <div key={movement.id} className="grid gap-3 rounded-2xl bg-slate-50 p-4 text-sm md:grid-cols-5">
+            <div key={movement.id} className="grid gap-3 rounded-2xl bg-slate-50 p-4 text-sm md:grid-cols-[1.4fr_0.8fr_0.9fr_1.1fr_1.1fr_auto] md:items-center">
               <div className="font-bold text-slate-950">{productNameById.get(movement.product_id) ?? `Product #${movement.product_id}`}</div>
               <div className="capitalize text-slate-700">{movement.type}</div>
               <div>{Number(movement.quantity_kg).toFixed(3)} kg</div>
               <div>{Number(movement.balance_after_kg).toFixed(3)} kg balance</div>
               <div className="text-slate-500">{new Date(movement.date).toLocaleString()}</div>
+              {isAdmin &&
+              movement.reference_type !== "stock_movement_reversal" &&
+              !reversedMovementIds.has(movement.id) ? (
+                <button
+                  type="button"
+                  className="rounded-2xl border border-red-100 bg-red-50 px-4 py-2 text-sm font-bold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+                  onClick={() => void reverseMovement(movement)}
+                  disabled={loading}
+                >
+                  Reverse
+                </button>
+              ) : movement.reference_type === "stock_movement_reversal" ||
+                reversedMovementIds.has(movement.id) ? (
+                <span className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">
+                  Corrected
+                </span>
+              ) : (
+                <span />
+              )}
             </div>
           ))}
         </div>

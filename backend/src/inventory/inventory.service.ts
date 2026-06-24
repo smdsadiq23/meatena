@@ -181,6 +181,47 @@ export class InventoryService {
     return this.movementRepo.find({ order: { date: 'DESC', id: 'DESC' } });
   }
 
+  async reverseMovement(id: number, reason?: string): Promise<StockMovement> {
+    return this.dataSource.transaction<StockMovement>(async (manager) => {
+      const movementRepo = manager.getRepository(StockMovement);
+      const movement = await movementRepo.findOne({ where: { id } });
+
+      if (!movement) {
+        throw new NotFoundException('Stock movement not found');
+      }
+
+      const existingReversal = await movementRepo.findOne({
+        where: {
+          reference_type: 'stock_movement_reversal',
+          reference_id: movement.id,
+        },
+      });
+
+      if (existingReversal) {
+        throw new BadRequestException('This stock movement is already reversed');
+      }
+
+      const reversalNote = [
+        `Reversal of ${movement.type} movement #${movement.id}`,
+        reason?.trim(),
+      ]
+        .filter(Boolean)
+        .join(' - ');
+
+      return this.applyMovement(
+        {
+          product_id: movement.product_id,
+          type: 'adjustment',
+          quantity_kg: -Number(movement.quantity_kg),
+          reference_type: 'stock_movement_reversal',
+          reference_id: movement.id,
+          note: reversalNote,
+        },
+        manager,
+      );
+    });
+  }
+
   async adjustStock(data: CreateStockAdjustmentDto): Promise<StockMovement> {
     const signedQuantity =
       data.type === 'wastage' ? -Math.abs(data.quantity_kg) : data.quantity_kg;

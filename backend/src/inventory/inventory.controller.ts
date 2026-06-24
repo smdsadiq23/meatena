@@ -1,4 +1,13 @@
-import { Body, Controller, Get, Post, Req, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseIntPipe,
+  Post,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiCreatedResponse,
@@ -13,6 +22,7 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { UserRole } from '../user/user-role.enum';
 import type { JwtUser } from '../auth/jwt.strategy';
 import { CreateStockAdjustmentDto } from './dto/create-stock-adjustment.dto';
+import { ReverseStockMovementDto } from './dto/reverse-stock-movement.dto';
 import { InventoryService } from './inventory.service';
 
 @ApiTags('inventory')
@@ -70,6 +80,28 @@ export class InventoryController {
         product_id: body.product_id,
         type: body.type,
         quantity_kg: body.quantity_kg,
+      },
+    });
+    return result;
+  }
+
+  @ApiCreatedResponse({ description: 'Stock movement reversed with an audit correction.' })
+  @Roles(UserRole.Admin)
+  @Post('movements/:id/reverse')
+  async reverseMovement(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() body: ReverseStockMovementDto,
+    @Req() req: Request & { user: JwtUser },
+  ) {
+    const result = await this.service.reverseMovement(id, body.reason);
+    await this.auditService.record({
+      user: req.user,
+      action: 'inventory.reverse_movement',
+      entity: 'stock_movement',
+      entity_id: id,
+      metadata: {
+        reversal_id: result.id,
+        reason: body.reason,
       },
     });
     return result;
