@@ -856,7 +856,7 @@ export default function App() {
     ? Math.max(purchaseSubtotal - purchaseDiscountAmount, 0)
     : purchaseSubtotal;
   const purchaseAdvancePaid = toBaseKwd(Number(purchaseForm.advancePaid || 0), purchaseCurrency);
-  const purchaseBalanceDue = Math.max(purchaseNetTotal - purchaseAdvancePaid, 0);
+  const purchaseBalanceDue = purchaseNetTotal - purchaseAdvancePaid;
   const editPurchaseSubtotal =
     Number(purchaseEditForm.weight || 0) *
     toBaseKwd(Number(purchaseEditForm.costPerKg || 0), purchaseEditCurrency);
@@ -871,7 +871,7 @@ export default function App() {
     Number(purchaseEditForm.advancePaid || 0),
     purchaseEditCurrency,
   );
-  const editPurchaseBalanceDue = Math.max(editPurchaseNetTotal - editPurchaseAdvancePaid, 0);
+  const editPurchaseBalanceDue = editPurchaseNetTotal - editPurchaseAdvancePaid;
   const invoiceTotal = invoiceItems.reduce(
     (sum, item) =>
       sum + Number(item.weight || 0) * toBaseKwd(Number(item.price || 0), invoiceCurrency),
@@ -1913,8 +1913,8 @@ export default function App() {
       return;
     }
 
-    if (!Number.isFinite(purchaseAdvancePaid) || purchaseAdvancePaid < 0 || purchaseAdvancePaid > purchaseNetTotal) {
-      setStatus('Advance paid must be between zero and the purchase total.');
+    if (!Number.isFinite(purchaseAdvancePaid) || purchaseAdvancePaid < 0) {
+      setStatus('Advance paid must be zero or greater.');
       return;
     }
 
@@ -2017,10 +2017,9 @@ export default function App() {
 
     if (
       !Number.isFinite(editPurchaseAdvancePaid) ||
-      editPurchaseAdvancePaid < 0 ||
-      editPurchaseAdvancePaid > editPurchaseNetTotal
+      editPurchaseAdvancePaid < 0
     ) {
-      setStatus('Advance paid must be between zero and the purchase total.');
+      setStatus('Advance paid must be zero or greater.');
       return;
     }
 

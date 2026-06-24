@@ -109,10 +109,6 @@ export class PurchaseService implements OnModuleInit {
       throw new BadRequestException('Advance paid must be zero or greater');
     }
 
-    if (advancePaid > total) {
-      throw new BadRequestException('Advance paid cannot exceed purchase total');
-    }
-
     return {
       subtotal,
       discount_percent: 0,

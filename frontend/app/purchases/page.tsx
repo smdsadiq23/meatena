@@ -150,7 +150,7 @@ export default function PurchasesPage() {
     : Number.NaN;
   const netTotal = Number.isFinite(discountAmount) ? Math.max(total - discountAmount, 0) : total;
   const advancePaidBase = toBaseKwd(Number(advancePaid || 0), purchaseCurrency);
-  const balanceDue = Math.max(netTotal - advancePaidBase, 0);
+  const balanceDue = netTotal - advancePaidBase;
 
   const editTotal = editItems.reduce(
     (sum, item) =>
@@ -171,7 +171,7 @@ export default function PurchasesPage() {
     editPurchaseCurrency,
     editExchangeRate,
   );
-  const editBalanceDue = Math.max(editNetTotal - editAdvancePaidBase, 0);
+  const editBalanceDue = editNetTotal - editAdvancePaidBase;
 
   const updateItem = (
     index: number,
@@ -252,9 +252,9 @@ export default function PurchasesPage() {
       return;
     }
 
-    if (!Number.isFinite(advancePaidBase) || advancePaidBase < 0 || advancePaidBase > netTotal) {
+    if (!Number.isFinite(advancePaidBase) || advancePaidBase < 0) {
       setStatusType("error");
-      setStatus("Advance paid must be between zero and the purchase total.");
+      setStatus("Advance paid must be zero or greater.");
       return;
     }
 
@@ -394,9 +394,9 @@ export default function PurchasesPage() {
       return;
     }
 
-    if (!Number.isFinite(editAdvancePaidBase) || editAdvancePaidBase < 0 || editAdvancePaidBase > editNetTotal) {
+    if (!Number.isFinite(editAdvancePaidBase) || editAdvancePaidBase < 0) {
       setStatusType("error");
-      setStatus("Advance paid must be between zero and the purchase total.");
+      setStatus("Advance paid must be zero or greater.");
       return;
     }
 
