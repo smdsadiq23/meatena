@@ -494,16 +494,12 @@ export function generateInvoicePDF(
   }
 
   const leftX = 24;
-  const tableX = leftX;
-  const tableW = pageWidth - leftX * 2;
-  const titleY = 232;
-  const tableY = 290;
-  const customerH = 54;
-  const separatorH = 12;
-  const headerH = 72;
-  const rowH = 52;
-  const minBodyRows = 2;
-  const totalH = 40;
+  const tableX = 18;
+  const tableW = pageWidth - tableX * 2;
+  const tableY = 258;
+  const headerH = 70;
+  const rowH = 45;
+  const totalH = 38;
   const currencyLabel = moneyMajorLabel(currency);
   const titleEnglish = clean(invoice.invoice_title, 'Cash / Credit Invoice');
   const titleArabic = clean(invoice.invoice_title_ar, 'فاتورة نقدا / بالحساب');
@@ -514,10 +510,9 @@ export function generateInvoicePDF(
   const showPreviousBalance =
     invoice.include_previous_balance === true && previousBalance !== 0;
   const extraBalanceRows = showPreviousBalance ? 2 : 0;
-  const bodyRows = Math.max(minBodyRows, Math.min(items.length, 6));
-  const tableH =
-    customerH + separatorH + headerH + bodyRows * rowH + totalH + extraBalanceRows * totalH;
-  const cols = [52, 90, 130, 64, 76, 80, tableW - 492];
+  const bodyRows = Math.max(showPreviousBalance ? 5 : 7, Math.min(items.length, showPreviousBalance ? 5 : 8));
+  const tableH = headerH + bodyRows * rowH + totalH + extraBalanceRows * totalH;
+  const cols = [48, 80, 148, 58, 70, 70, tableW - 474];
   const colX = cols.reduce<number[]>(
     (positions, width) => [...positions, positions[positions.length - 1] + width],
     [tableX],
@@ -575,67 +570,107 @@ export function generateInvoicePDF(
     });
   };
 
+  const contactNames = clean(invoice.contact_names, 'Abdul Basit, Zahoor Ellahi, Abu Bakar')
+    .split(/[,/|]/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+  const contactPhones = clean(invoice.company_phone, '96684998 / 94942708 / 50289040')
+    .split(/[,/|]/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+  const contacts = ['Abdul Basit', 'Zahoor Ellahi', 'Abu Bakar'].map((fallbackName, index) => ({
+    name: contactNames[index] ?? fallbackName,
+    phone: contactPhones[index] ?? '',
+  }));
+  const arabicContactNames = ['عبدالباسط', 'ظهورالاهي', 'ابوبكر'];
+
   doc.fillColor('#000000');
-  doc.font('Helvetica-BoldOblique').fontSize(16).text(titleEnglish, leftX, titleY, {
-    width: tableW / 2,
+
+  contacts.forEach((contact, index) => {
+    const y = 116 + index * 13;
+    doc.font('Helvetica-Bold').fontSize(7.5).text(`${contact.name} :`, leftX, y, {
+      width: 62,
+      lineBreak: false,
+    });
+    doc.font('Helvetica-Bold').fontSize(7.5).text(contact.phone, leftX + 72, y, {
+      width: 58,
+      lineBreak: false,
+    });
+    doc.font('Arabic').fontSize(8.5).text(rtlVisual(arabicContactNames[index]), pageWidth - 96, y - 1, {
+      width: 55,
+      align: 'right',
+      lineBreak: false,
+    });
+    doc.font('Helvetica-Bold').fontSize(8).text(':', pageWidth - 105, y, {
+      width: 5,
+      lineBreak: false,
+    });
+    doc.font('Helvetica-Bold').fontSize(8).text(contact.phone, pageWidth - 157, y, {
+      width: 48,
+      align: 'right',
+      lineBreak: false,
+    });
+  });
+
+  doc.font('Arabic').fontSize(7).text(rtlVisual(activityArabic), 222, 116, {
+    width: 150,
+    align: 'center',
+  });
+  doc.font('Helvetica-Bold').fontSize(7).text(activityEnglish, 222, 127, {
+    width: 150,
+    align: 'center',
+  });
+
+  doc.font('Arabic').fontSize(7).text(rtlVisual(titleArabic), 222, 149, {
+    width: 150,
+    align: 'center',
+  });
+  doc.font('Helvetica-Bold').fontSize(8).text(titleEnglish, 222, 159, {
+    width: 150,
     align: 'center',
     underline: true,
   });
-  doc.font('Arabic').fontSize(17).text(rtlVisual(titleArabic), leftX + tableW / 2, titleY - 2, {
-    width: tableW / 2,
-    align: 'center',
-    underline: true,
+
+  doc.font('Helvetica-Bold').fontSize(14).text('No.:', leftX, 184, {
+    width: 40,
+    lineBreak: false,
   });
-  doc.moveTo(leftX, titleY + 28).lineTo(leftX + tableW, titleY + 28).stroke();
-  doc.font('Helvetica-BoldOblique').fontSize(13).text(`${activityEnglish} /`, leftX, titleY + 34, {
-    width: tableW / 2,
+  doc.fillColor('#c01822').font('Helvetica').fontSize(13).text(invoice.invoice_number, leftX + 45, 184, {
+    width: 72,
+    lineBreak: false,
+  });
+  doc.fillColor('#000000').font('Helvetica-Bold').fontSize(9).text('Date', 382, 184, {
+    width: 35,
+    lineBreak: false,
+  });
+  doc.font('Helvetica').fontSize(9).text(invoiceDate, 436, 184, {
+    width: 70,
+    lineBreak: false,
+  });
+  doc.font('Arabic').fontSize(10).text(rtlVisual('التاريخ:'), pageWidth - 75, 183, {
+    width: 58,
     align: 'right',
+    lineBreak: false,
   });
-  doc.font('Arabic').fontSize(13).text(rtlVisual(activityArabic), leftX + tableW / 2, titleY + 34, {
-    width: tableW / 2,
-    align: 'left',
+
+  const requestY = 212;
+  const requestH = 40;
+  doc.roundedRect(leftX - 2, requestY, pageWidth - (leftX - 2) * 2, requestH, 8).stroke();
+  doc.font('Helvetica-Bold').fontSize(12).text('Mr./Messers', leftX + 6, requestY + 15, {
+    width: 100,
+    lineBreak: false,
   });
+  doc.font('Helvetica').fontSize(11).text(clean(customer.name, ''), 185, requestY + 15, {
+    width: 230,
+    align: 'center',
+    lineBreak: false,
+  });
+  drawArabicSlashPhrase(doc, 'المطلوب من السيد', 'السادة', pageWidth - 175, requestY + 16, 150, 8);
 
   doc.lineWidth(1.2);
   drawRect(tableX, tableY, tableW, tableH);
 
-  const customerY = tableY;
-  const customerCols = [150, 190, 135, tableW - 475];
-  const customerX = customerCols.reduce<number[]>(
-    (positions, width) => [...positions, positions[positions.length - 1] + width],
-    [tableX],
-  );
-  customerX.slice(1, -1).forEach((x) =>
-    doc.moveTo(x, customerY).lineTo(x, customerY + customerH).stroke(),
-  );
-  doc.font('Helvetica-Bold').fontSize(10).text('Customer Name /', customerX[0] + 5, customerY + 13, {
-    width: 95,
-  });
-  doc.font('Arabic').fontSize(10).text(rtlVisual('اسم الزبون'), customerX[0] + 96, customerY + 16, {
-    width: customerCols[0] - 102,
-    align: 'right',
-  });
-  drawCentered(clean(customer.name, ''), customerX[1], customerY + 12, customerCols[1], {
-    font: 'Helvetica-Bold',
-    size: 14,
-  });
-  doc.font('Helvetica-Bold').fontSize(10).text('Mobile Number /', customerX[2] + 5, customerY + 13, {
-    width: 92,
-  });
-  doc.font('Arabic').fontSize(10).text(rtlVisual('رقم الهاتف'), customerX[2] + 96, customerY + 16, {
-    width: customerCols[2] - 102,
-    align: 'right',
-  });
-  drawCentered(clean(customer.mobile, ''), customerX[3], customerY + 14, customerCols[3], {
-    font: 'Helvetica-Bold',
-    size: 10,
-  });
-
-  const separatorY = customerY + customerH;
-  doc.moveTo(tableX, separatorY).lineTo(tableX + tableW, separatorY).stroke();
-  doc.moveTo(tableX, separatorY + separatorH).lineTo(tableX + tableW, separatorY + separatorH).stroke();
-
-  const headerY = separatorY + separatorH;
+  const headerY = tableY;
   colX.slice(1, -1).forEach((x) =>
     doc.moveTo(x, headerY).lineTo(x, tableY + tableH).stroke(),
   );
