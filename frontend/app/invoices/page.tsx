@@ -68,6 +68,8 @@ export default function InvoicesPage() {
 
   const customerNameById = new Map(customers.map((customer) => [customer.id, customer.name]));
   const sortedInvoices = [...invoices].sort((a, b) => b.id - a.id);
+  const combinedFieldClass =
+    "field mt-2 min-h-[56px] rounded-2xl border-slate-200 bg-white px-4 py-0 text-base font-semibold leading-normal text-slate-950 shadow-none";
 
   useEffect(() => {
     if (!combinedCustomerId && customers.length > 0) {
@@ -196,7 +198,7 @@ export default function InvoicesPage() {
             <label className="block min-w-0">
               <span className="soft-label text-[0.72rem]">Customer</span>
               <select
-                className="field mt-2 h-11 rounded-2xl border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-950 shadow-none"
+                className={combinedFieldClass}
                 value={combinedCustomerId}
                 onChange={(event) => setCombinedCustomerId(event.target.value)}
               >
@@ -210,7 +212,7 @@ export default function InvoicesPage() {
             <label className="block min-w-0">
               <span className="soft-label text-[0.72rem]">Period</span>
               <select
-                className="field mt-2 h-11 rounded-2xl border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-950 shadow-none"
+                className={combinedFieldClass}
                 value={combinedPeriod}
                 onChange={(event) => setCombinedPeriod(event.target.value === "weekly" ? "weekly" : "daily")}
               >
@@ -221,7 +223,7 @@ export default function InvoicesPage() {
             <label className="block min-w-0">
               <span className="soft-label text-[0.72rem]">Date</span>
               <input
-                className="field mt-2 h-11 rounded-2xl border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-950 shadow-none"
+                className={combinedFieldClass}
                 type="date"
                 value={combinedDate}
                 onChange={(event) => setCombinedDate(event.target.value)}
@@ -230,7 +232,7 @@ export default function InvoicesPage() {
             <label className="block min-w-0">
               <span className="soft-label text-[0.72rem]">Currency</span>
               <select
-                className="field mt-2 h-11 rounded-2xl border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-950 shadow-none"
+                className={combinedFieldClass}
                 value={combinedCurrency}
                 onChange={(event) => setCombinedCurrency(event.target.value === "USD" ? "USD" : "KWD")}
               >
@@ -241,7 +243,7 @@ export default function InvoicesPage() {
             <label className="block min-w-0 md:col-span-2 xl:col-span-1">
               <span className="soft-label text-[0.72rem]">Bill Status</span>
               <select
-                className="field mt-2 h-11 rounded-2xl border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-950 shadow-none"
+                className={combinedFieldClass}
                 value={combinedPaymentStatus}
                 onChange={(event) => {
                   const value = event.target.value;
