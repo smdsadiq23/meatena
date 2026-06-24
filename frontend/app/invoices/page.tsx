@@ -8,7 +8,7 @@ import {
   fetchJsonOrThrow,
   getAuthUser,
 } from "../../lib/auth";
-import { Money } from "../../lib/currency";
+import { Money, useDisplayCurrency } from "../../lib/currency";
 
 type Customer = {
   id: number;
@@ -38,11 +38,16 @@ type Invoice = {
 export default function InvoicesPage() {
   const router = useRouter();
   const isAdmin = getAuthUser()?.role === "admin";
+  const displayCurrency = useDisplayCurrency();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [status, setStatus] = useState("");
   const [loadingInvoiceId, setLoadingInvoiceId] = useState<number | null>(null);
   const [uploadingReceiptId, setUploadingReceiptId] = useState<number | null>(null);
+  const [combinedCustomerId, setCombinedCustomerId] = useState("");
+  const [combinedPeriod, setCombinedPeriod] = useState<"daily" | "weekly">("daily");
+  const [combinedDate, setCombinedDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [combinedCurrency, setCombinedCurrency] = useState<"KWD" | "USD">(displayCurrency);
 
   const loadInvoices = async () => {
     const data = await fetchJson<Invoice[]>("/invoices");
@@ -60,6 +65,39 @@ export default function InvoicesPage() {
 
   const customerNameById = new Map(customers.map((customer) => [customer.id, customer.name]));
   const sortedInvoices = [...invoices].sort((a, b) => b.id - a.id);
+
+  useEffect(() => {
+    if (!combinedCustomerId && customers.length > 0) {
+      setCombinedCustomerId(String(customers[0].id));
+    }
+  }, [combinedCustomerId, customers]);
+
+  const downloadCombinedInvoice = async () => {
+    if (!combinedCustomerId) {
+      setStatus("Choose a customer before downloading a combined invoice.");
+      return;
+    }
+
+    const customerName =
+      customerNameById.get(Number(combinedCustomerId)) ?? `customer-${combinedCustomerId}`;
+    const fileName = `${combinedPeriod}-${customerName}-${combinedDate}-${combinedCurrency}.pdf`
+      .replace(/[^a-z0-9._-]+/gi, "-")
+      .toLowerCase();
+
+    setStatus("");
+
+    try {
+      await downloadAuthenticatedFile(
+        `/invoices/consolidated/pdf?customer_id=${combinedCustomerId}&period=${combinedPeriod}&date=${combinedDate}&currency=${combinedCurrency}`,
+        fileName
+      );
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Could not download combined invoice.";
+      setStatus(message);
+      alert(message);
+    }
+  };
 
   const voidInvoice = async (invoice: Invoice) => {
     const displayNumber = invoice.invoice_number ?? `#${invoice.id}`;
@@ -130,6 +168,75 @@ export default function InvoicesPage() {
             {status}
           </div>
         ) : null}
+
+        <div className="mb-6 rounded-3xl border border-slate-100 bg-slate-50 p-4">
+          <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+            <div>
+              <p className="soft-label">Combined Invoice</p>
+              <h2 className="mt-1 text-xl font-bold text-slate-950">
+                Daily or weekly customer bill
+              </h2>
+              <p className="mt-1 text-sm font-medium text-slate-600">
+                Combine that customer's invoices into one PDF without changing the original invoices.
+              </p>
+            </div>
+            <button
+              type="button"
+              className="btn-primary"
+              onClick={() => void downloadCombinedInvoice()}
+            >
+              Download Combined PDF
+            </button>
+          </div>
+
+          <div className="mt-4 grid gap-3 md:grid-cols-4">
+            <label className="space-y-2">
+              <span className="soft-label">Customer</span>
+              <select
+                className="input"
+                value={combinedCustomerId}
+                onChange={(event) => setCombinedCustomerId(event.target.value)}
+              >
+                {customers.map((customer) => (
+                  <option key={customer.id} value={customer.id}>
+                    {customer.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="space-y-2">
+              <span className="soft-label">Period</span>
+              <select
+                className="input"
+                value={combinedPeriod}
+                onChange={(event) => setCombinedPeriod(event.target.value === "weekly" ? "weekly" : "daily")}
+              >
+                <option value="daily">Daily</option>
+                <option value="weekly">Weekly</option>
+              </select>
+            </label>
+            <label className="space-y-2">
+              <span className="soft-label">Date</span>
+              <input
+                className="input"
+                type="date"
+                value={combinedDate}
+                onChange={(event) => setCombinedDate(event.target.value)}
+              />
+            </label>
+            <label className="space-y-2">
+              <span className="soft-label">Currency</span>
+              <select
+                className="input"
+                value={combinedCurrency}
+                onChange={(event) => setCombinedCurrency(event.target.value === "USD" ? "USD" : "KWD")}
+              >
+                <option value="KWD">KWD invoices</option>
+                <option value="USD">USD invoices</option>
+              </select>
+            </label>
+          </div>
+        </div>
 
         <div className="mb-4 flex items-center justify-between gap-3">
           <h2 className="text-xl font-bold text-slate-950">All Invoices</h2>

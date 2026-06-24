@@ -113,6 +113,33 @@ export class InvoiceController {
     return this.service.getDailyClose(date);
   }
 
+  @ApiOkResponse({ description: 'Download daily or weekly combined invoice PDF.' })
+  @Get('consolidated/pdf')
+  async getConsolidatedPDF(
+    @Query('customer_id') customerId: string,
+    @Query('period') period: string,
+    @Query('date') date: string | undefined,
+    @Query('currency') currency: string | undefined,
+    @Res() res: Response,
+  ) {
+    const data = await this.service.getConsolidatedInvoicePdfData({
+      customerId: Number(customerId),
+      period,
+      date,
+      currency,
+    });
+
+    return generateInvoicePDF(
+      data.invoice,
+      data.items,
+      data.customer,
+      data.productNames,
+      res,
+      undefined,
+      data.itemDateLabels,
+    );
+  }
+
   @ApiOkResponse({ description: 'Invoice detail with items, customer, and payments.' })
   @Get(':id')
   getInvoiceDetail(@Param('id', ParseIntPipe) id: number) {

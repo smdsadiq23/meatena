@@ -39,6 +39,16 @@ type ProductInvoiceName = {
   name_ar: string | null;
 };
 
+type ConsolidatedInvoicePeriod = 'daily' | 'weekly';
+
+export type ConsolidatedInvoicePdfData = {
+  invoice: InvoiceWithNumber;
+  items: InvoiceItem[];
+  customer: Customer;
+  productNames: Map<number, ProductInvoiceName>;
+  itemDateLabels: Map<number, string>;
+};
+
 function cleanText(value?: string | null) {
   const trimmed = value?.trim();
   return trimmed ? trimmed : null;
@@ -82,6 +92,43 @@ function parseInvoiceDate(value?: string) {
 function inDateRange(value: string, start: Date, end: Date) {
   const date = new Date(value);
   return !Number.isNaN(date.getTime()) && date >= start && date <= end;
+}
+
+function parseBusinessDate(value?: string) {
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    throw new BadRequestException('Date must be in YYYY-MM-DD format');
+  }
+
+  const date = new Date(`${value}T00:00:00.000Z`);
+
+  if (Number.isNaN(date.getTime())) {
+    throw new BadRequestException('Date is invalid');
+  }
+
+  return date;
+}
+
+function formatDateKey(date: Date) {
+  return date.toISOString().slice(0, 10);
+}
+
+function getConsolidatedRange(period: ConsolidatedInvoicePeriod, value?: string) {
+  const selected = parseBusinessDate(value);
+  const start = new Date(selected);
+
+  if (period === 'weekly') {
+    const day = start.getUTCDay();
+    const mondayOffset = day === 0 ? -6 : 1 - day;
+    start.setUTCDate(start.getUTCDate() + mondayOffset);
+  }
+
+  const end = new Date(start);
+  end.setUTCDate(end.getUTCDate() + (period === 'weekly' ? 7 : 1));
+
+  return {
+    startKey: formatDateKey(start),
+    endKey: formatDateKey(end),
+  };
 }
 
 @Injectable()
@@ -480,6 +527,105 @@ export class InvoiceService implements OnModuleInit {
       outstanding_amount,
       payment_status,
       payment_count: activePayments.length,
+    };
+  }
+
+  async getConsolidatedInvoicePdfData(params: {
+    customerId: number;
+    period: string;
+    date?: string;
+    currency?: string;
+  }): Promise<ConsolidatedInvoicePdfData> {
+    if (!Number.isInteger(params.customerId) || params.customerId <= 0) {
+      throw new BadRequestException('Customer is required');
+    }
+
+    const period: ConsolidatedInvoicePeriod =
+      params.period === 'weekly' ? 'weekly' : 'daily';
+    const currency = params.currency === 'USD' ? 'USD' : 'KWD';
+    const { startKey, endKey } = getConsolidatedRange(period, params.date);
+    const customer = await this.getCustomer(params.customerId);
+    const invoices = (
+      await this.invoiceRepo.find({
+        where: { customer_id: params.customerId },
+        order: { date: 'ASC', id: 'ASC' },
+      })
+    ).filter((invoice) => {
+      const dateKey = invoice.date.slice(0, 10);
+      const invoiceCurrency = (invoice.transaction_currency ?? 'KWD').toUpperCase();
+
+      return (
+        invoice.status !== 'void' &&
+        dateKey >= startKey &&
+        dateKey < endKey &&
+        invoiceCurrency === currency
+      );
+    });
+
+    if (!invoices.length) {
+      throw new NotFoundException(
+        `No ${period} ${currency} invoices found for ${customer.name}.`,
+      );
+    }
+
+    const invoiceIds = invoices.map((invoice) => invoice.id);
+    const items = await this.itemRepo.find({
+      where: { invoice_id: In(invoiceIds) },
+      order: { invoice_id: 'ASC', id: 'ASC' },
+    });
+
+    if (!items.length) {
+      throw new NotFoundException('No invoice items found for the selected range');
+    }
+
+    const productNames = await this.getProductNamesForItems(items);
+    const invoiceById = new Map(invoices.map((invoice) => [invoice.id, invoice]));
+    const itemDateLabels = new Map<number, string>();
+
+    for (const item of items) {
+      const invoice = invoiceById.get(item.invoice_id);
+      if (invoice) {
+        const invoiceDate = new Date(invoice.date);
+        itemDateLabels.set(
+          item.id,
+          `${invoiceDate.getUTCDate()}/${invoiceDate.getUTCMonth() + 1}/${invoiceDate.getUTCFullYear()}`,
+        );
+      }
+    }
+
+    const profileInvoice = invoices[invoices.length - 1];
+    const subtotal = roundMoney(
+      invoices.reduce((sum, invoice) => sum + Number(invoice.subtotal ?? invoice.total), 0),
+    );
+    const discount_amount = roundMoney(
+      invoices.reduce((sum, invoice) => sum + Number(invoice.discount_amount ?? 0), 0),
+    );
+    const total = roundMoney(
+      invoices.reduce((sum, invoice) => sum + Number(invoice.total), 0),
+    );
+    const labelDate = startKey.replaceAll('-', '');
+    const invoiceNumberPrefix = period === 'weekly' ? 'W' : 'D';
+    const invoiceNumber = `${invoiceNumberPrefix}-${labelDate}-C${customer.id}`;
+
+    return {
+      invoice: this.withInvoiceNumber({
+        ...profileInvoice,
+        id: 0,
+        date: `${startKey}T12:00:00.000Z`,
+        invoice_number: invoiceNumber,
+        subtotal,
+        discount_amount,
+        discount_percent: 0,
+        total,
+        previous_balance: 0,
+        grand_total: total,
+        include_previous_balance: false,
+        transaction_currency: currency,
+      }),
+      items,
+      customer,
+      productNames,
+      itemDateLabels,
     };
   }
 

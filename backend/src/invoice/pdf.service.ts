@@ -472,6 +472,7 @@ export function generateInvoicePDF(
   productNames: Map<number, ProductPdfName>,
   res: Response,
   _kwdToUsdRate?: number,
+  itemDateLabels?: Map<number, string>,
 ) {
   const doc = new PDFDocument({
     layout: 'portrait',
@@ -501,9 +502,11 @@ export function generateInvoicePDF(
   const leftX = 24;
   const tableX = 18;
   const tableW = pageWidth - tableX * 2;
-  const tableY = 276;
-  const headerH = 70;
-  const rowH = 45;
+  const isCombinedInvoice =
+    invoice.invoice_number.startsWith('D-') || invoice.invoice_number.startsWith('W-');
+  const tableY = isCombinedInvoice ? 270 : 276;
+  const headerH = isCombinedInvoice ? 62 : 70;
+  const rowH = isCombinedInvoice ? 32 : 45;
   const totalH = 38;
   const currencyLabel = moneyMajorLabel(currency);
   const titleEnglish = clean(invoice.invoice_title, 'Cash / Credit Invoice');
@@ -515,7 +518,9 @@ export function generateInvoicePDF(
   const showPreviousBalance =
     invoice.include_previous_balance === true && previousBalance !== 0;
   const extraBalanceRows = showPreviousBalance ? 2 : 0;
-  const bodyRows = Math.max(showPreviousBalance ? 5 : 7, Math.min(items.length, showPreviousBalance ? 5 : 8));
+  const bodyRows = isCombinedInvoice
+    ? Math.max(10, Math.min(items.length, 12))
+    : Math.max(showPreviousBalance ? 5 : 7, Math.min(items.length, showPreviousBalance ? 5 : 8));
   const tableH = headerH + bodyRows * rowH + totalH + extraBalanceRows * totalH;
   const cols = [48, 80, 148, 58, 70, 70, tableW - 474];
   const colX = cols.reduce<number[]>(
@@ -707,22 +712,24 @@ export function generateInvoicePDF(
     totalWeight += weight;
 
     doc.moveTo(tableX, y + rowH).lineTo(tableX + tableW, y + rowH).stroke();
-    drawCentered(String(index + 1), colX[0], y + 13, cols[0], { size: 12 });
-    drawCentered(invoiceDate, colX[1], y + 13, cols[1], { size: 12 });
-    drawCentered(description, colX[2], y + 10, cols[2], { size: 11 });
+    const itemDate = itemDateLabels?.get(item.id) ?? invoiceDate;
+    const rowTextY = isCombinedInvoice ? y + 8 : y + 13;
+    drawCentered(String(index + 1), colX[0], rowTextY, cols[0], { size: 12 });
+    drawCentered(itemDate, colX[1], rowTextY, cols[1], { size: 12 });
+    drawCentered(description, colX[2], isCombinedInvoice ? y + 6 : y + 10, cols[2], { size: 11 });
     if (descriptionArabic) {
-      drawCentered(descriptionArabic, colX[2], y + 30, cols[2], {
+      drawCentered(descriptionArabic, colX[2], isCombinedInvoice ? y + 20 : y + 30, cols[2], {
         font: 'Arabic',
-        size: 10,
+        size: isCombinedInvoice ? 8.8 : 10,
         arabic: true,
       });
     }
-    drawCentered(pieces ? String(pieces) : '', colX[3], y + 13, cols[3], { size: 12 });
-    drawCentered(formatAmount(weight, 2), colX[4], y + 13, cols[4], { size: 12 });
-    drawCentered(formatAmount(displayPrice, currency === 'KWD' ? 3 : 2), colX[5], y + 13, cols[5], {
+    drawCentered(pieces ? String(pieces) : '', colX[3], rowTextY, cols[3], { size: 12 });
+    drawCentered(formatAmount(weight, 2), colX[4], rowTextY, cols[4], { size: 12 });
+    drawCentered(formatAmount(displayPrice, currency === 'KWD' ? 3 : 2), colX[5], rowTextY, cols[5], {
       size: 12,
     });
-    drawCentered(formatAmount(displayAmount, currency === 'KWD' ? 3 : 2), colX[6], y + 13, cols[6], {
+    drawCentered(formatAmount(displayAmount, currency === 'KWD' ? 3 : 2), colX[6], rowTextY, cols[6], {
       size: 12,
     });
   });
