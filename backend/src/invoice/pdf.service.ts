@@ -596,65 +596,101 @@ export function generateInvoicePDF(
   const arabicContactNames = ['عبدالباسط', 'ظهورالاهي', 'ابوبكر'];
 
   doc.fillColor('#000000');
+  const fitText = (
+    text: string,
+    x: number,
+    y: number,
+    width: number,
+    options: {
+      font?: 'Helvetica' | 'Helvetica-Bold' | 'Arabic';
+      maxSize: number;
+      minSize?: number;
+      color?: string;
+      align?: 'left' | 'center' | 'right';
+      underline?: boolean;
+    },
+  ) => {
+    const minSize = options.minSize ?? 8;
+    let size = options.maxSize;
+    doc.font(options.font ?? 'Helvetica').fontSize(size);
+    while (size > minSize && doc.widthOfString(text) > width) {
+      size -= 0.5;
+      doc.font(options.font ?? 'Helvetica').fontSize(size);
+    }
+
+    doc
+      .fillColor(options.color ?? '#000000')
+      .font(options.font ?? 'Helvetica')
+      .fontSize(size)
+      .text(options.font === 'Arabic' ? rtlVisual(text) : text, x, y, {
+        width,
+        align: options.align ?? 'left',
+        lineBreak: false,
+        underline: options.underline ?? false,
+      });
+  };
 
   contacts.forEach((contact, index) => {
     const y = 112 + index * 22;
-    doc.font('Helvetica-Bold').fontSize(14).text(`${contact.name} :`, leftX, y, {
-      width: 105,
-      lineBreak: false,
+    fitText(`${contact.name} :`, leftX, y, 116, {
+      font: 'Helvetica-Bold',
+      maxSize: 14,
+      minSize: 10,
     });
-    doc.font('Helvetica-Bold').fontSize(14).text(contact.phone, leftX + 118, y, {
-      width: 92,
-      lineBreak: false,
+    fitText(contact.phone, leftX + 126, y, 86, {
+      font: 'Helvetica-Bold',
+      maxSize: 14,
+      minSize: 10,
     });
-    doc.font('Arabic').fontSize(18).text(rtlVisual(arabicContactNames[index]), pageWidth - 100, y - 3, {
-      width: 82,
+    doc.font('Arabic').fontSize(17).text(rtlVisual(arabicContactNames[index]), pageWidth - 88, y - 2, {
+      width: 70,
       align: 'right',
       lineBreak: false,
     });
-    doc.font('Helvetica-Bold').fontSize(15).text(':', pageWidth - 126, y, {
+    doc.font('Helvetica-Bold').fontSize(15).text(':', pageWidth - 124, y, {
       width: 8,
       lineBreak: false,
     });
-    drawArabicPhoneDigits(doc, toArabicDigits(contact.phone), pageWidth - 212, y - 2, 17, 9.5);
+    drawArabicPhoneDigits(doc, toArabicDigits(contact.phone), pageWidth - 210, y - 1, 16, 9.2);
   });
 
-  doc.font('Arabic').fontSize(12).text(rtlVisual(activityArabic), 202, 111, {
-    width: 195,
+  const centerX = 224;
+  const centerW = 150;
+  doc.font('Arabic').fontSize(11).text(rtlVisual(activityArabic), centerX, 112, {
+    width: centerW,
     align: 'center',
     lineBreak: false,
   });
-  doc.font('Helvetica-Bold').fontSize(12).text(activityEnglish, 202, 127, {
-    width: 195,
+  doc.font('Helvetica-Bold').fontSize(11).text(activityEnglish, centerX, 128, {
+    width: centerW,
     align: 'center',
     lineBreak: false,
   });
 
-  doc.font('Arabic').fontSize(12).text(rtlVisual(titleArabic), 202, 166, {
-    width: 195,
-    align: 'center',
-    lineBreak: false,
-  });
-  doc.font('Helvetica-Bold').fontSize(13).text(titleEnglish, 202, 182, {
-    width: 195,
+  drawArabicSlashPhrase(doc, 'فاتورة نقدية', 'بالحساب', centerX, 167, centerW, 11);
+  fitText(titleEnglish, centerX, 183, centerW, {
+    font: 'Helvetica-Bold',
+    maxSize: 13,
+    minSize: 9,
     align: 'center',
     underline: true,
-    lineBreak: false,
   });
 
   doc.font('Helvetica-Bold').fontSize(20).text('No.:', leftX, 199, {
     width: 55,
     lineBreak: false,
   });
-  doc.fillColor('#c01822').font('Helvetica').fontSize(22).text(invoice.invoice_number, leftX + 74, 197, {
-    width: 90,
-    lineBreak: false,
+  fitText(invoice.invoice_number, leftX + 74, 196, 250, {
+    font: 'Helvetica',
+    maxSize: 22,
+    minSize: 14,
+    color: '#c01822',
   });
-  doc.fillColor('#000000').font('Helvetica-Bold').fontSize(17).text('Date', 383, 200, {
+  doc.fillColor('#000000').font('Helvetica-Bold').fontSize(17).text('Date', 382, 200, {
     width: 60,
     lineBreak: false,
   });
-  doc.font('Helvetica').fontSize(16).text(invoiceDate, 440, 201, {
+  doc.font('Helvetica').fontSize(16).text(invoiceDate, 438, 201, {
     width: 84,
     lineBreak: false,
   });
