@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { fetchJson, fetchJsonOrThrow } from "../../lib/auth";
 import { Money } from "../../lib/currency";
 
@@ -619,6 +620,32 @@ export default function ReportsPage() {
 
             {selectedShipment ? (
               <>
+                <div className="mt-5 rounded-[28px] border border-red-100 bg-red-50/50 p-5">
+                  <div className="grid gap-5 xl:grid-cols-[1fr_auto] xl:items-center">
+                    <div>
+                      <p className="soft-label text-red-700">How to link</p>
+                      <h3 className="mt-1 text-xl font-black text-slate-950">
+                        Add records to {selectedShipment.name}
+                      </h3>
+                      <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
+                        Open Purchase, Billing, or Expenses and choose this shipment in the Shipment field.
+                        The profit numbers here will update automatically.
+                      </p>
+                    </div>
+                    <div className="grid gap-2 sm:grid-cols-3 xl:min-w-[520px]">
+                      <Link className="btn-secondary text-center" href="/purchases">
+                        1. Link Purchase
+                      </Link>
+                      <Link className="btn-secondary text-center" href="/invoice">
+                        2. Link Sale
+                      </Link>
+                      <Link className="btn-secondary text-center" href="/expenses">
+                        3. Link Expense
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                   <div className="rounded-3xl bg-slate-50 p-5">
                     <p className="soft-label">Purchase</p>
