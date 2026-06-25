@@ -135,6 +135,11 @@ export default function SuppliersPage() {
     [suppliers]
   );
 
+  const totalSupplierBalance = useMemo(
+    () => suppliers.reduce((sum, supplier) => sum + Number(supplier.balance ?? 0), 0),
+    [suppliers]
+  );
+
   const createSupplier = async () => {
     if (!form.name.trim()) {
       setStatusType("error");
@@ -253,34 +258,84 @@ export default function SuppliersPage() {
 
   return (
     <>
-    <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
-      <section className="panel p-6 md:p-8">
-        <p className="soft-label">Supplier Directory</p>
-        <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950">
-          Suppliers and balances
-        </h1>
-        <input
-          className="field mt-6"
-          placeholder="Search suppliers"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
+    <section className="panel p-5 md:p-7">
+      <div className="flex flex-col gap-4 border-b border-slate-100 pb-5 xl:flex-row xl:items-end xl:justify-between">
+        <div>
+          <p className="soft-label">Supplier Directory</p>
+          <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950">
+            Suppliers and balances
+          </h1>
+          <p className="mt-2 text-sm font-medium text-slate-500">
+            Add suppliers, settle payments, open ledgers, and review recent supplier activity from one screen.
+          </p>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2 xl:min-w-[420px]">
+          <div className="rounded-2xl bg-slate-50 p-4">
+            <p className="soft-label">Suppliers</p>
+            <p className="mt-2 text-2xl font-black text-slate-950">{suppliers.length}</p>
+          </div>
+          <div className="rounded-2xl bg-red-50 p-4">
+            <p className="soft-label">Payable Balance</p>
+            <p className="mt-2 text-2xl font-black text-red-700">
+              <Money value={totalSupplierBalance} />
+            </p>
+          </div>
+        </div>
+      </div>
 
-        <div className="mt-6 space-y-3">
-          {filteredSuppliers.map((supplier) => (
-            <div key={supplier.id} className="rounded-3xl border border-black/8 bg-white p-5">
-              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                <div>
-                  <p className="text-lg font-bold text-slate-950">{supplier.name}</p>
-                  <p className="mt-1 text-sm text-slate-600">{supplier.mobile || "No mobile"}</p>
-                  <p className="mt-1 text-sm text-slate-500">{supplier.address || "No address"}</p>
-                </div>
-                <div className="flex flex-col gap-3 text-left md:items-end md:text-right">
-                  <p className="soft-label">Balance</p>
-                  <p className="mt-1 text-2xl font-black text-red-600">
-                    <Money value={supplier.balance ?? 0} />
-                  </p>
-                  <div className="flex flex-wrap gap-2 md:justify-end">
+      {status ? (
+        <div
+          className={`mt-5 rounded-2xl px-4 py-3 text-sm font-medium ${
+            statusType === "error"
+              ? "border border-red-100 bg-red-50 text-red-700"
+              : "border border-emerald-100 bg-emerald-50 text-emerald-700"
+          }`}
+        >
+          {status}
+        </div>
+      ) : null}
+
+      <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1fr)_430px]">
+        <div className="min-w-0">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <input
+              className="field md:max-w-md"
+              placeholder="Search suppliers"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+            <span className="rounded-full bg-slate-100 px-4 py-2 text-sm font-black text-slate-700">
+              {filteredSuppliers.length} shown
+            </span>
+          </div>
+
+          <div className="mt-4 overflow-hidden rounded-3xl border border-slate-200">
+            <div className="hidden grid-cols-[1.3fr_1fr_1fr_280px] gap-4 bg-slate-950 px-5 py-3 text-xs font-black uppercase tracking-[0.16em] text-white lg:grid">
+              <span>Supplier</span>
+              <span>Contact</span>
+              <span className="text-right">Balance</span>
+              <span className="text-right">Actions</span>
+            </div>
+            <div className="divide-y divide-slate-100">
+              {filteredSuppliers.map((supplier) => (
+                <div
+                  key={supplier.id}
+                  className="grid gap-4 bg-white px-5 py-4 lg:grid-cols-[1.3fr_1fr_1fr_280px] lg:items-center"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-base font-black text-slate-950">{supplier.name}</p>
+                    <p className="mt-1 text-sm font-medium text-slate-500">{supplier.address || "No address"}</p>
+                  </div>
+                  <div className="text-sm font-medium text-slate-600">
+                    {supplier.mobile || "No mobile"}
+                  </div>
+                  <div className="lg:text-right">
+                    <p className="soft-label lg:hidden">Balance</p>
+                    <p className="text-xl font-black text-red-600">
+                      <Money value={supplier.balance ?? 0} />
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-2 lg:justify-end">
                     <button
                       type="button"
                       className="rounded-2xl bg-slate-950 px-4 py-2 text-sm font-bold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
@@ -291,7 +346,7 @@ export default function SuppliersPage() {
                     </button>
                     <button
                       type="button"
-                      className="rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-900 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                      className="rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-900 transition hover:bg-slate-50"
                       onClick={() => void downloadSupplierStatement(supplier)}
                     >
                       PDF
@@ -306,144 +361,142 @@ export default function SuppliersPage() {
                     </button>
                   </div>
                 </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section className="space-y-6">
-        <div className="panel p-6 md:p-8">
-          <p className="soft-label">Supplier Payment</p>
-          <h2 className="mt-2 text-2xl font-bold text-slate-950">Settle payable</h2>
-          <div className="mt-6 space-y-4">
-            <select
-              className="field"
-              value={paymentForm.supplier_id}
-              onChange={(e) =>
-                setPaymentForm((current) => ({ ...current, supplier_id: e.target.value }))
-              }
-            >
-              <option value="">Select supplier</option>
-              {suppliers.map((supplier) => (
-                <option key={supplier.id} value={supplier.id}>
-                  {supplier.name} ({formatDualCurrency(supplier.balance ?? 0)})
-                </option>
               ))}
-            </select>
-            <input
-              className="field"
-              placeholder="Amount"
-              value={paymentForm.amount}
-              onChange={(e) =>
-                setPaymentForm((current) => ({ ...current, amount: e.target.value }))
-              }
-            />
-            <select
-              className="field"
-              value={paymentForm.mode}
-              onChange={(e) =>
-                setPaymentForm((current) => ({ ...current, mode: e.target.value }))
-              }
-            >
-              <option value="cash">Cash</option>
-              <option value="bank">Bank</option>
-              <option value="knet">KNET</option>
-              <option value="other">Other</option>
-            </select>
-            <input
-              className="field"
-              placeholder="Reference no."
-              value={paymentForm.reference_no}
-              onChange={(e) =>
-                setPaymentForm((current) => ({ ...current, reference_no: e.target.value }))
-              }
-            />
-            <input
-              className="field"
-              placeholder="Note"
-              value={paymentForm.note}
-              onChange={(e) =>
-                setPaymentForm((current) => ({ ...current, note: e.target.value }))
-              }
-            />
-            <button
-              className="btn-primary w-full"
-              onClick={recordSupplierPayment}
-              disabled={loading}
-            >
-              {loading ? "Processing..." : "Record Payment"}
-            </button>
+              {filteredSuppliers.length === 0 ? (
+                <div className="bg-white px-5 py-8 text-sm font-medium text-slate-600">
+                  No suppliers match this search.
+                </div>
+              ) : null}
+            </div>
           </div>
         </div>
 
-        <div className="panel p-6 md:p-8">
-          <p className="soft-label">Quick Add</p>
-          <h2 className="mt-2 text-2xl font-bold text-slate-950">Create supplier</h2>
-          <div className="mt-6 space-y-4">
-            <input
-              className="field"
-              placeholder="Supplier name"
-              value={form.name}
-              onChange={(e) => setForm((current) => ({ ...current, name: e.target.value }))}
-            />
-            <input
-              className="field"
-              placeholder="Mobile"
-              value={form.mobile}
-              onChange={(e) => setForm((current) => ({ ...current, mobile: e.target.value }))}
-            />
-            <input
-              className="field"
-              placeholder="Address"
-              value={form.address}
-              onChange={(e) => setForm((current) => ({ ...current, address: e.target.value }))}
-            />
+        <aside className="space-y-5">
+          <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
+            <p className="soft-label">Quick Add</p>
+            <h2 className="mt-2 text-xl font-black text-slate-950">Create supplier</h2>
+            <div className="mt-4 grid gap-3">
+              <input
+                className="field bg-white"
+                placeholder="Supplier name"
+                value={form.name}
+                onChange={(e) => setForm((current) => ({ ...current, name: e.target.value }))}
+              />
+              <input
+                className="field bg-white"
+                placeholder="Mobile"
+                value={form.mobile}
+                onChange={(e) => setForm((current) => ({ ...current, mobile: e.target.value }))}
+              />
+              <input
+                className="field bg-white"
+                placeholder="Address"
+                value={form.address}
+                onChange={(e) => setForm((current) => ({ ...current, address: e.target.value }))}
+              />
+              <button className="btn-secondary w-full" onClick={createSupplier} disabled={loading}>
+                {loading ? "Processing..." : "Add Supplier"}
+              </button>
+            </div>
+          </div>
 
-            {status ? (
-              <div
-                className={`rounded-2xl px-4 py-3 text-sm font-medium ${
-                  statusType === "error"
-                    ? "border border-red-100 bg-red-50 text-red-700"
-                    : "border border-emerald-100 bg-emerald-50 text-emerald-700"
-                }`}
+          <div className="rounded-3xl border border-slate-200 bg-white p-5">
+            <p className="soft-label">Supplier Payment</p>
+            <h2 className="mt-2 text-xl font-black text-slate-950">Settle payable</h2>
+            <div className="mt-4 grid gap-3">
+              <select
+                className="field"
+                value={paymentForm.supplier_id}
+                onChange={(e) =>
+                  setPaymentForm((current) => ({ ...current, supplier_id: e.target.value }))
+                }
               >
-                {status}
+                <option value="">Select supplier</option>
+                {suppliers.map((supplier) => (
+                  <option key={supplier.id} value={supplier.id}>
+                    {supplier.name} ({formatDualCurrency(supplier.balance ?? 0)})
+                  </option>
+                ))}
+              </select>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <input
+                  className="field"
+                  placeholder="Amount"
+                  value={paymentForm.amount}
+                  onChange={(e) =>
+                    setPaymentForm((current) => ({ ...current, amount: e.target.value }))
+                  }
+                />
+                <select
+                  className="field"
+                  value={paymentForm.mode}
+                  onChange={(e) =>
+                    setPaymentForm((current) => ({ ...current, mode: e.target.value }))
+                  }
+                >
+                  <option value="cash">Cash</option>
+                  <option value="bank">Bank</option>
+                  <option value="knet">KNET</option>
+                  <option value="other">Other</option>
+                </select>
               </div>
-            ) : null}
-
-            <button className="btn-secondary w-full" onClick={createSupplier} disabled={loading}>
-              {loading ? "Processing..." : "Add Supplier"}
-            </button>
+              <input
+                className="field"
+                placeholder="Reference no."
+                value={paymentForm.reference_no}
+                onChange={(e) =>
+                  setPaymentForm((current) => ({ ...current, reference_no: e.target.value }))
+                }
+              />
+              <input
+                className="field"
+                placeholder="Note"
+                value={paymentForm.note}
+                onChange={(e) =>
+                  setPaymentForm((current) => ({ ...current, note: e.target.value }))
+                }
+              />
+              <button
+                className="btn-primary w-full"
+                onClick={recordSupplierPayment}
+                disabled={loading}
+              >
+                {loading ? "Processing..." : "Record Payment"}
+              </button>
+            </div>
           </div>
-        </div>
-      </section>
 
-      <section className="panel p-6 md:p-8 xl:col-span-2">
-        <h2 className="mb-4 text-xl font-bold text-slate-950">Recent Supplier Payments</h2>
-        <div className="space-y-2">
-          {payments.slice(0, 12).map((payment) => (
-            <div
-              key={payment.id}
-              className="grid gap-3 rounded-2xl bg-slate-50 p-4 text-sm md:grid-cols-5"
-            >
-              <div className="font-bold text-slate-950">
-                {supplierNameById.get(payment.supplier_id) ?? `Supplier #${payment.supplier_id}`}
-              </div>
-              <div><Money value={payment.amount} /></div>
-              <div className="capitalize">{payment.mode}</div>
-              <div>{payment.reference_no || "-"}</div>
-              <div className="text-slate-500">{new Date(payment.date).toLocaleString()}</div>
+          <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
+            <p className="soft-label">Recent Payments</p>
+            <div className="mt-4 space-y-2">
+              {payments.slice(0, 6).map((payment) => (
+                <div key={payment.id} className="rounded-2xl bg-white p-4 text-sm">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="truncate font-black text-slate-950">
+                        {supplierNameById.get(payment.supplier_id) ?? `Supplier #${payment.supplier_id}`}
+                      </p>
+                      <p className="mt-1 text-xs font-medium capitalize text-slate-500">
+                        {payment.mode} {payment.reference_no ? `| ${payment.reference_no}` : ""}
+                      </p>
+                    </div>
+                    <p className="shrink-0 font-black text-emerald-700">
+                      <Money value={payment.amount} />
+                    </p>
+                  </div>
+                  <p className="mt-2 text-xs text-slate-500">{new Date(payment.date).toLocaleString()}</p>
+                </div>
+              ))}
+              {payments.length === 0 ? (
+                <div className="rounded-2xl bg-white p-4 text-sm font-medium text-slate-600">
+                  No supplier payments recorded yet.
+                </div>
+              ) : null}
             </div>
-          ))}
-          {payments.length === 0 ? (
-            <div className="rounded-2xl bg-slate-50 p-4 text-sm font-medium text-slate-600">
-              No supplier payments recorded yet.
-            </div>
-          ) : null}
-        </div>
-      </section>
-    </div>
+          </div>
+        </aside>
+      </div>
+    </section>
     {statement ? (
       <div
         className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-3 backdrop-blur-sm md:p-6"
