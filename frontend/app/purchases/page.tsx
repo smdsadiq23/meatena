@@ -76,6 +76,7 @@ export default function PurchasesPage() {
   const [advancePaid, setAdvancePaid] = useState("");
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
   const [purchaseCurrency, setPurchaseCurrency] = useState<"KWD" | "USD">("KWD");
+  const [purchaseExchangeRate, setPurchaseExchangeRate] = useState(String(currencyRate));
   const [productForm, setProductForm] = useState(emptyProduct);
   const [items, setItems] = useState<PurchaseItem[]>([emptyItem]);
   const [editingPurchaseId, setEditingPurchaseId] = useState<number | null>(null);
@@ -86,7 +87,7 @@ export default function PurchasesPage() {
   const [editDiscountAmountInput, setEditDiscountAmountInput] = useState("");
   const [editAdvancePaid, setEditAdvancePaid] = useState("");
   const [editPurchaseCurrency, setEditPurchaseCurrency] = useState<"KWD" | "USD">("KWD");
-  const [editExchangeRate, setEditExchangeRate] = useState(currencyRate);
+  const [editExchangeRate, setEditExchangeRate] = useState(String(currencyRate));
   const [editItems, setEditItems] = useState<PurchaseItem[]>([emptyItem]);
   const [status, setStatus] = useState("");
   const [statusType, setStatusType] = useState<"success" | "error">("success");
@@ -134,34 +135,45 @@ export default function PurchasesPage() {
       });
   }, []);
 
-  const toBaseKwd = (value: number, currency: "KWD" | "USD", rate = currencyRate) =>
+  const parsedPurchaseExchangeRate = Number(purchaseExchangeRate || 0);
+  const parsedEditExchangeRate = Number(editExchangeRate || 0);
+  const activePurchaseRate =
+    purchaseCurrency === "USD" && Number.isFinite(parsedPurchaseExchangeRate) && parsedPurchaseExchangeRate > 0
+      ? parsedPurchaseExchangeRate
+      : 1;
+  const activeEditRate =
+    editPurchaseCurrency === "USD" && Number.isFinite(parsedEditExchangeRate) && parsedEditExchangeRate > 0
+      ? parsedEditExchangeRate
+      : 1;
+
+  const toBaseKwd = (value: number, currency: "KWD" | "USD", rate = 1) =>
     currency === "USD" ? value / rate : value;
 
   const total = items.reduce(
     (sum, item) =>
       sum +
       Number(item.weight || 0) *
-        toBaseKwd(Number(item.cost_per_kg || 0), purchaseCurrency),
+        toBaseKwd(Number(item.cost_per_kg || 0), purchaseCurrency, activePurchaseRate),
     0
   );
   const parsedDiscountAmount = Number(discountAmountInput || 0);
   const discountAmount = Number.isFinite(parsedDiscountAmount)
-    ? Math.max(toBaseKwd(parsedDiscountAmount, purchaseCurrency), 0)
+    ? Math.max(toBaseKwd(parsedDiscountAmount, purchaseCurrency, activePurchaseRate), 0)
     : Number.NaN;
   const netTotal = Number.isFinite(discountAmount) ? Math.max(total - discountAmount, 0) : total;
-  const advancePaidBase = toBaseKwd(Number(advancePaid || 0), purchaseCurrency);
+  const advancePaidBase = toBaseKwd(Number(advancePaid || 0), purchaseCurrency, activePurchaseRate);
   const balanceDue = netTotal - advancePaidBase;
 
   const editTotal = editItems.reduce(
     (sum, item) =>
       sum +
       Number(item.weight || 0) *
-        toBaseKwd(Number(item.cost_per_kg || 0), editPurchaseCurrency, editExchangeRate),
+        toBaseKwd(Number(item.cost_per_kg || 0), editPurchaseCurrency, activeEditRate),
     0
   );
   const parsedEditDiscountAmount = Number(editDiscountAmountInput || 0);
   const editDiscountAmount = Number.isFinite(parsedEditDiscountAmount)
-    ? Math.max(toBaseKwd(parsedEditDiscountAmount, editPurchaseCurrency, editExchangeRate), 0)
+    ? Math.max(toBaseKwd(parsedEditDiscountAmount, editPurchaseCurrency, activeEditRate), 0)
     : Number.NaN;
   const editNetTotal = Number.isFinite(editDiscountAmount)
     ? Math.max(editTotal - editDiscountAmount, 0)
@@ -169,7 +181,7 @@ export default function PurchasesPage() {
   const editAdvancePaidBase = toBaseKwd(
     Number(editAdvancePaid || 0),
     editPurchaseCurrency,
-    editExchangeRate,
+    activeEditRate,
   );
   const editBalanceDue = editNetTotal - editAdvancePaidBase;
 
@@ -258,6 +270,15 @@ export default function PurchasesPage() {
       return;
     }
 
+    if (
+      purchaseCurrency === "USD" &&
+      (!Number.isFinite(parsedPurchaseExchangeRate) || parsedPurchaseExchangeRate <= 0)
+    ) {
+      setStatusType("error");
+      setStatus("Enter the manual KWD to USD rate for this USD purchase.");
+      return;
+    }
+
     setLoading(true);
     setStatus("");
 
@@ -270,7 +291,7 @@ export default function PurchasesPage() {
           purchase_date: purchaseDate || undefined,
           goods_received_date: goodsReceivedDate || undefined,
           transaction_currency: purchaseCurrency,
-          exchange_rate: currencyRate,
+          exchange_rate: purchaseCurrency === "USD" ? parsedPurchaseExchangeRate : 1,
           discount_amount: Number(discountAmountInput || 0),
           advance_paid: Number(advancePaid || 0),
           items: items.map((item) => ({
@@ -302,6 +323,7 @@ export default function PurchasesPage() {
       setAdvancePaid("");
       setReceiptFile(null);
       setPurchaseCurrency("KWD");
+      setPurchaseExchangeRate(String(currencyRate));
       setDisplayCurrency("KWD");
       setItems([emptyItem]);
       setStatusType("success");
@@ -350,7 +372,7 @@ export default function PurchasesPage() {
       );
       setEditPurchaseCurrency(detail.transaction_currency ?? "KWD");
       setDisplayCurrency(detail.transaction_currency ?? "KWD");
-      setEditExchangeRate(Number(detail.exchange_rate ?? currencyRate));
+      setEditExchangeRate(String(detail.exchange_rate ?? currencyRate));
       setEditItems(
         detail.items.length
           ? detail.items.map((item) => ({
@@ -400,6 +422,15 @@ export default function PurchasesPage() {
       return;
     }
 
+    if (
+      editPurchaseCurrency === "USD" &&
+      (!Number.isFinite(parsedEditExchangeRate) || parsedEditExchangeRate <= 0)
+    ) {
+      setStatusType("error");
+      setStatus("Enter the manual KWD to USD rate for this USD purchase.");
+      return;
+    }
+
     setLoading(true);
     setStatus("");
 
@@ -412,7 +443,7 @@ export default function PurchasesPage() {
           purchase_date: editPurchaseDate || undefined,
           goods_received_date: editGoodsReceivedDate || undefined,
           transaction_currency: editPurchaseCurrency,
-          exchange_rate: editExchangeRate,
+          exchange_rate: editPurchaseCurrency === "USD" ? parsedEditExchangeRate : 1,
           discount_amount: Number(editDiscountAmountInput || 0),
           advance_paid: Number(editAdvancePaid || 0),
           items: editItems.map((item) => ({
@@ -432,7 +463,7 @@ export default function PurchasesPage() {
       setEditAdvancePaid("");
       setEditPurchaseCurrency("KWD");
       setDisplayCurrency("KWD");
-      setEditExchangeRate(currencyRate);
+      setEditExchangeRate(String(currencyRate));
       setEditItems([emptyItem]);
       setStatusType("success");
       setStatus("Purchase updated. Stock and supplier balance were recalculated.");
@@ -591,6 +622,20 @@ export default function PurchasesPage() {
             </button>
           ))}
         </div>
+        {purchaseCurrency === "USD" ? (
+          <div className="mt-4 max-w-sm">
+            <label className="space-y-2">
+              <span className="soft-label">Manual KWD to USD Rate</span>
+              <input
+                className="field"
+                inputMode="decimal"
+                placeholder="Example: 3.250"
+                value={purchaseExchangeRate}
+                onChange={(e) => setPurchaseExchangeRate(e.target.value)}
+              />
+            </label>
+          </div>
+        ) : null}
 
         <div className="mt-4 rounded-3xl border border-dashed border-black/15 bg-slate-50 p-5">
           <p className="soft-label">Delivery Receipt</p>
@@ -710,7 +755,7 @@ export default function PurchasesPage() {
                         className={editPurchaseCurrency === currency ? "btn-primary px-5" : "btn-secondary px-5"}
                         onClick={() => {
                           setEditPurchaseCurrency(currency);
-                          setEditExchangeRate(currencyRate);
+                          setEditExchangeRate(String(currencyRate));
                           setDisplayCurrency(currency);
                         }}
                       >
@@ -718,6 +763,20 @@ export default function PurchasesPage() {
                       </button>
                     ))}
                   </div>
+                  {editPurchaseCurrency === "USD" ? (
+                    <div className="max-w-sm">
+                      <label className="space-y-2">
+                        <span className="soft-label">Manual KWD to USD Rate</span>
+                        <input
+                          className="field bg-white"
+                          inputMode="decimal"
+                          placeholder="Example: 3.250"
+                          value={editExchangeRate}
+                          onChange={(e) => setEditExchangeRate(e.target.value)}
+                        />
+                      </label>
+                    </div>
+                  ) : null}
 
                   <div className="space-y-3">
                     {editItems.map((item, index) => (

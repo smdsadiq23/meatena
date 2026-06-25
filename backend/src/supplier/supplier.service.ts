@@ -7,6 +7,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { roundMoney } from '../common/utils/money';
 import { Purchase } from '../purchase/purchase.entity';
+import { PurchaseItem } from '../purchase/purchase-item.entity';
 import { SupplierPayment } from '../supplier-payment/supplier-payment.entity';
 import { CreateSupplierDto } from './dto/create-supplier.dto';
 import { UpdateSupplierDto } from './dto/update-supplier.dto';
@@ -25,6 +26,7 @@ export type SupplierStatementRow = {
   discount_amount: number;
   advance_paid: number;
   balance_due: number;
+  weight: number;
   transaction_currency: 'KWD' | 'USD';
   exchange_rate: number;
   charge: number;
@@ -40,6 +42,9 @@ export class SupplierService {
 
     @InjectRepository(Purchase)
     private readonly purchaseRepo: Repository<Purchase>,
+
+    @InjectRepository(PurchaseItem)
+    private readonly purchaseItemRepo: Repository<PurchaseItem>,
 
     @InjectRepository(SupplierPayment)
     private readonly paymentRepo: Repository<SupplierPayment>,
@@ -77,6 +82,23 @@ export class SupplierService {
       }),
     ]);
 
+    const purchaseWeightById = new Map<number, number>();
+    const purchaseIds = purchases.map((purchase) => purchase.id);
+
+    if (purchaseIds.length > 0) {
+      const weights = await this.purchaseItemRepo
+        .createQueryBuilder('item')
+        .select('item.purchase_id', 'purchase_id')
+        .addSelect('SUM(item.weight)', 'weight')
+        .where('item.purchase_id IN (:...purchaseIds)', { purchaseIds })
+        .groupBy('item.purchase_id')
+        .getRawMany<{ purchase_id: number | string; weight: string }>();
+
+      for (const item of weights) {
+        purchaseWeightById.set(Number(item.purchase_id), roundMoney(Number(item.weight ?? 0)));
+      }
+    }
+
     const events = [
       ...purchases.map((purchase) => {
         const total = roundMoney(Number(purchase.total ?? 0));
@@ -100,6 +122,7 @@ export class SupplierService {
             discount_amount: roundMoney(Number(purchase.discount_amount ?? 0)),
             advance_paid: advancePaid,
             balance_due: balanceDue,
+            weight: purchaseWeightById.get(purchase.id) ?? 0,
             transaction_currency: purchase.transaction_currency ?? 'KWD',
             exchange_rate: Number(purchase.exchange_rate ?? 3.25),
             charge: total,
@@ -125,6 +148,7 @@ export class SupplierService {
           discount_amount: 0,
           advance_paid: roundMoney(Number(payment.amount ?? 0)),
           balance_due: 0,
+          weight: 0,
           transaction_currency: 'KWD' as const,
           exchange_rate: 3.25,
           charge: 0,

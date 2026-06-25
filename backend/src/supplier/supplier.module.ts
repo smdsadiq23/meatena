@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppSettingModule } from '../app-setting/app-setting.module';
+import { PurchaseItem } from '../purchase/purchase-item.entity';
 import { Purchase } from '../purchase/purchase.entity';
 import { SupplierPayment } from '../supplier-payment/supplier-payment.entity';
 import { SupplierController } from './supplier.controller';
@@ -10,7 +11,7 @@ import { SupplierService } from './supplier.service';
 @Module({
   imports: [
     AppSettingModule,
-    TypeOrmModule.forFeature([Supplier, Purchase, SupplierPayment]),
+    TypeOrmModule.forFeature([Supplier, Purchase, PurchaseItem, SupplierPayment]),
   ],
   controllers: [SupplierController],
   providers: [SupplierService],

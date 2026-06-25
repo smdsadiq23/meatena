@@ -35,6 +35,7 @@ type SupplierStatementRow = {
   discount_amount: number;
   advance_paid: number;
   balance_due: number;
+  weight: number;
   transaction_currency: "KWD" | "USD";
   exchange_rate: number;
   charge: number;
@@ -401,8 +402,11 @@ export default function SuppliersPage() {
           </div>
 
           <div className="rounded-3xl border border-slate-200 bg-white p-5">
-            <p className="soft-label">Supplier Payment</p>
-            <h2 className="mt-2 text-xl font-black text-slate-950">Settle payable</h2>
+            <p className="soft-label">Supplier Payment / Advance</p>
+            <h2 className="mt-2 text-xl font-black text-slate-950">Record cash out</h2>
+            <p className="mt-1 text-sm font-semibold text-slate-500">
+              Use this for payable settlement or advance paid before a purchase.
+            </p>
             <div className="mt-4 grid gap-3">
               <select
                 className="field"
@@ -421,7 +425,7 @@ export default function SuppliersPage() {
               <div className="grid gap-3 sm:grid-cols-2">
                 <input
                   className="field"
-                  placeholder="Amount"
+                  placeholder="Payment / advance amount"
                   value={paymentForm.amount}
                   onChange={(e) =>
                     setPaymentForm((current) => ({ ...current, amount: e.target.value }))
@@ -450,7 +454,7 @@ export default function SuppliersPage() {
               />
               <input
                 className="field"
-                placeholder="Note"
+                placeholder="Note, for example advance before purchase"
                 value={paymentForm.note}
                 onChange={(e) =>
                   setPaymentForm((current) => ({ ...current, note: e.target.value }))
@@ -461,7 +465,7 @@ export default function SuppliersPage() {
                 onClick={recordSupplierPayment}
                 disabled={loading}
               >
-                {loading ? "Processing..." : "Record Payment"}
+                {loading ? "Processing..." : "Record Payment / Advance"}
               </button>
             </div>
           </div>
@@ -585,6 +589,7 @@ export default function SuppliersPage() {
                           <>
                             <span>Purchase date: {formatDate(row.purchase_date || row.date)}</span>
                             <span>Goods received: {formatDate(row.goods_received_date)}</span>
+                            <span>Weight: {Number(row.weight ?? 0).toFixed(3)} kg</span>
                             <span>Entered currency: {row.transaction_currency}</span>
                           </>
                         ) : null}

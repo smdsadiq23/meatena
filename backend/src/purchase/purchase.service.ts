@@ -121,7 +121,11 @@ export class PurchaseService implements OnModuleInit {
 
   create(data: CreatePurchaseDto) {
     const transactionCurrency = data.transaction_currency ?? 'KWD';
-    const exchangeRate = Number(data.exchange_rate ?? process.env.KWD_TO_USD_RATE ?? 3.25);
+    if (transactionCurrency === 'USD' && data.exchange_rate === undefined) {
+      throw new BadRequestException('Enter the manual KWD to USD rate for this USD purchase');
+    }
+
+    const exchangeRate = Number(data.exchange_rate ?? 1);
 
     if (!Number.isFinite(exchangeRate) || exchangeRate <= 0) {
       throw new BadRequestException('Exchange rate must be greater than zero');
@@ -231,7 +235,11 @@ export class PurchaseService implements OnModuleInit {
 
   update(id: number, data: UpdatePurchaseDto) {
     const transactionCurrency = data.transaction_currency ?? 'KWD';
-    const exchangeRate = Number(data.exchange_rate ?? process.env.KWD_TO_USD_RATE ?? 3.25);
+    if (transactionCurrency === 'USD' && data.exchange_rate === undefined) {
+      throw new BadRequestException('Enter the manual KWD to USD rate for this USD purchase');
+    }
+
+    const exchangeRate = Number(data.exchange_rate ?? 1);
 
     if (!Number.isFinite(exchangeRate) || exchangeRate <= 0) {
       throw new BadRequestException('Exchange rate must be greater than zero');

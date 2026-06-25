@@ -1,8 +1,4 @@
-import {
-  BadRequestException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { roundMoney } from '../common/utils/money';
@@ -30,10 +26,6 @@ export class SupplierPaymentService {
 
       const amount = roundMoney(data.amount);
       const nextBalance = roundMoney(Number(supplier.balance) - amount);
-
-      if (nextBalance < 0) {
-        throw new BadRequestException('Payment exceeds supplier balance');
-      }
 
       const payment = await manager.getRepository(SupplierPayment).save({
         supplier_id: data.supplier_id,

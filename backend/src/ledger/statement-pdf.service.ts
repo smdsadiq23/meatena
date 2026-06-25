@@ -9,6 +9,8 @@ import {
 type StatementRow = {
   date: string;
   type: string;
+  reference_id?: number;
+  weight?: number;
   amount: number;
   balance: number;
 };
@@ -43,6 +45,7 @@ export function generateStatementPDF(
     date: row.date,
     description: labelType(row.type),
     ref: refForRow(row, index),
+    weight: row.weight,
     debit: row.amount >= 0 ? Number(row.amount) : 0,
     credit: row.amount < 0 ? Math.abs(Number(row.amount)) : 0,
     balance: Number(row.balance),

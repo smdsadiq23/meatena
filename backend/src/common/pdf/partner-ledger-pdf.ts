@@ -10,6 +10,7 @@ export type PartnerLedgerRow = {
   date: string;
   description: string;
   ref: string;
+  weight?: number;
   debit: number;
   credit: number;
   balance: number;
@@ -40,12 +41,13 @@ const page = {
 
 const tableWidth = 798;
 const columns = [
-  { key: 'date', label: 'ACCOUNTING DATE', x: 22, width: 132, align: 'left' as const },
-  { key: 'description', label: 'DESCRIPTION', x: 154, width: 238, align: 'left' as const },
-  { key: 'ref', label: 'REF', x: 392, width: 140, align: 'left' as const },
-  { key: 'debit', label: 'DEBIT', x: 532, width: 88, align: 'right' as const },
-  { key: 'credit', label: 'CREDIT', x: 620, width: 88, align: 'right' as const },
-  { key: 'balance', label: 'BALANCE', x: 708, width: 112, align: 'right' as const },
+  { key: 'date', label: 'ACCOUNTING DATE', x: 22, width: 118, align: 'left' as const },
+  { key: 'description', label: 'DESCRIPTION', x: 140, width: 210, align: 'left' as const },
+  { key: 'ref', label: 'REF', x: 350, width: 120, align: 'left' as const },
+  { key: 'weight', label: 'WEIGHT KG', x: 470, width: 72, align: 'right' as const },
+  { key: 'debit', label: 'DEBIT', x: 542, width: 88, align: 'right' as const },
+  { key: 'credit', label: 'CREDIT', x: 630, width: 88, align: 'right' as const },
+  { key: 'balance', label: 'BALANCE', x: 718, width: 102, align: 'right' as const },
 ];
 
 function getArabicFontPath() {
@@ -104,6 +106,18 @@ function formatMoney(value: number | string, currency: StatementCurrency, rate =
     minimumFractionDigits: currency === 'KWD' ? 3 : 2,
     maximumFractionDigits: currency === 'KWD' ? 3 : 2,
   })} ${currency}`;
+}
+
+function formatWeight(value?: number | string) {
+  const weight = Number(value ?? 0);
+  if (!Number.isFinite(weight) || weight === 0) {
+    return '';
+  }
+
+  return weight.toLocaleString('en-US', {
+    minimumFractionDigits: 3,
+    maximumFractionDigits: 3,
+  });
 }
 
 function drawText(
@@ -224,17 +238,12 @@ function drawRow(
   drawText(doc, normalizeDate(row.date), columns[0].x + 5, y + 6, columns[0].width - 10);
   drawText(doc, row.description, columns[1].x + 5, y + 6, columns[1].width - 10);
   drawText(doc, row.ref, columns[2].x + 5, y + 6, columns[2].width - 10);
+  drawText(doc, formatWeight(row.weight), columns[3].x + 5, y + 6, columns[3].width - 10, {
+    align: 'right',
+  });
   drawText(
     doc,
     formatMoney(row.debit, options.currency, options.kwdToUsdRate),
-    columns[3].x + 5,
-    y + 6,
-    columns[3].width - 10,
-    { align: 'right' },
-  );
-  drawText(
-    doc,
-    formatMoney(row.credit, options.currency, options.kwdToUsdRate),
     columns[4].x + 5,
     y + 6,
     columns[4].width - 10,
@@ -242,10 +251,18 @@ function drawRow(
   );
   drawText(
     doc,
-    formatMoney(row.balance, options.currency, options.kwdToUsdRate),
+    formatMoney(row.credit, options.currency, options.kwdToUsdRate),
     columns[5].x + 5,
     y + 6,
     columns[5].width - 10,
+    { align: 'right' },
+  );
+  drawText(
+    doc,
+    formatMoney(row.balance, options.currency, options.kwdToUsdRate),
+    columns[6].x + 5,
+    y + 6,
+    columns[6].width - 10,
     { align: 'right' },
   );
 
@@ -297,13 +314,13 @@ function drawTotalRow(
     .fontSize(10)
     .text('TOTAL', page.tableX + 5, y + 7, { width: 220, lineBreak: false });
 
-  drawText(doc, formatMoney(debitTotal, options.currency, options.kwdToUsdRate), columns[3].x + 5, y + 7, columns[3].width - 10, {
+  drawText(doc, formatMoney(debitTotal, options.currency, options.kwdToUsdRate), columns[4].x + 5, y + 7, columns[4].width - 10, {
     align: 'right',
   });
-  drawText(doc, formatMoney(creditTotal, options.currency, options.kwdToUsdRate), columns[4].x + 5, y + 7, columns[4].width - 10, {
+  drawText(doc, formatMoney(creditTotal, options.currency, options.kwdToUsdRate), columns[5].x + 5, y + 7, columns[5].width - 10, {
     align: 'right',
   });
-  drawText(doc, formatMoney(balance, options.currency, options.kwdToUsdRate), columns[5].x + 5, y + 7, columns[5].width - 10, {
+  drawText(doc, formatMoney(balance, options.currency, options.kwdToUsdRate), columns[6].x + 5, y + 7, columns[6].width - 10, {
     align: 'right',
     underline: true,
   });

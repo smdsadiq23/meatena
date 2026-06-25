@@ -29,6 +29,7 @@ export function generateSupplierStatementPDF(
     date: row.date,
     description: row.description || (row.type === 'purchase' ? 'Purchase' : 'Payment'),
     ref: row.reference,
+    weight: row.weight,
     debit: Number(row.charge ?? 0),
     credit: Number(row.payment ?? 0),
     balance: Number(row.balance),

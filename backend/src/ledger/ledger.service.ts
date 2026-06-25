@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, Repository } from 'typeorm';
 import { roundMoney } from '../common/utils/money';
 import { Customer } from '../customer/customer.entity';
+import { InvoiceItem } from '../invoice/invoice-item.entity';
 import { Ledger } from './ledger.entity';
 
 @Injectable()
@@ -13,6 +14,9 @@ export class LedgerService {
 
     @InjectRepository(Customer)
     private customerRepo: Repository<Customer>,
+
+    @InjectRepository(InvoiceItem)
+    private invoiceItemRepo: Repository<InvoiceItem>,
   ) {}
 
   private getRepository(manager?: EntityManager) {
@@ -51,6 +55,7 @@ export class LedgerService {
       return {
         date: entry.date,
         type: entry.type,
+        reference_id: entry.reference_id,
         amount: Number(entry.amount),
         balance: running_balance,
       };
@@ -68,9 +73,33 @@ export class LedgerService {
       throw new NotFoundException('Customer not found');
     }
 
+    const rows = await this.getStatement(customer_id);
+    const invoiceIds = rows
+      .filter((row) => ['invoice', 'invoice_void'].includes(row.type))
+      .map((row) => Number(row.reference_id))
+      .filter((referenceId) => Number.isFinite(referenceId) && referenceId > 0);
+    const invoiceWeights = new Map<number, number>();
+
+    if (invoiceIds.length > 0) {
+      const items = await this.invoiceItemRepo
+        .createQueryBuilder('item')
+        .select('item.invoice_id', 'invoice_id')
+        .addSelect('SUM(item.weight)', 'weight')
+        .where('item.invoice_id IN (:...invoiceIds)', { invoiceIds })
+        .groupBy('item.invoice_id')
+        .getRawMany<{ invoice_id: number | string; weight: string }>();
+
+      for (const item of items) {
+        invoiceWeights.set(Number(item.invoice_id), roundMoney(Number(item.weight ?? 0)));
+      }
+    }
+
     return {
       customer,
-      rows: await this.getStatement(customer_id),
+      rows: rows.map((row) => ({
+        ...row,
+        weight: invoiceWeights.get(Number(row.reference_id)) ?? 0,
+      })),
     };
   }
 }
