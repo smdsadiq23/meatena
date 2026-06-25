@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { fetchJson, fetchJsonOrThrow } from "../../lib/auth";
+import { fetchJson } from "../../lib/auth";
 import { Money } from "../../lib/currency";
 
 type ReportType = "day" | "week" | "month" | "year";
@@ -164,24 +164,6 @@ type HistoricReport = {
   }>;
 };
 
-type Shipment = {
-  id: number;
-  name: string;
-  reference_no?: string | null;
-  arrival_date?: string | null;
-  status: "open" | "closed";
-  purchase_amount: number;
-  sales_amount: number;
-  expenses_amount: number;
-  profit: number;
-  purchase_count: number;
-  invoice_count: number;
-  expense_count: number;
-  purchases: Array<{ id: number; invoice_no?: string | null; total: number; date: string }>;
-  invoices: Array<{ id: number; invoice_number?: string | null; total: number; date: string; type: string }>;
-  expenses: Array<{ id: number; title: string; category: string; amount: number; date: string }>;
-};
-
 const reportOptions: { value: ReportType; label: string; caption: string }[] = [
   { value: "day", label: "Day", caption: "Today" },
   { value: "week", label: "Week", caption: "This week" },
@@ -310,88 +292,9 @@ export default function ReportsPage() {
   });
   const [historicTo, setHistoricTo] = useState(() => new Date().toISOString().slice(0, 10));
   const [historic, setHistoric] = useState<HistoricReport | null>(null);
-  const [shipments, setShipments] = useState<Shipment[]>([]);
-  const [selectedShipmentId, setSelectedShipmentId] = useState("");
-  const [shipmentForm, setShipmentForm] = useState({
-    name: "",
-    referenceNo: "",
-    arrivalDate: "",
-  });
   const [loading, setLoading] = useState(true);
   const [historicLoading, setHistoricLoading] = useState(true);
-  const [shipmentLoading, setShipmentLoading] = useState(true);
   const [status, setStatus] = useState("");
-
-  const selectedShipment =
-    shipments.find((shipment) => String(shipment.id) === selectedShipmentId) ?? shipments[0];
-  const selectedShipmentActivity = selectedShipment
-    ? [
-        ...selectedShipment.purchases.map((purchase) => ({
-          id: `purchase-${purchase.id}`,
-          type: "Purchase",
-          name: purchase.invoice_no || `Purchase #${purchase.id}`,
-          date: purchase.date,
-          amount: purchase.total,
-        })),
-        ...selectedShipment.invoices.map((invoice) => ({
-          id: `invoice-${invoice.id}`,
-          type: "Sale",
-          name: invoice.invoice_number || `Invoice #${invoice.id}`,
-          date: invoice.date,
-          amount: invoice.total,
-        })),
-        ...selectedShipment.expenses.map((expense) => ({
-          id: `expense-${expense.id}`,
-          type: "Expense",
-          name: expense.title,
-          date: expense.date,
-          amount: expense.amount,
-        })),
-      ]
-    : [];
-
-  const loadShipments = async () => {
-    setShipmentLoading(true);
-
-    try {
-      const data = await fetchJson<Shipment[]>("/shipments/summary");
-      setShipments(data);
-      setSelectedShipmentId((current) => {
-        if (current && data.some((shipment) => String(shipment.id) === current)) {
-          return current;
-        }
-
-        return data[0] ? String(data[0].id) : "";
-      });
-    } catch (error) {
-      setStatus(error instanceof Error ? error.message : "Could not load shipment profit.");
-    } finally {
-      setShipmentLoading(false);
-    }
-  };
-
-  const createShipment = async () => {
-    if (!shipmentForm.name.trim()) {
-      setStatus("Enter shipment name.");
-      return;
-    }
-
-    try {
-      await fetchJsonOrThrow("/shipments", {
-        method: "POST",
-        body: JSON.stringify({
-          name: shipmentForm.name.trim(),
-          reference_no: shipmentForm.referenceNo.trim() || undefined,
-          arrival_date: shipmentForm.arrivalDate || undefined,
-        }),
-      });
-      setShipmentForm({ name: "", referenceNo: "", arrivalDate: "" });
-      setStatus("Shipment created.");
-      await loadShipments();
-    } catch (error) {
-      setStatus(error instanceof Error ? error.message : "Could not create shipment.");
-    }
-  };
 
   const loadHistoric = async (from = historicFrom, to = historicTo) => {
     setHistoricLoading(true);
@@ -523,8 +426,6 @@ export default function ReportsPage() {
         }
       });
 
-    void loadShipments();
-
     return () => {
       active = false;
     };
@@ -543,184 +444,22 @@ export default function ReportsPage() {
         </p>
       </section>
 
-      <section className="panel p-5 md:p-7">
-        <div className="grid gap-5 xl:grid-cols-[1fr_360px]">
+      <section className="panel p-6 md:p-8">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <p className="soft-label">Shipment Profit</p>
-            <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-950">
-              Shipment profit
+            <h2 className="mt-2 text-2xl font-black text-slate-950">
+              Shipment workspace
             </h2>
-            <p className="mt-2 max-w-2xl text-sm font-medium leading-6 text-slate-600">
-              Select one shipment to see purchase cost, sales, expenses, and profit.
+            <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-slate-600">
+              Create shipments, search and link purchases, sales invoices, and expenses from one
+              dedicated screen. Reports stay focused on business totals and history.
             </p>
           </div>
-
-          <details className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
-            <summary className="cursor-pointer list-none text-sm font-black text-slate-950">
-              + New shipment
-            </summary>
-            <div className="mt-4 grid gap-3">
-              <input
-                className="field"
-                placeholder="Shipment name"
-                value={shipmentForm.name}
-                onChange={(event) => setShipmentForm((current) => ({ ...current, name: event.target.value }))}
-              />
-              <input
-                className="field"
-                placeholder="Reference no."
-                value={shipmentForm.referenceNo}
-                onChange={(event) => setShipmentForm((current) => ({ ...current, referenceNo: event.target.value }))}
-              />
-              <input
-                className="field"
-                type="date"
-                value={shipmentForm.arrivalDate}
-                onChange={(event) => setShipmentForm((current) => ({ ...current, arrivalDate: event.target.value }))}
-              />
-              <button className="btn-primary" onClick={createShipment}>
-                Create Shipment
-              </button>
-            </div>
-          </details>
+          <Link className="btn-primary text-center" href="/shipments">
+            Open Shipments
+          </Link>
         </div>
-
-        {shipmentLoading ? (
-          <div className="mt-6 rounded-3xl bg-slate-50 px-5 py-8 text-sm font-medium text-slate-600">
-            Loading shipment report...
-          </div>
-        ) : null}
-
-        {shipments.length ? (
-          <>
-            <div className="mt-6 rounded-[28px] border border-slate-200 bg-white p-4 md:p-5">
-              <div className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-end">
-                <label className="block">
-                  <span className="soft-label">Select shipment</span>
-                  <select
-                    className="field mt-2"
-                    value={selectedShipment ? String(selectedShipment.id) : ""}
-                    onChange={(event) => setSelectedShipmentId(event.target.value)}
-                  >
-                    {shipments.map((shipment) => (
-                      <option key={shipment.id} value={shipment.id}>
-                        {shipment.name}
-                        {shipment.reference_no ? ` · ${shipment.reference_no}` : ""}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <div className="rounded-2xl bg-slate-50 px-4 py-3 text-sm font-black text-slate-700">
-                  {selectedShipment
-                    ? `${selectedShipment.purchase_count} purchases · ${selectedShipment.invoice_count} sales · ${selectedShipment.expense_count} expenses`
-                    : "No activity"}
-                </div>
-              </div>
-            </div>
-
-            {selectedShipment ? (
-              <>
-                <div className="mt-5 rounded-[28px] border border-red-100 bg-red-50/50 p-5">
-                  <div className="grid gap-5 xl:grid-cols-[1fr_auto] xl:items-center">
-                    <div>
-                      <p className="soft-label text-red-700">How to link</p>
-                      <h3 className="mt-1 text-xl font-black text-slate-950">
-                        Add records to {selectedShipment.name}
-                      </h3>
-                      <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
-                        Open Purchase, Billing, or Expenses and choose this shipment in the Shipment field.
-                        The profit numbers here will update automatically.
-                      </p>
-                    </div>
-                    <div className="grid gap-2 sm:grid-cols-3 xl:min-w-[520px]">
-                      <Link className="btn-secondary text-center" href="/purchases">
-                        1. Link Purchase
-                      </Link>
-                      <Link className="btn-secondary text-center" href="/invoice">
-                        2. Link Sale
-                      </Link>
-                      <Link className="btn-secondary text-center" href="/expenses">
-                        3. Link Expense
-                      </Link>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                  <div className="rounded-3xl bg-slate-50 p-5">
-                    <p className="soft-label">Purchase</p>
-                    <p className="mt-3 text-3xl font-black text-slate-950">
-                      <Money value={selectedShipment.purchase_amount} />
-                    </p>
-                  </div>
-                  <div className="rounded-3xl bg-emerald-50 p-5">
-                    <p className="soft-label text-emerald-700">Sales</p>
-                    <p className="mt-3 text-3xl font-black text-emerald-800">
-                      <Money value={selectedShipment.sales_amount} />
-                    </p>
-                  </div>
-                  <div className="rounded-3xl bg-red-50 p-5">
-                    <p className="soft-label text-red-700">Expenses</p>
-                    <p className="mt-3 text-3xl font-black text-red-700">
-                      <Money value={selectedShipment.expenses_amount} />
-                    </p>
-                  </div>
-                  <div className="rounded-3xl bg-amber-50 p-5">
-                    <p className="soft-label text-amber-700">Profit</p>
-                    <p
-                      className={[
-                        "mt-3 text-3xl font-black",
-                        selectedShipment.profit >= 0 ? "text-amber-800" : "text-red-700",
-                      ].join(" ")}
-                    >
-                      <Money value={selectedShipment.profit} />
-                    </p>
-                  </div>
-                </div>
-
-                <div className="mt-5 rounded-[28px] border border-slate-200 p-5">
-                  <div className="flex flex-col gap-1 md:flex-row md:items-end md:justify-between">
-                    <div>
-                      <p className="soft-label">Linked activity</p>
-                      <h3 className="text-xl font-black text-slate-950">
-                        Purchases, sales, and expenses
-                      </h3>
-                    </div>
-                    <p className="text-sm font-semibold text-slate-500">
-                      Profit = Sales - Purchase - Expenses
-                    </p>
-                  </div>
-
-                  <div className="mt-4 grid gap-3">
-                    {selectedShipmentActivity.length ? (
-                      selectedShipmentActivity.map((row) => (
-                        <div
-                          key={row.id}
-                          className="grid gap-2 rounded-2xl bg-slate-50 px-4 py-3 text-sm md:grid-cols-[120px_1fr_140px_150px] md:items-center"
-                        >
-                          <span className="font-black text-slate-950">{row.type}</span>
-                          <span className="font-semibold text-slate-700">{row.name}</span>
-                          <span className="text-slate-500">{new Date(row.date).toLocaleDateString()}</span>
-                          <span className="font-black text-slate-950 md:text-right">
-                            <Money value={row.amount} />
-                          </span>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="rounded-2xl bg-slate-50 px-4 py-6 text-sm font-semibold text-slate-600">
-                        Nothing linked yet. Select this shipment when creating purchases, invoices, or expenses.
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </>
-            ) : null}
-          </>
-        ) : !shipmentLoading ? (
-          <div className="mt-6 rounded-3xl bg-slate-50 px-5 py-8 text-sm font-semibold text-slate-600">
-            No shipments yet. Create the first shipment, then link purchases, sales, and expenses to it.
-          </div>
-        ) : null}
       </section>
 
       <section className="panel p-6 md:p-8">

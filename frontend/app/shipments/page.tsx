@@ -81,48 +81,132 @@ function recordValue(record: ShipmentRecord) {
   return Number(record.total ?? record.amount ?? 0);
 }
 
-function toggleId(ids: number[], id: number) {
-  return ids.includes(id) ? ids.filter((item) => item !== id) : [...ids, id];
-}
-
-function SelectableRecord({
-  checked,
-  record,
-  title,
-  meta,
-  onToggle,
+function RecordPicker({
+  label,
+  emptyLabel,
+  searchPlaceholder,
+  records,
+  selectedIds,
+  onChange,
+  fallback,
+  getMeta,
 }: {
-  checked: boolean;
-  record: ShipmentRecord;
-  title: string;
-  meta: string;
-  onToggle: () => void;
+  label: string;
+  emptyLabel: string;
+  searchPlaceholder: string;
+  records: ShipmentRecord[];
+  selectedIds: number[];
+  onChange: (ids: number[]) => void;
+  fallback: string;
+  getMeta: (record: ShipmentRecord) => string;
 }) {
+  const [search, setSearch] = useState("");
+  const [nextRecordId, setNextRecordId] = useState("");
+  const selectedRecords = records.filter((record) => selectedIds.includes(record.id));
+  const availableRecords = records.filter((record) => !selectedIds.includes(record.id));
+  const query = search.trim().toLowerCase();
+  const filteredRecords = query
+    ? availableRecords.filter((record) =>
+        [recordTitle(record, fallback), getMeta(record), recordValue(record)]
+          .join(" ")
+          .toLowerCase()
+          .includes(query)
+      )
+    : availableRecords;
+
+  function addRecord() {
+    const id = Number(nextRecordId);
+    if (!id || selectedIds.includes(id)) {
+      return;
+    }
+
+    onChange([...selectedIds, id]);
+    setNextRecordId("");
+    setSearch("");
+  }
+
+  function removeRecord(id: number) {
+    onChange(selectedIds.filter((selectedId) => selectedId !== id));
+  }
+
   return (
-    <label
-      className={[
-        "flex cursor-pointer items-center gap-3 rounded-2xl border px-4 py-3 transition",
-        checked
-          ? "border-primary/35 bg-red-50 text-slate-950"
-          : "border-slate-200 bg-white hover:border-slate-300",
-      ].join(" ")}
-    >
-      <input
-        type="checkbox"
-        className="h-5 w-5 accent-primary"
-        checked={checked}
-        onChange={onToggle}
-      />
-      <span className="min-w-0 flex-1">
-        <span className="block truncate text-sm font-black text-slate-950">{title}</span>
-        <span className="mt-0.5 block truncate text-xs font-semibold text-slate-500">
-          {meta}
+    <div className="rounded-[28px] border border-slate-200 bg-slate-50 p-4">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <p className="soft-label">{label}</p>
+        <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-slate-600">
+          {selectedIds.length}
         </span>
-      </span>
-      <span className="text-right text-sm font-black text-slate-950">
-        <Money value={recordValue(record)} />
-      </span>
-    </label>
+      </div>
+
+      <div className="grid gap-3">
+        <input
+          className="field h-12 rounded-2xl text-sm"
+          placeholder={searchPlaceholder}
+          value={search}
+          onChange={(event) => {
+            setSearch(event.target.value);
+            setNextRecordId("");
+          }}
+        />
+        <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_120px]">
+          <select
+            className="field h-12 rounded-2xl text-sm"
+            value={nextRecordId}
+            onChange={(event) => setNextRecordId(event.target.value)}
+          >
+            <option value="">Choose {label.toLowerCase()}</option>
+            {filteredRecords.map((record) => (
+              <option key={record.id} value={record.id}>
+                {recordTitle(record, fallback)} · {getMeta(record)} · {record.transaction_currency ?? "KWD"}{" "}
+                {recordValue(record).toFixed(3)}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            className="btn-secondary h-12 px-4 text-sm"
+            disabled={!nextRecordId}
+            onClick={addRecord}
+          >
+            Add
+          </button>
+        </div>
+      </div>
+
+      <div className="mt-4 grid gap-2">
+        {selectedRecords.length ? (
+          selectedRecords.map((record) => (
+            <div
+              key={record.id}
+              className="grid gap-2 rounded-2xl bg-white px-4 py-3 text-sm sm:grid-cols-[minmax(0,1fr)_130px_auto] sm:items-center"
+            >
+              <span className="min-w-0">
+                <span className="block truncate font-black text-slate-950">
+                  {recordTitle(record, fallback)}
+                </span>
+                <span className="mt-0.5 block truncate text-xs font-semibold text-slate-500">
+                  {getMeta(record)}
+                </span>
+              </span>
+              <span className="font-black text-slate-950 sm:text-right">
+                <Money value={recordValue(record)} />
+              </span>
+              <button
+                type="button"
+                className="rounded-full border border-red-100 px-3 py-2 text-xs font-black text-red-600 transition hover:bg-red-50"
+                onClick={() => removeRecord(record.id)}
+              >
+                Remove
+              </button>
+            </div>
+          ))
+        ) : (
+          <p className="rounded-2xl bg-white px-4 py-5 text-sm font-semibold text-slate-500">
+            {emptyLabel}
+          </p>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -511,7 +595,7 @@ export default function ShipmentsPage() {
               <div>
                 <p className="soft-label">Step 2</p>
                 <h2 className="mt-2 text-2xl font-black text-slate-950">
-                  Tick records for this shipment
+                  Select records for this shipment
                 </h2>
                 <p className="mt-1 text-sm font-semibold text-slate-500">
                   Existing records can be linked here. This does not change invoice or purchase amounts.
@@ -527,92 +611,42 @@ export default function ShipmentsPage() {
             </div>
 
             <div className="mt-5 grid gap-4 xl:grid-cols-3">
-              <div className="rounded-[28px] border border-slate-200 bg-slate-50 p-4">
-                <div className="mb-3 flex items-center justify-between">
-                  <p className="soft-label">Purchases</p>
-                  <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-slate-600">
-                    {selectedPurchaseIds.length}
-                  </span>
-                </div>
-                <div className="grid max-h-[360px] gap-2 overflow-y-auto pr-1">
-                  {availablePurchases.length ? (
-                    availablePurchases.map((purchase) => (
-                      <SelectableRecord
-                        key={purchase.id}
-                        checked={selectedPurchaseIds.includes(purchase.id)}
-                        record={purchase}
-                        title={recordTitle(purchase, "Purchase")}
-                        meta={`${formatDate(purchase.date)} · ${purchase.transaction_currency ?? "KWD"}`}
-                        onToggle={() =>
-                          setSelectedPurchaseIds((current) => toggleId(current, purchase.id))
-                        }
-                      />
-                    ))
-                  ) : (
-                    <p className="rounded-2xl bg-white px-4 py-5 text-sm font-semibold text-slate-500">
-                      No unlinked purchases.
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              <div className="rounded-[28px] border border-slate-200 bg-slate-50 p-4">
-                <div className="mb-3 flex items-center justify-between">
-                  <p className="soft-label">Sales invoices</p>
-                  <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-slate-600">
-                    {selectedInvoiceIds.length}
-                  </span>
-                </div>
-                <div className="grid max-h-[360px] gap-2 overflow-y-auto pr-1">
-                  {availableInvoices.length ? (
-                    availableInvoices.map((invoice) => (
-                      <SelectableRecord
-                        key={invoice.id}
-                        checked={selectedInvoiceIds.includes(invoice.id)}
-                        record={invoice}
-                        title={recordTitle(invoice, "Invoice")}
-                        meta={`${formatDate(invoice.date)} · ${invoice.type ?? "sale"} · ${invoice.transaction_currency ?? "KWD"}`}
-                        onToggle={() =>
-                          setSelectedInvoiceIds((current) => toggleId(current, invoice.id))
-                        }
-                      />
-                    ))
-                  ) : (
-                    <p className="rounded-2xl bg-white px-4 py-5 text-sm font-semibold text-slate-500">
-                      No unlinked sales invoices.
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              <div className="rounded-[28px] border border-slate-200 bg-slate-50 p-4">
-                <div className="mb-3 flex items-center justify-between">
-                  <p className="soft-label">Expenses</p>
-                  <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-slate-600">
-                    {selectedExpenseIds.length}
-                  </span>
-                </div>
-                <div className="grid max-h-[360px] gap-2 overflow-y-auto pr-1">
-                  {availableExpenses.length ? (
-                    availableExpenses.map((expense) => (
-                      <SelectableRecord
-                        key={expense.id}
-                        checked={selectedExpenseIds.includes(expense.id)}
-                        record={expense}
-                        title={recordTitle(expense, "Expense")}
-                        meta={`${formatDate(expense.date)} · ${expense.category ?? "expense"}`}
-                        onToggle={() =>
-                          setSelectedExpenseIds((current) => toggleId(current, expense.id))
-                        }
-                      />
-                    ))
-                  ) : (
-                    <p className="rounded-2xl bg-white px-4 py-5 text-sm font-semibold text-slate-500">
-                      No unlinked expenses.
-                    </p>
-                  )}
-                </div>
-              </div>
+              <RecordPicker
+                label="Purchases"
+                emptyLabel="No purchases selected."
+                searchPlaceholder="Search purchase number, date, or amount"
+                records={availablePurchases}
+                selectedIds={selectedPurchaseIds}
+                onChange={setSelectedPurchaseIds}
+                fallback="Purchase"
+                getMeta={(purchase) =>
+                  `${formatDate(purchase.date)} · ${purchase.transaction_currency ?? "KWD"}`
+                }
+              />
+              <RecordPicker
+                label="Sales invoices"
+                emptyLabel="No sales invoices selected."
+                searchPlaceholder="Search invoice number, date, customer, or amount"
+                records={availableInvoices}
+                selectedIds={selectedInvoiceIds}
+                onChange={setSelectedInvoiceIds}
+                fallback="Invoice"
+                getMeta={(invoice) =>
+                  `${formatDate(invoice.date)} · ${invoice.type ?? "sale"} · ${
+                    invoice.transaction_currency ?? "KWD"
+                  }`
+                }
+              />
+              <RecordPicker
+                label="Expenses"
+                emptyLabel="No expenses selected."
+                searchPlaceholder="Search expense title, category, date, or amount"
+                records={availableExpenses}
+                selectedIds={selectedExpenseIds}
+                onChange={setSelectedExpenseIds}
+                fallback="Expense"
+                getMeta={(expense) => `${formatDate(expense.date)} · ${expense.category ?? "expense"}`}
+              />
             </div>
           </div>
 
@@ -705,7 +739,7 @@ export default function ShipmentsPage() {
                     ))
                   ) : (
                     <div className="rounded-2xl bg-slate-50 px-4 py-6 text-sm font-semibold text-slate-600">
-                      Nothing linked yet. Tick records above and save links.
+                      Nothing linked yet. Select records above and save links.
                     </div>
                   )}
                 </div>
