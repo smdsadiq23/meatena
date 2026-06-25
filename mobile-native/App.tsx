@@ -660,6 +660,7 @@ const emptyPurchaseForm = {
   pieces: '',
   weight: '',
   costPerKg: '',
+  exchangeRate: '',
   discountAmount: '',
   advancePaid: '',
 };
@@ -868,28 +869,55 @@ export default function App() {
     invoiceProfiles.find(profile => profile.is_default) ??
     invoiceProfiles[0] ??
     defaultInvoiceProfile;
-  const toBaseKwd = (value: number, selectedCurrency: TransactionCurrency) =>
-    selectedCurrency === 'USD' ? value / currencyRate : value;
+  const purchaseExchangeRate = Number(purchaseForm.exchangeRate || 0);
+  const purchaseEditExchangeRate = Number(purchaseEditForm.exchangeRate || 0);
+  const activePurchaseExchangeRate =
+    purchaseCurrency === 'USD' && Number.isFinite(purchaseExchangeRate) && purchaseExchangeRate > 0
+      ? purchaseExchangeRate
+      : 1;
+  const activePurchaseEditExchangeRate =
+    purchaseEditCurrency === 'USD' &&
+    Number.isFinite(purchaseEditExchangeRate) &&
+    purchaseEditExchangeRate > 0
+      ? purchaseEditExchangeRate
+      : 1;
+  const toBaseKwd = (value: number, selectedCurrency: TransactionCurrency, rate = currencyRate) =>
+    selectedCurrency === 'USD' ? value / rate : value;
   const displayUnitPrice = (value: number, selectedCurrency: TransactionCurrency) =>
     selectedCurrency === 'USD' ? value * currencyRate : value;
   const purchaseSubtotal =
     Number(purchaseForm.weight || 0) *
-    toBaseKwd(Number(purchaseForm.costPerKg || 0), purchaseCurrency);
+    toBaseKwd(Number(purchaseForm.costPerKg || 0), purchaseCurrency, activePurchaseExchangeRate);
   const enteredPurchaseDiscountAmount = Number(purchaseForm.discountAmount || 0);
   const purchaseDiscountAmount = Number.isFinite(enteredPurchaseDiscountAmount)
-    ? Math.max(toBaseKwd(enteredPurchaseDiscountAmount, purchaseCurrency), 0)
+    ? Math.max(toBaseKwd(enteredPurchaseDiscountAmount, purchaseCurrency, activePurchaseExchangeRate), 0)
     : Number.NaN;
   const purchaseNetTotal = Number.isFinite(purchaseDiscountAmount)
     ? Math.max(purchaseSubtotal - purchaseDiscountAmount, 0)
     : purchaseSubtotal;
-  const purchaseAdvancePaid = toBaseKwd(Number(purchaseForm.advancePaid || 0), purchaseCurrency);
+  const purchaseAdvancePaid = toBaseKwd(
+    Number(purchaseForm.advancePaid || 0),
+    purchaseCurrency,
+    activePurchaseExchangeRate,
+  );
   const purchaseBalanceDue = purchaseNetTotal - purchaseAdvancePaid;
   const editPurchaseSubtotal =
     Number(purchaseEditForm.weight || 0) *
-    toBaseKwd(Number(purchaseEditForm.costPerKg || 0), purchaseEditCurrency);
+    toBaseKwd(
+      Number(purchaseEditForm.costPerKg || 0),
+      purchaseEditCurrency,
+      activePurchaseEditExchangeRate,
+    );
   const enteredEditPurchaseDiscountAmount = Number(purchaseEditForm.discountAmount || 0);
   const editPurchaseDiscountAmount = Number.isFinite(enteredEditPurchaseDiscountAmount)
-    ? Math.max(toBaseKwd(enteredEditPurchaseDiscountAmount, purchaseEditCurrency), 0)
+    ? Math.max(
+        toBaseKwd(
+          enteredEditPurchaseDiscountAmount,
+          purchaseEditCurrency,
+          activePurchaseEditExchangeRate,
+        ),
+        0,
+      )
     : Number.NaN;
   const editPurchaseNetTotal = Number.isFinite(editPurchaseDiscountAmount)
     ? Math.max(editPurchaseSubtotal - editPurchaseDiscountAmount, 0)
@@ -897,6 +925,7 @@ export default function App() {
   const editPurchaseAdvancePaid = toBaseKwd(
     Number(purchaseEditForm.advancePaid || 0),
     purchaseEditCurrency,
+    activePurchaseEditExchangeRate,
   );
   const editPurchaseBalanceDue = editPurchaseNetTotal - editPurchaseAdvancePaid;
   const lineGrossAmount = (item: InvoiceItemForm) =>
@@ -1995,6 +2024,14 @@ export default function App() {
       return;
     }
 
+    if (
+      purchaseCurrency === 'USD' &&
+      (!Number.isFinite(purchaseExchangeRate) || purchaseExchangeRate <= 0)
+    ) {
+      setStatus('Enter the manual KWD to USD rate for this USD purchase.');
+      return;
+    }
+
     setBusy(true);
     setStatus('');
 
@@ -2007,7 +2044,7 @@ export default function App() {
           purchase_date: purchaseForm.purchaseDate.trim() || undefined,
           goods_received_date: purchaseForm.goodsReceivedDate.trim() || undefined,
           transaction_currency: purchaseCurrency,
-          exchange_rate: currencyRate,
+          exchange_rate: purchaseCurrency === 'USD' ? purchaseExchangeRate : 1,
           discount_amount: Number(purchaseForm.discountAmount || 0),
           advance_paid: Number(purchaseForm.advancePaid || 0),
           items: [
@@ -2059,6 +2096,7 @@ export default function App() {
         pieces: firstItem?.pieces ? String(firstItem.pieces) : '',
         weight: firstItem?.weight ? String(firstItem.weight) : '',
         costPerKg: displayCost ? displayCost.toFixed(3) : '',
+        exchangeRate: nextCurrency === 'USD' ? String(nextRate) : '',
         discountAmount: detail.discount_amount
           ? String(nextCurrency === 'USD' ? Number(detail.discount_amount) * nextRate : detail.discount_amount)
           : '',
@@ -2100,6 +2138,14 @@ export default function App() {
       return;
     }
 
+    if (
+      purchaseEditCurrency === 'USD' &&
+      (!Number.isFinite(purchaseEditExchangeRate) || purchaseEditExchangeRate <= 0)
+    ) {
+      setStatus('Enter the manual KWD to USD rate for this USD purchase.');
+      return;
+    }
+
     setBusy(true);
     setStatus('');
 
@@ -2112,7 +2158,7 @@ export default function App() {
           purchase_date: purchaseEditForm.purchaseDate.trim() || undefined,
           goods_received_date: purchaseEditForm.goodsReceivedDate.trim() || undefined,
           transaction_currency: purchaseEditCurrency,
-          exchange_rate: currencyRate,
+          exchange_rate: purchaseEditCurrency === 'USD' ? purchaseEditExchangeRate : 1,
           discount_amount: Number(purchaseEditForm.discountAmount || 0),
           advance_paid: Number(purchaseEditForm.advancePaid || 0),
           items: [
@@ -3287,13 +3333,27 @@ export default function App() {
         <View style={styles.twoCols}>
           <Pill label="KWD" active={purchaseCurrency === 'KWD'} onPress={() => {
             setPurchaseCurrency('KWD');
+            setPurchaseForm(current => ({ ...current, exchangeRate: '' }));
             setCurrentDisplayCurrency('KWD');
           }} />
           <Pill label="USD" active={purchaseCurrency === 'USD'} onPress={() => {
             setPurchaseCurrency('USD');
+            setPurchaseForm(current => ({
+              ...current,
+              exchangeRate: current.exchangeRate || String(currencyRate),
+            }));
             setCurrentDisplayCurrency('USD');
           }} />
         </View>
+        {purchaseCurrency === 'USD' ? (
+          <TextInput
+            style={styles.input}
+            value={purchaseForm.exchangeRate}
+            onChangeText={value => setPurchaseForm(current => ({ ...current, exchangeRate: value }))}
+            placeholder="Manual KWD to USD rate"
+            keyboardType="decimal-pad"
+          />
+        ) : null}
         <TextInput
           style={styles.input}
           value={purchaseForm.invoiceNo}
@@ -3377,13 +3437,29 @@ export default function App() {
                 <View style={styles.twoCols}>
                   <Pill label="KWD" active={purchaseEditCurrency === 'KWD'} onPress={() => {
                     setPurchaseEditCurrency('KWD');
+                    setPurchaseEditForm(current => ({ ...current, exchangeRate: '' }));
                     setCurrentDisplayCurrency('KWD');
                   }} />
                   <Pill label="USD" active={purchaseEditCurrency === 'USD'} onPress={() => {
                     setPurchaseEditCurrency('USD');
+                    setPurchaseEditForm(current => ({
+                      ...current,
+                      exchangeRate: current.exchangeRate || String(currencyRate),
+                    }));
                     setCurrentDisplayCurrency('USD');
                   }} />
                 </View>
+                {purchaseEditCurrency === 'USD' ? (
+                  <TextInput
+                    style={styles.input}
+                    value={purchaseEditForm.exchangeRate}
+                    onChangeText={value =>
+                      setPurchaseEditForm(current => ({ ...current, exchangeRate: value }))
+                    }
+                    placeholder="Manual KWD to USD rate"
+                    keyboardType="decimal-pad"
+                  />
+                ) : null}
                 <TextInput
                   style={styles.input}
                   value={purchaseEditForm.invoiceNo}
