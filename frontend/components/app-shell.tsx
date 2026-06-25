@@ -19,45 +19,50 @@ import { ARABIC_LABELS, type Language, translate } from "../lib/i18n";
 
 const baseNavGroups = [
   {
-    label: "Overview",
+    label: "Today",
     roles: ["admin"],
-    items: [{ href: "/dashboard", label: "Dashboard" }],
+    purpose: "Daily control room",
+    items: [{ href: "/dashboard", label: "Daily Dashboard", hint: "Sales, cash, stock alerts" }],
   },
   {
-    label: "Front Counter",
+    label: "Sell",
     roles: ["admin", "staff"],
+    purpose: "Customer billing",
     items: [
-      { href: "/invoice", label: "POS Billing" },
-      { href: "/invoices", label: "Invoice History" },
-      { href: "/customers", label: "Customers" },
+      { href: "/invoice", label: "Create Invoice", hint: "Counter billing" },
+      { href: "/payment", label: "Collect Payment", hint: "Cash, KNET, card links" },
+      { href: "/invoices", label: "Invoice History", hint: "PDFs and receipts" },
     ],
   },
   {
-    label: "Stock & Buying",
+    label: "Buy & Stock",
     roles: ["admin", "staff"],
+    purpose: "Purchases and stock",
     items: [
-      { href: "/inventory", label: "Stock Lookup" },
-      { href: "/purchases", label: "Purchase Entry", roles: ["admin"] },
-      { href: "/suppliers", label: "Suppliers", roles: ["admin"] },
+      { href: "/purchases", label: "Receive Purchase", hint: "Supplier bill, stock inward", roles: ["admin"] },
+      { href: "/inventory", label: "Stock Control", hint: "Pieces, kg, price, movements" },
+      { href: "/expenses", label: "Shipment Expenses", hint: "Landing and operating costs", roles: ["admin"] },
     ],
   },
   {
-    label: "Finance",
+    label: "People & Money",
     roles: ["admin", "staff"],
+    purpose: "Ledgers and balances",
     items: [
-      { href: "/payment", label: "Collections" },
-      { href: "/shift-close", label: "Shift Close" },
-      { href: "/knet", label: "KNET Reconcile", roles: ["admin"] },
-      { href: "/statement", label: "Customer Ledger" },
-      { href: "/expenses", label: "Expenses", roles: ["admin"] },
+      { href: "/customers", label: "Customers", hint: "Credit and statements" },
+      { href: "/suppliers", label: "Suppliers", hint: "Payables and advances", roles: ["admin"] },
+      { href: "/statement", label: "Customer Ledger", hint: "Balances and PDF" },
+      { href: "/shift-close", label: "Shift Close", hint: "End of day cash check" },
     ],
   },
   {
     label: "Reports",
     roles: ["admin"],
+    purpose: "Owner view",
     items: [
-      { href: "/reports", label: "Business Reports" },
-      { href: "/activity", label: "Staff Activity" },
+      { href: "/reports", label: "Business Reports", hint: "Profit, shipments, history" },
+      { href: "/knet", label: "Payment Reconcile", hint: "KNET status", roles: ["admin"] },
+      { href: "/activity", label: "Staff Activity", hint: "Audit trail" },
     ],
   },
 ] satisfies NavGroup[];
@@ -65,11 +70,13 @@ const baseNavGroups = [
 type NavItem = {
   href: string;
   label: string;
+  hint?: string;
   roles?: UserRole[];
 };
 
 type NavGroup = {
   label: string;
+  purpose?: string;
   roles?: UserRole[];
   items: NavItem[];
 };
@@ -394,10 +401,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         ...baseNavGroups,
         {
           label: "Admin",
+          purpose: "Setup",
           roles: ["admin"],
           items: [
-            { href: "/system", label: "System Readiness" },
-            { href: "/users", label: "Users & Roles" },
+            { href: "/system", label: "System Readiness", hint: "Backend, KNET, settings" },
+            { href: "/users", label: "Users & Roles", hint: "Staff access" },
           ],
         },
       ]);
@@ -420,8 +428,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen lg:flex">
-      <aside className="border-b border-white/10 bg-[linear-gradient(180deg,#191919_0%,#111111_68%,#2b1113_100%)] px-5 py-6 text-white lg:sticky lg:top-0 lg:h-screen lg:w-76 lg:overflow-y-auto lg:border-b-0 lg:border-r">
-        <Link href="/dashboard" className="mb-5 block">
+      <aside className="border-b border-white/10 bg-[linear-gradient(180deg,#191919_0%,#111111_68%,#2b1113_100%)] px-4 py-5 text-white lg:sticky lg:top-0 lg:h-screen lg:w-82 lg:overflow-y-auto lg:border-b-0 lg:border-r">
+        <Link href="/dashboard" className="mb-4 block">
           <div className="rounded-2xl border border-white/10 bg-black/20 p-3">
             <Image
               src="/logo.png"
@@ -432,19 +440,21 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               priority
             />
             <p className="mt-2 text-xs font-semibold uppercase tracking-[0.14em] text-white/50">
-              {t("Butchery Operations")}
+              {t("ERP command center")}
             </p>
           </div>
         </Link>
 
-        <div className="mb-4 rounded-xl border border-white/10 bg-white/6 p-3">
-          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-white/45">
-            {t("Logged In")}
-          </p>
-          <p className="mt-1.5 text-base font-semibold">{authUser?.username ?? "Unknown user"}</p>
-          <p className="mt-1 text-xs uppercase tracking-[0.16em] text-white/65">
+        <div className="mb-3 grid grid-cols-[1fr_auto] gap-2 rounded-xl border border-white/10 bg-white/6 p-3">
+          <div>
+            <p className="text-[0.65rem] font-semibold uppercase tracking-[0.22em] text-white/45">
+              {t("Logged In")}
+            </p>
+            <p className="mt-1 text-base font-semibold">{authUser?.username ?? "Unknown user"}</p>
+          </div>
+          <div className="self-start rounded-full border border-primary/40 bg-primary/15 px-3 py-1 text-xs font-black uppercase tracking-[0.12em] text-white">
             {authUser?.role ?? "staff"}
-          </p>
+          </div>
         </div>
 
         <BackendHealthStatus language={language} />
@@ -457,13 +467,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           {language === "en" ? "عربي" : "EN"}
         </button>
 
-        <nav className="space-y-3">
+        <nav className="space-y-2.5">
           {navGroups.map((group) => (
             <div key={group.label}>
-              <p className="mb-1.5 px-3 text-[0.64rem] font-bold uppercase tracking-[0.16em] text-white/38">
-                {t(group.label)}
-              </p>
-              <div className="space-y-0.5">
+              <div className="mb-1.5 flex items-end justify-between gap-3 px-2">
+                <p className="text-[0.64rem] font-black uppercase tracking-[0.18em] text-white/45">
+                  {t(group.label)}
+                </p>
+                {group.purpose ? (
+                  <p className="truncate text-[0.64rem] font-semibold text-white/30">
+                    {t(group.purpose)}
+                  </p>
+                ) : null}
+              </div>
+              <div className="grid gap-1">
                 {group.items.map((item) => {
                   const isActive =
                     pathname === item.href ||
@@ -475,13 +492,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                       href={item.href}
                       aria-current={isActive ? "page" : undefined}
                       className={[
-                        "block rounded-lg border px-3 py-2 text-sm font-semibold transition",
+                        "block rounded-xl border px-3 py-2.5 transition",
                         isActive
-                          ? "border-primary/45 bg-primary/18 text-white shadow-sm"
-                          : "border-transparent text-white/72 hover:bg-white/8 hover:text-white",
+                          ? "border-primary/55 bg-primary/20 text-white shadow-sm"
+                          : "border-white/5 bg-white/[0.03] text-white/78 hover:bg-white/8 hover:text-white",
                       ].join(" ")}
                     >
-                      {t(item.label)}
+                      <span className="block text-sm font-black">{t(item.label)}</span>
+                      {item.hint ? (
+                        <span className="mt-0.5 block truncate text-[0.68rem] font-semibold text-white/42">
+                          {t(item.hint)}
+                        </span>
+                      ) : null}
                     </Link>
                   );
                 })}

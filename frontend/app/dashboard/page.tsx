@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { fetchJson } from "../../lib/auth";
 import { Money } from "../../lib/currency";
 import { useLanguage } from "../../lib/use-language";
@@ -83,21 +84,93 @@ export default function Dashboard() {
     },
   ];
 
+  const workflowCards = [
+    {
+      title: t("Sell to customer"),
+      description: t("Create invoice, choose customer, enter pieces, kg, price, and discount."),
+      href: "/invoice",
+      action: t("Create Invoice"),
+      tone: "bg-red-600 text-white",
+    },
+    {
+      title: t("Receive shipment"),
+      description: t("Record supplier purchase, shipment, dates, advance, and update stock."),
+      href: "/purchases",
+      action: t("Receive Purchase"),
+      tone: "bg-slate-950 text-white",
+    },
+    {
+      title: t("Collect money"),
+      description: t("Take cash, KNET, card link, or apply payment against selected invoices."),
+      href: "/payment",
+      action: t("Open Collections"),
+      tone: "bg-emerald-600 text-white",
+    },
+    {
+      title: t("Check profit"),
+      description: t("Review daily, historic, and shipment-wise purchase, sales, expense, and profit."),
+      href: "/reports",
+      action: t("View Reports"),
+      tone: "bg-amber-500 text-slate-950",
+    },
+  ];
+
   return (
     <div className="space-y-6">
-      <div className="panel p-8">
-        <p className="soft-label">{t("Business Snapshot")}</p>
-        <h1 className="mt-3 text-3xl font-black tracking-tight text-slate-950">
-          {t("Meatena dashboard")}
-        </h1>
-        <p className="mt-2 max-w-2xl text-base leading-7 text-slate-600">
-          {t("Watch daily sales and collections without leaving the admin panel.")}
-        </p>
+      <div className="panel overflow-hidden p-0">
+        <div className="grid gap-0 lg:grid-cols-[1.1fr_0.9fr]">
+          <div className="p-6 md:p-8">
+            <p className="soft-label">{t("Today")}</p>
+            <h1 className="mt-3 text-3xl font-black tracking-tight text-slate-950 md:text-4xl">
+              {t("Run the meat business from one screen")}
+            </h1>
+            <p className="mt-3 max-w-2xl text-base leading-7 text-slate-600">
+              {t("Start with the job you need: sell, receive stock, collect money, or check profit.")}
+            </p>
+          </div>
+          <div className="border-t border-slate-100 bg-slate-50 p-6 md:p-8 lg:border-l lg:border-t-0">
+            <p className="soft-label">{t("Simple workflow")}</p>
+            <div className="mt-4 grid gap-2 text-sm font-bold text-slate-700">
+              {[
+                t("Purchase stock"),
+                t("Stock updated"),
+                t("Customer billing"),
+                t("Payment collected"),
+                t("Profit reported"),
+              ].map((step, index) => (
+                <div key={step} className="flex items-center gap-3 rounded-2xl bg-white px-4 py-3">
+                  <span className="grid h-8 w-8 place-items-center rounded-full bg-slate-950 text-xs font-black text-white">
+                    {index + 1}
+                  </span>
+                  <span>{step}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
         {status ? (
-          <div className="mt-4 rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+          <div className="mx-6 mb-6 rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-medium text-red-700 md:mx-8">
             {status}
           </div>
         ) : null}
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        {workflowCards.map((card) => (
+          <Link
+            key={card.href}
+            href={card.href}
+            className="panel block p-5 transition hover:-translate-y-0.5 hover:shadow-xl"
+          >
+            <div className={`mb-5 inline-flex rounded-2xl px-4 py-2 text-sm font-black ${card.tone}`}>
+              {card.action}
+            </div>
+            <h2 className="text-xl font-black text-slate-950">{card.title}</h2>
+            <p className="mt-2 min-h-16 text-sm font-medium leading-6 text-slate-600">
+              {card.description}
+            </p>
+          </Link>
+        ))}
       </div>
 
       <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
@@ -206,21 +279,21 @@ export default function Dashboard() {
 
       <div className="grid gap-5 xl:grid-cols-[1.2fr_0.8fr]">
         <div className="panel p-8">
-          <p className="soft-label">{t("Performance Note")}</p>
+          <p className="soft-label">{t("Operator note")}</p>
           <p className="mt-4 text-2xl font-bold text-slate-950">
-            {t("Keep billing moving during rush hours.")}
+            {t("Use the shortest path for daily work.")}
           </p>
           <p className="mt-3 text-base leading-7 text-slate-600">
-            {t("Use the billing page for fast multi-item entry, then jump to payments or statements directly from the sidebar when customers need updates.")}
+            {t("Counter staff should mostly use Create Invoice, Collect Payment, Invoice History, Stock Control, and Shift Close. Admin can use Buy & Stock and Reports for owner-level control.")}
           </p>
         </div>
 
         <div className="panel p-8">
-          <p className="soft-label">{t("Focus")}</p>
+          <p className="soft-label">{t("Owner focus")}</p>
           <ul className="mt-4 space-y-4 text-sm leading-6 text-slate-700">
-            <li>{t("Track today's sales before closing shift.")}</li>
-            <li>{t("Follow outstanding balances before issuing fresh credit.")}</li>
-            <li>{t("Review invoice count to measure counter workload.")}</li>
+            <li>{t("Shipment profit should explain purchase, sales, expenses, and remaining stock.")}</li>
+            <li>{t("Customer and supplier ledgers should always match invoices and payments.")}</li>
+            <li>{t("Corrections should be traceable instead of silent deletion.")}</li>
           </ul>
         </div>
       </div>
