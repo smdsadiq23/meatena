@@ -80,6 +80,8 @@ type Supplier = {
   mobile?: string | null;
   address?: string | null;
   balance?: number | string;
+  balance_kwd?: number | string;
+  balance_usd?: number | string;
 };
 
 type SupplierStatementRow = {
@@ -670,7 +672,14 @@ const emptyUserForm = { username: '', password: '', role: 'staff' as Role };
 const emptyStockForm = { type: 'wastage' as 'wastage' | 'adjustment', quantity: '', note: '' };
 const emptyCustomerForm = { name: '', mobile: '', address: '', creditLimit: '' };
 const emptyProductForm = { name: '', sku: '', price: '', lowStockKg: '' };
-const emptySupplierPaymentForm = { amount: '', mode: 'cash', referenceNo: '', note: '' };
+const emptySupplierPaymentForm = {
+  amount: '',
+  currency: 'KWD' as TransactionCurrency,
+  exchangeRate: '',
+  mode: 'cash',
+  referenceNo: '',
+  note: '',
+};
 const emptyReverseForm = { paymentId: '', reason: '' };
 const emptyVoidForm = { invoiceId: '', reason: '' };
 const noEdit = 0;
@@ -1980,6 +1989,14 @@ export default function App() {
       return;
     }
 
+    if (
+      supplierPaymentForm.currency === 'USD' &&
+      (!Number(supplierPaymentForm.exchangeRate) || Number(supplierPaymentForm.exchangeRate) <= 0)
+    ) {
+      setStatus('Enter the manual KWD to USD rate for this USD supplier payment.');
+      return;
+    }
+
     setBusy(true);
     setStatus('');
 
@@ -1989,6 +2006,11 @@ export default function App() {
         body: JSON.stringify({
           supplier_id: selectedSupplierId,
           amount: Number(supplierPaymentForm.amount),
+          transaction_currency: supplierPaymentForm.currency,
+          exchange_rate:
+            supplierPaymentForm.currency === 'USD'
+              ? Number(supplierPaymentForm.exchangeRate)
+              : 1,
           mode: supplierPaymentForm.mode,
           reference_no: supplierPaymentForm.referenceNo.trim() || undefined,
           note: supplierPaymentForm.note.trim() || undefined,
@@ -3570,11 +3592,46 @@ export default function App() {
         <PrimaryButton title="Add Supplier" onPress={createSupplier} disabled={busy} />
         <Text style={styles.subhead}>Supplier payment</Text>
         <SupplierPicker suppliers={suppliers} value={selectedSupplierId} onChange={setSelectedSupplierId} />
+        <View style={styles.twoCols}>
+          <Pill
+            label="KWD"
+            active={supplierPaymentForm.currency === 'KWD'}
+            onPress={() =>
+              setSupplierPaymentForm(current => ({
+                ...current,
+                currency: 'KWD',
+                exchangeRate: '',
+              }))
+            }
+          />
+          <Pill
+            label="USD"
+            active={supplierPaymentForm.currency === 'USD'}
+            onPress={() =>
+              setSupplierPaymentForm(current => ({
+                ...current,
+                currency: 'USD',
+                exchangeRate: current.exchangeRate || String(currencyRate),
+              }))
+            }
+          />
+        </View>
+        {supplierPaymentForm.currency === 'USD' ? (
+          <TextInput
+            style={styles.input}
+            value={supplierPaymentForm.exchangeRate}
+            onChangeText={value =>
+              setSupplierPaymentForm(current => ({ ...current, exchangeRate: value }))
+            }
+            placeholder="Manual KWD to USD rate"
+            keyboardType="decimal-pad"
+          />
+        ) : null}
         <TextInput
           style={styles.input}
           value={supplierPaymentForm.amount}
           onChangeText={value => setSupplierPaymentForm(current => ({ ...current, amount: value }))}
-          placeholder="Payment amount"
+          placeholder={`Payment / advance amount ${supplierPaymentForm.currency}`}
           keyboardType="decimal-pad"
         />
         <View style={styles.twoCols}>
@@ -3606,7 +3663,9 @@ export default function App() {
             <Row
               title={supplier.name}
               subtitle={`${supplier.mobile || 'No mobile'} | ${supplier.address || 'No address'}`}
-              right={supplier.balance !== undefined ? currency(supplier.balance) : undefined}
+              right={`KWD ${money(supplier.balance_kwd ?? supplier.balance)} | USD ${Number(
+                supplier.balance_usd ?? 0,
+              ).toFixed(2)}`}
               onPress={() => setSelectedSupplierId(supplier.id)}
             />
             {editingSupplierId === supplier.id ? (

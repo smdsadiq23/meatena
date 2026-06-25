@@ -119,6 +119,25 @@ export class PurchaseService implements OnModuleInit {
     };
   }
 
+  private getSupplierBalanceDelta(
+    balanceDue: number | string | undefined,
+    currency: 'KWD' | 'USD' | undefined,
+    exchangeRate: number | string | undefined,
+  ) {
+    const amount = Number(balanceDue ?? 0);
+    if ((currency ?? 'KWD') === 'USD') {
+      return {
+        kwd: 0,
+        usd: roundMoney(amount * Number(exchangeRate ?? 1)),
+      };
+    }
+
+    return {
+      kwd: roundMoney(amount),
+      usd: 0,
+    };
+  }
+
   create(data: CreatePurchaseDto) {
     const transactionCurrency = data.transaction_currency ?? 'KWD';
     if (transactionCurrency === 'USD' && data.exchange_rate === undefined) {
@@ -212,7 +231,14 @@ export class PurchaseService implements OnModuleInit {
         );
       }
 
-      supplier.balance = roundMoney(Number(supplier.balance) + totals.balance_due);
+      const delta = this.getSupplierBalanceDelta(
+        totals.balance_due,
+        transactionCurrency,
+        exchangeRate,
+      );
+      supplier.balance_kwd = roundMoney(Number(supplier.balance_kwd ?? supplier.balance ?? 0) + delta.kwd);
+      supplier.balance_usd = roundMoney(Number(supplier.balance_usd ?? 0) + delta.usd);
+      supplier.balance = supplier.balance_kwd;
       await manager.getRepository(Supplier).save(supplier);
 
       return {
@@ -350,18 +376,37 @@ export class PurchaseService implements OnModuleInit {
         );
       }
 
+      const oldDelta = this.getSupplierBalanceDelta(
+        purchase.balance_due ?? purchase.total,
+        purchase.transaction_currency,
+        purchase.exchange_rate,
+      );
+      const nextDelta = this.getSupplierBalanceDelta(
+        totals.balance_due,
+        transactionCurrency,
+        exchangeRate,
+      );
+
       if (oldSupplier.id === nextSupplier.id) {
-        oldSupplier.balance = roundMoney(
-          Number(oldSupplier.balance) -
-            Number(purchase.balance_due ?? purchase.total) +
-            totals.balance_due,
+        oldSupplier.balance_kwd = roundMoney(
+          Number(oldSupplier.balance_kwd ?? oldSupplier.balance ?? 0) - oldDelta.kwd + nextDelta.kwd,
         );
+        oldSupplier.balance_usd = roundMoney(
+          Number(oldSupplier.balance_usd ?? 0) - oldDelta.usd + nextDelta.usd,
+        );
+        oldSupplier.balance = oldSupplier.balance_kwd;
         await supplierRepo.save(oldSupplier);
       } else {
-        oldSupplier.balance = roundMoney(
-          Number(oldSupplier.balance) - Number(purchase.balance_due ?? purchase.total),
+        oldSupplier.balance_kwd = roundMoney(
+          Number(oldSupplier.balance_kwd ?? oldSupplier.balance ?? 0) - oldDelta.kwd,
         );
-        nextSupplier.balance = roundMoney(Number(nextSupplier.balance) + totals.balance_due);
+        oldSupplier.balance_usd = roundMoney(Number(oldSupplier.balance_usd ?? 0) - oldDelta.usd);
+        oldSupplier.balance = oldSupplier.balance_kwd;
+        nextSupplier.balance_kwd = roundMoney(
+          Number(nextSupplier.balance_kwd ?? nextSupplier.balance ?? 0) + nextDelta.kwd,
+        );
+        nextSupplier.balance_usd = roundMoney(Number(nextSupplier.balance_usd ?? 0) + nextDelta.usd);
+        nextSupplier.balance = nextSupplier.balance_kwd;
         await supplierRepo.save([oldSupplier, nextSupplier]);
       }
 

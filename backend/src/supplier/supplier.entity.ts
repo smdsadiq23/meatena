@@ -16,4 +16,10 @@ export class Supplier {
 
   @Column('decimal', { precision: 12, scale: 3, default: 0 })
   balance: number;
+
+  @Column('decimal', { precision: 12, scale: 3, default: 0 })
+  balance_kwd: number;
+
+  @Column('decimal', { precision: 12, scale: 3, default: 0 })
+  balance_usd: number;
 }

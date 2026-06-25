@@ -11,6 +11,12 @@ type SupplierStatementTotals = {
   charges: number;
   payments: number;
   closing_balance: number;
+  charges_kwd?: number;
+  payments_kwd?: number;
+  closing_balance_kwd?: number;
+  charges_usd?: number;
+  payments_usd?: number;
+  closing_balance_usd?: number;
 };
 
 function normalizeCurrency(value?: string): StatementCurrency {
@@ -25,15 +31,18 @@ export function generateSupplierStatementPDF(
   kwdToUsdRate?: number,
   selectedCurrency?: string,
 ) {
-  const ledgerRows: PartnerLedgerRow[] = rows.map((row) => ({
-    date: row.date,
-    description: row.description || (row.type === 'purchase' ? 'Purchase' : 'Payment'),
-    ref: row.reference,
-    weight: row.weight,
-    debit: Number(row.charge ?? 0),
-    credit: Number(row.payment ?? 0),
-    balance: Number(row.balance),
-  }));
+  const currency = normalizeCurrency(selectedCurrency);
+  const ledgerRows: PartnerLedgerRow[] = rows
+    .filter((row) => row.transaction_currency === currency)
+    .map((row) => ({
+      date: row.date,
+      description: row.description || (row.type === 'purchase' ? 'Purchase' : 'Payment'),
+      ref: row.reference,
+      weight: row.weight,
+      debit: currency === 'USD' ? Number(row.charge_usd ?? 0) : Number(row.charge_kwd ?? 0),
+      credit: currency === 'USD' ? Number(row.payment_usd ?? 0) : Number(row.payment_kwd ?? 0),
+      balance: currency === 'USD' ? Number(row.balance_usd ?? 0) : Number(row.balance_kwd ?? 0),
+    }));
 
   const dates = rows.map((row) => row.date).sort();
   generatePartnerLedgerPDF(
@@ -45,8 +54,8 @@ export function generateSupplierStatementPDF(
       startDate: dates[0],
       endDate: dates.at(-1),
       rows: ledgerRows,
-      currency: normalizeCurrency(selectedCurrency),
-      kwdToUsdRate,
+      currency,
+      kwdToUsdRate: currency === 'USD' ? 1 : kwdToUsdRate,
       footerText: 'javedmeatsupply@gmail.com',
     },
     res,

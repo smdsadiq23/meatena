@@ -19,6 +19,17 @@ export class CreateSupplierPaymentDto {
   @Min(0.001)
   amount: number;
 
+  @ApiProperty({ example: 'KWD', enum: ['KWD', 'USD'], required: false })
+  @IsOptional()
+  @IsIn(['KWD', 'USD'])
+  transaction_currency?: 'KWD' | 'USD';
+
+  @ApiProperty({ example: 3.25, required: false })
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 6 })
+  @Min(0.000001)
+  exchange_rate?: number;
+
   @ApiProperty({ example: 'cash', enum: ['cash', 'bank', 'knet', 'other'] })
   @IsIn(['cash', 'bank', 'knet', 'other'])
   mode: 'cash' | 'bank' | 'knet' | 'other';

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { downloadAuthenticatedFile, fetchJson, fetchJsonOrThrow } from "../../lib/auth";
-import { formatDualCurrency, Money, useDisplayCurrency } from "../../lib/currency";
+import { useDisplayCurrency } from "../../lib/currency";
 
 type Supplier = {
   id: number;
@@ -10,12 +10,16 @@ type Supplier = {
   mobile?: string;
   address?: string;
   balance: number;
+  balance_kwd?: number;
+  balance_usd?: number;
 };
 
 type SupplierPayment = {
   id: number;
   supplier_id: number;
   amount: number;
+  transaction_currency?: "KWD" | "USD";
+  exchange_rate?: number | string;
   mode: string;
   reference_no?: string | null;
   note?: string | null;
@@ -41,6 +45,12 @@ type SupplierStatementRow = {
   charge: number;
   payment: number;
   balance: number;
+  charge_kwd: number;
+  payment_kwd: number;
+  balance_kwd: number;
+  charge_usd: number;
+  payment_usd: number;
+  balance_usd: number;
 };
 
 type SupplierStatement = {
@@ -51,6 +61,12 @@ type SupplierStatement = {
     payments: number;
     discounts: number;
     closing_balance: number;
+    charges_kwd?: number;
+    payments_kwd?: number;
+    closing_balance_kwd?: number;
+    charges_usd?: number;
+    payments_usd?: number;
+    closing_balance_usd?: number;
   };
 };
 
@@ -58,10 +74,16 @@ const emptySupplier = { name: "", mobile: "", address: "" };
 const emptyPayment = {
   supplier_id: "",
   amount: "",
+  transaction_currency: "KWD" as "KWD" | "USD",
+  exchange_rate: "",
   mode: "cash",
   reference_no: "",
   note: "",
 };
+
+function formatSupplierMoney(value: number | string | undefined | null, currency: "KWD" | "USD") {
+  return `${currency} ${Number(value ?? 0).toFixed(currency === "KWD" ? 3 : 2)}`;
+}
 
 function formatDate(value?: string | null) {
   if (!value) {
@@ -137,7 +159,10 @@ export default function SuppliersPage() {
   );
 
   const totalSupplierBalance = useMemo(
-    () => suppliers.reduce((sum, supplier) => sum + Number(supplier.balance ?? 0), 0),
+    () => ({
+      kwd: suppliers.reduce((sum, supplier) => sum + Number(supplier.balance_kwd ?? supplier.balance ?? 0), 0),
+      usd: suppliers.reduce((sum, supplier) => sum + Number(supplier.balance_usd ?? 0), 0),
+    }),
     [suppliers]
   );
 
@@ -175,6 +200,15 @@ export default function SuppliersPage() {
       return;
     }
 
+    if (
+      paymentForm.transaction_currency === "USD" &&
+      (!Number(paymentForm.exchange_rate) || Number(paymentForm.exchange_rate) <= 0)
+    ) {
+      setStatusType("error");
+      setStatus("Enter the manual KWD to USD rate for this USD supplier payment.");
+      return;
+    }
+
     setLoading(true);
     setStatus("");
 
@@ -184,6 +218,9 @@ export default function SuppliersPage() {
         body: JSON.stringify({
           supplier_id: Number(paymentForm.supplier_id),
           amount: Number(paymentForm.amount),
+          transaction_currency: paymentForm.transaction_currency,
+          exchange_rate:
+            paymentForm.transaction_currency === "USD" ? Number(paymentForm.exchange_rate) : 1,
           mode: paymentForm.mode,
           reference_no: paymentForm.reference_no || undefined,
           note: paymentForm.note || undefined,
@@ -277,9 +314,14 @@ export default function SuppliersPage() {
           </div>
           <div className="rounded-2xl bg-red-50 p-4">
             <p className="soft-label">Payable Balance</p>
-            <p className="mt-2 text-2xl font-black text-red-700">
-              <Money value={totalSupplierBalance} />
-            </p>
+            <div className="mt-2 space-y-1">
+              <p className="text-2xl font-black text-red-700">
+                {formatSupplierMoney(totalSupplierBalance.kwd, "KWD")}
+              </p>
+              <p className="text-xl font-black text-red-500">
+                {formatSupplierMoney(totalSupplierBalance.usd, "USD")}
+              </p>
+            </div>
           </div>
         </div>
       </div>
@@ -332,9 +374,14 @@ export default function SuppliersPage() {
                   </div>
                   <div className="lg:text-right">
                     <p className="soft-label lg:hidden">Balance</p>
-                    <p className="text-xl font-black text-red-600">
-                      <Money value={supplier.balance ?? 0} />
-                    </p>
+                    <div className="space-y-1">
+                      <p className="text-xl font-black text-red-600">
+                        {formatSupplierMoney(supplier.balance_kwd ?? supplier.balance ?? 0, "KWD")}
+                      </p>
+                      <p className="text-sm font-black text-red-400">
+                        {formatSupplierMoney(supplier.balance_usd ?? 0, "USD")}
+                      </p>
+                    </div>
                   </div>
                   <div className="flex flex-wrap gap-2 lg:justify-end">
                     <button
@@ -418,10 +465,44 @@ export default function SuppliersPage() {
                 <option value="">Select supplier</option>
                 {suppliers.map((supplier) => (
                   <option key={supplier.id} value={supplier.id}>
-                    {supplier.name} ({formatDualCurrency(supplier.balance ?? 0)})
+                    {supplier.name} (
+                    {formatSupplierMoney(supplier.balance_kwd ?? supplier.balance ?? 0, "KWD")} /{" "}
+                    {formatSupplierMoney(supplier.balance_usd ?? 0, "USD")})
                   </option>
                 ))}
               </select>
+              <div className="flex flex-wrap gap-2">
+                {(["KWD", "USD"] as const).map((currency) => (
+                  <button
+                    key={currency}
+                    type="button"
+                    className={
+                      paymentForm.transaction_currency === currency
+                        ? "btn-primary px-5"
+                        : "btn-secondary px-5"
+                    }
+                    onClick={() =>
+                      setPaymentForm((current) => ({
+                        ...current,
+                        transaction_currency: currency,
+                        exchange_rate: currency === "USD" ? current.exchange_rate || "3.250" : "",
+                      }))
+                    }
+                  >
+                    {currency}
+                  </button>
+                ))}
+              </div>
+              {paymentForm.transaction_currency === "USD" ? (
+                <input
+                  className="field"
+                  placeholder="Manual KWD to USD rate"
+                  value={paymentForm.exchange_rate}
+                  onChange={(e) =>
+                    setPaymentForm((current) => ({ ...current, exchange_rate: e.target.value }))
+                  }
+                />
+              ) : null}
               <div className="grid gap-3 sm:grid-cols-2">
                 <input
                   className="field"
@@ -485,7 +566,10 @@ export default function SuppliersPage() {
                       </p>
                     </div>
                     <p className="shrink-0 font-black text-emerald-700">
-                      <Money value={payment.amount} />
+                      {formatSupplierMoney(
+                        payment.amount,
+                        payment.transaction_currency === "USD" ? "USD" : "KWD",
+                      )}
                     </p>
                   </div>
                   <p className="mt-2 text-xs text-slate-500">{new Date(payment.date).toLocaleString()}</p>
@@ -542,25 +626,34 @@ export default function SuppliersPage() {
               <div className="rounded-2xl bg-slate-50 p-4">
                 <p className="soft-label">Purchased / Debit</p>
                 <p className="mt-2 text-lg font-black text-slate-950">
-                  <Money value={statement.totals.charges} />
+                  {formatSupplierMoney(statement.totals.charges_kwd ?? 0, "KWD")}
+                  <span className="mt-1 block text-sm text-slate-500">
+                    {formatSupplierMoney(statement.totals.charges_usd ?? 0, "USD")}
+                  </span>
                 </p>
               </div>
               <div className="rounded-2xl bg-emerald-50 p-4">
                 <p className="soft-label">Advance / Credit</p>
                 <p className="mt-2 text-lg font-black text-emerald-700">
-                  <Money value={statement.totals.payments} />
+                  {formatSupplierMoney(statement.totals.payments_kwd ?? 0, "KWD")}
+                  <span className="mt-1 block text-sm text-emerald-500">
+                    {formatSupplierMoney(statement.totals.payments_usd ?? 0, "USD")}
+                  </span>
                 </p>
               </div>
               <div className="rounded-2xl bg-amber-50 p-4">
                 <p className="soft-label">Discounts</p>
                 <p className="mt-2 text-lg font-black text-amber-700">
-                  <Money value={statement.totals.discounts} />
+                  {formatSupplierMoney(statement.totals.discounts, "KWD")}
                 </p>
               </div>
               <div className="rounded-2xl bg-red-50 p-4">
                 <p className="soft-label">Closing Balance</p>
                 <p className="mt-2 text-lg font-black text-red-700">
-                  <Money value={statement.totals.closing_balance} />
+                  {formatSupplierMoney(statement.totals.closing_balance_kwd ?? 0, "KWD")}
+                  <span className="mt-1 block text-sm text-red-500">
+                    {formatSupplierMoney(statement.totals.closing_balance_usd ?? 0, "USD")}
+                  </span>
                 </p>
               </div>
             </div>
@@ -600,27 +693,31 @@ export default function SuppliersPage() {
                       <div className="flex items-center justify-between gap-4">
                         <span className="text-slate-500">Debit / Purchased</span>
                         <span className="font-black text-red-700">
-                          {row.charge ? <Money value={row.charge} /> : "-"}
+                          {row.charge
+                            ? formatSupplierMoney(row.charge, row.transaction_currency)
+                            : "-"}
                         </span>
                       </div>
                       <div className="flex items-center justify-between gap-4">
                         <span className="text-slate-500">Credit / Advance</span>
                         <span className="font-black text-emerald-700">
-                          {row.payment ? <Money value={row.payment} /> : "-"}
+                          {row.payment
+                            ? formatSupplierMoney(row.payment, row.transaction_currency)
+                            : "-"}
                         </span>
                       </div>
                       {row.discount_amount ? (
                         <div className="flex items-center justify-between gap-4">
                           <span className="text-slate-500">Discount</span>
                           <span className="font-black text-amber-700">
-                            <Money value={row.discount_amount} />
+                            {formatSupplierMoney(row.discount_amount, row.transaction_currency)}
                           </span>
                         </div>
                       ) : null}
                       <div className="flex items-center justify-between gap-4 border-t border-slate-100 pt-2">
                         <span className="font-bold text-slate-600">Running balance</span>
                         <span className="font-black text-slate-950">
-                          <Money value={row.balance} />
+                          {formatSupplierMoney(row.balance, row.transaction_currency)}
                         </span>
                       </div>
                     </div>

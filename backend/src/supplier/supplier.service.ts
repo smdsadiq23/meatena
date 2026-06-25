@@ -2,9 +2,10 @@ import {
   BadRequestException,
   Injectable,
   NotFoundException,
+  OnModuleInit,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { roundMoney } from '../common/utils/money';
 import { Purchase } from '../purchase/purchase.entity';
 import { PurchaseItem } from '../purchase/purchase-item.entity';
@@ -32,10 +33,16 @@ export type SupplierStatementRow = {
   charge: number;
   payment: number;
   balance: number;
+  charge_kwd: number;
+  payment_kwd: number;
+  balance_kwd: number;
+  charge_usd: number;
+  payment_usd: number;
+  balance_usd: number;
 };
 
 @Injectable()
-export class SupplierService {
+export class SupplierService implements OnModuleInit {
   constructor(
     @InjectRepository(Supplier)
     private readonly repo: Repository<Supplier>,
@@ -48,7 +55,25 @@ export class SupplierService {
 
     @InjectRepository(SupplierPayment)
     private readonly paymentRepo: Repository<SupplierPayment>,
+
+    private readonly dataSource: DataSource,
   ) {}
+
+  async onModuleInit() {
+    await this.dataSource.query(`
+      ALTER TABLE supplier
+      ADD COLUMN IF NOT EXISTS balance_kwd numeric(12, 3) NOT NULL DEFAULT 0
+    `);
+    await this.dataSource.query(`
+      ALTER TABLE supplier
+      ADD COLUMN IF NOT EXISTS balance_usd numeric(12, 3) NOT NULL DEFAULT 0
+    `);
+    await this.dataSource.query(`
+      UPDATE supplier
+      SET balance_kwd = balance
+      WHERE balance_kwd = 0 AND balance <> 0
+    `);
+  }
 
   create(data: CreateSupplierDto) {
     return this.repo.save(
@@ -105,6 +130,22 @@ export class SupplierService {
         const advancePaid = roundMoney(Number(purchase.advance_paid ?? 0));
         const balanceDue = roundMoney(Number(purchase.balance_due ?? total - advancePaid));
         const purchaseDate = purchase.purchase_date || purchase.date;
+        const exchangeRate = Number(purchase.exchange_rate ?? 1);
+        const purchaseCurrency = purchase.transaction_currency ?? 'KWD';
+        const totalInCurrency =
+          purchaseCurrency === 'USD' ? roundMoney(total * exchangeRate) : total;
+        const advanceInCurrency =
+          purchaseCurrency === 'USD' ? roundMoney(advancePaid * exchangeRate) : advancePaid;
+        const balanceDueInCurrency =
+          purchaseCurrency === 'USD' ? roundMoney(balanceDue * exchangeRate) : balanceDue;
+        const subtotalInCurrency =
+          purchaseCurrency === 'USD'
+            ? roundMoney(Number(purchase.subtotal ?? total) * exchangeRate)
+            : roundMoney(Number(purchase.subtotal ?? total));
+        const discountInCurrency =
+          purchaseCurrency === 'USD'
+            ? roundMoney(Number(purchase.discount_amount ?? 0) * exchangeRate)
+            : roundMoney(Number(purchase.discount_amount ?? 0));
 
         return {
           sortDate: purchaseDate,
@@ -118,77 +159,99 @@ export class SupplierService {
             invoice_no: purchase.invoice_no,
             purchase_date: purchase.purchase_date,
             goods_received_date: purchase.goods_received_date,
-            subtotal: roundMoney(Number(purchase.subtotal ?? total)),
-            discount_amount: roundMoney(Number(purchase.discount_amount ?? 0)),
-            advance_paid: advancePaid,
-            balance_due: balanceDue,
+            subtotal: subtotalInCurrency,
+            discount_amount: discountInCurrency,
+            advance_paid: advanceInCurrency,
+            balance_due: balanceDueInCurrency,
             weight: purchaseWeightById.get(purchase.id) ?? 0,
-            transaction_currency: purchase.transaction_currency ?? 'KWD',
-            exchange_rate: Number(purchase.exchange_rate ?? 3.25),
-            charge: total,
-            payment: advancePaid,
+            transaction_currency: purchaseCurrency,
+            exchange_rate: exchangeRate,
+            charge: totalInCurrency,
+            payment: advanceInCurrency,
+            charge_kwd: purchaseCurrency === 'KWD' ? totalInCurrency : 0,
+            payment_kwd: purchaseCurrency === 'KWD' ? advanceInCurrency : 0,
+            charge_usd: purchaseCurrency === 'USD' ? totalInCurrency : 0,
+            payment_usd: purchaseCurrency === 'USD' ? advanceInCurrency : 0,
           },
         };
       }),
-      ...payments.map((payment) => ({
-        sortDate: payment.date,
-        sortId: payment.id,
-        row: {
-          id: `payment-${payment.id}`,
-          date: payment.date,
-          type: 'payment' as const,
-          reference: payment.reference_no || `Payment #${payment.id}`,
-          description: payment.note
-            ? `${payment.mode.toUpperCase()} supplier payment - ${payment.note}`
-            : `${payment.mode.toUpperCase()} supplier payment`,
-          invoice_no: payment.reference_no,
-          purchase_date: null,
-          goods_received_date: null,
-          subtotal: 0,
-          discount_amount: 0,
-          advance_paid: roundMoney(Number(payment.amount ?? 0)),
-          balance_due: 0,
-          weight: 0,
-          transaction_currency: 'KWD' as const,
-          exchange_rate: 3.25,
-          charge: 0,
-          payment: roundMoney(Number(payment.amount ?? 0)),
-        },
-      })),
+      ...payments.map((payment) => {
+        const paymentCurrency = payment.transaction_currency ?? 'KWD';
+        const amount = roundMoney(Number(payment.amount ?? 0));
+
+        return {
+          sortDate: payment.date,
+          sortId: payment.id,
+          row: {
+            id: `payment-${payment.id}`,
+            date: payment.date,
+            type: 'payment' as const,
+            reference: payment.reference_no || `Payment #${payment.id}`,
+            description: payment.note
+              ? `${payment.mode.toUpperCase()} supplier payment - ${payment.note}`
+              : `${payment.mode.toUpperCase()} supplier payment`,
+            invoice_no: payment.reference_no,
+            purchase_date: null,
+            goods_received_date: null,
+            subtotal: 0,
+            discount_amount: 0,
+            advance_paid: amount,
+            balance_due: 0,
+            weight: 0,
+            transaction_currency: paymentCurrency,
+            exchange_rate: Number(payment.exchange_rate ?? 1),
+            charge: 0,
+            payment: amount,
+            charge_kwd: 0,
+            payment_kwd: paymentCurrency === 'KWD' ? amount : 0,
+            charge_usd: 0,
+            payment_usd: paymentCurrency === 'USD' ? amount : 0,
+          },
+        };
+      }),
     ].sort((left, right) => {
       const dateCompare = left.sortDate.localeCompare(right.sortDate);
       return dateCompare || left.sortId - right.sortId;
     });
 
-    let balance = 0;
+    let balanceKwd = 0;
+    let balanceUsd = 0;
     const rows: SupplierStatementRow[] = events.map((event) => {
-      balance = roundMoney(balance + event.row.charge - event.row.payment);
+      balanceKwd = roundMoney(balanceKwd + event.row.charge_kwd - event.row.payment_kwd);
+      balanceUsd = roundMoney(balanceUsd + event.row.charge_usd - event.row.payment_usd);
 
       return {
         ...event.row,
-        balance,
+        balance: event.row.transaction_currency === 'USD' ? balanceUsd : balanceKwd,
+        balance_kwd: balanceKwd,
+        balance_usd: balanceUsd,
       };
     });
 
-    const charges = roundMoney(
-      rows.reduce((sum, row) => sum + Number(row.charge), 0),
-    );
-    const paymentsTotal = roundMoney(
-      rows.reduce((sum, row) => sum + Number(row.payment), 0),
-    );
+    const chargesKwd = roundMoney(rows.reduce((sum, row) => sum + Number(row.charge_kwd), 0));
+    const chargesUsd = roundMoney(rows.reduce((sum, row) => sum + Number(row.charge_usd), 0));
+    const paymentsKwd = roundMoney(rows.reduce((sum, row) => sum + Number(row.payment_kwd), 0));
+    const paymentsUsd = roundMoney(rows.reduce((sum, row) => sum + Number(row.payment_usd), 0));
     const discounts = roundMoney(
       rows.reduce((sum, row) => sum + Number(row.discount_amount), 0),
     );
-    const closingBalance = roundMoney(Number(supplier.balance ?? balance));
+    const closingBalanceKwd = roundMoney(Number(supplier.balance_kwd ?? supplier.balance ?? balanceKwd));
+    const closingBalanceUsd = roundMoney(Number(supplier.balance_usd ?? balanceUsd));
 
     return {
       supplier,
       rows,
       totals: {
-        charges,
-        payments: paymentsTotal,
+        charges: chargesKwd,
+        payments: paymentsKwd,
         discounts,
-        closing_balance: closingBalance,
+        closing_balance: closingBalanceKwd,
+        charges_kwd: chargesKwd,
+        payments_kwd: paymentsKwd,
+        closing_balance_kwd: closingBalanceKwd,
+        charges_usd: chargesUsd,
+        payments_usd: paymentsUsd,
+        closing_balance_usd: closingBalanceUsd,
       },
     };
   }
@@ -225,7 +288,12 @@ export class SupplierService {
       this.paymentRepo.count({ where: { supplier_id: id } }),
     ]);
 
-    if (purchaseCount > 0 || paymentCount > 0 || Number(supplier.balance) !== 0) {
+    if (
+      purchaseCount > 0 ||
+      paymentCount > 0 ||
+      Number(supplier.balance_kwd ?? supplier.balance) !== 0 ||
+      Number(supplier.balance_usd ?? 0) !== 0
+    ) {
       throw new BadRequestException(
         'Supplier has purchases, payments, or a balance. Keep it for reporting instead of deleting.',
       );
