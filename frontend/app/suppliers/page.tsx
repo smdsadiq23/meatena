@@ -252,6 +252,7 @@ export default function SuppliersPage() {
   };
 
   return (
+    <>
     <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
       <section className="panel p-6 md:p-8">
         <p className="soft-label">Supplier Directory</p>
@@ -309,118 +310,6 @@ export default function SuppliersPage() {
             </div>
           ))}
         </div>
-      </section>
-
-      <section className="panel p-6 md:p-8">
-        <p className="soft-label">Supplier Statement</p>
-        <h2 className="mt-2 text-2xl font-bold text-slate-950">
-          {statement?.supplier.name ?? "Open a supplier ledger"}
-        </h2>
-        {statement ? (
-          <>
-            <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              <div className="rounded-2xl bg-slate-50 p-4">
-                <p className="soft-label">Purchased / Debit</p>
-                <p className="mt-2 text-lg font-black text-slate-950">
-                  <Money value={statement.totals.charges} />
-                </p>
-              </div>
-              <div className="rounded-2xl bg-emerald-50 p-4">
-                <p className="soft-label">Advance / Credit</p>
-                <p className="mt-2 text-lg font-black text-emerald-700">
-                  <Money value={statement.totals.payments} />
-                </p>
-              </div>
-              <div className="rounded-2xl bg-amber-50 p-4">
-                <p className="soft-label">Discounts</p>
-                <p className="mt-2 text-lg font-black text-amber-700">
-                  <Money value={statement.totals.discounts} />
-                </p>
-              </div>
-              <div className="rounded-2xl bg-red-50 p-4">
-                <p className="soft-label">Closing Balance</p>
-                <p className="mt-2 text-lg font-black text-red-700">
-                  <Money value={statement.totals.closing_balance} />
-                </p>
-              </div>
-            </div>
-            <div className="mt-5 space-y-3">
-              {statement.rows.map((row) => (
-                <div
-                  key={row.id}
-                  className="rounded-2xl border border-slate-200 bg-white p-4"
-                >
-                  <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span
-                          className={`rounded-full px-3 py-1 text-xs font-black uppercase tracking-[0.12em] ${
-                            row.type === "purchase"
-                              ? "bg-red-50 text-red-700"
-                              : "bg-emerald-50 text-emerald-700"
-                          }`}
-                        >
-                          {row.type === "purchase" ? "Purchase" : "Payment"}
-                        </span>
-                        <span className="text-sm font-bold text-slate-500">{formatDate(row.date)}</span>
-                      </div>
-                      <p className="mt-3 text-base font-black text-slate-950">{row.description}</p>
-                      <div className="mt-2 grid gap-1 text-sm text-slate-600">
-                        <span>Invoice / Ref: {row.reference || "-"}</span>
-                        {row.type === "purchase" ? (
-                          <>
-                            <span>Purchase date: {formatDate(row.purchase_date || row.date)}</span>
-                            <span>Goods received: {formatDate(row.goods_received_date)}</span>
-                            <span>Entered currency: {row.transaction_currency}</span>
-                          </>
-                        ) : null}
-                      </div>
-                    </div>
-
-                    <div className="grid min-w-[240px] gap-2 text-sm">
-                      <div className="flex items-center justify-between gap-4">
-                        <span className="text-slate-500">Debit / Purchased</span>
-                        <span className="font-black text-red-700">
-                          {row.charge ? <Money value={row.charge} /> : "-"}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between gap-4">
-                        <span className="text-slate-500">Credit / Advance</span>
-                        <span className="font-black text-emerald-700">
-                          {row.payment ? <Money value={row.payment} /> : "-"}
-                        </span>
-                      </div>
-                      {row.discount_amount ? (
-                        <div className="flex items-center justify-between gap-4">
-                          <span className="text-slate-500">Discount</span>
-                          <span className="font-black text-amber-700">
-                            <Money value={row.discount_amount} />
-                          </span>
-                        </div>
-                      ) : null}
-                      <div className="flex items-center justify-between gap-4 border-t border-slate-100 pt-2">
-                        <span className="font-bold text-slate-600">Running balance</span>
-                        <span className="font-black text-slate-950">
-                          <Money value={row.balance} />
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-              {statement.rows.length === 0 ? (
-                <div className="rounded-2xl bg-slate-50 px-4 py-5 text-sm font-medium text-slate-600">
-                  No purchases or payments recorded for this supplier.
-                </div>
-              ) : null}
-            </div>
-          </>
-        ) : (
-          <div className="mt-5 rounded-2xl bg-slate-50 p-5 text-sm font-medium text-slate-600">
-            Select Statement on any supplier to review purchases, payments, advances, and closing
-            balance.
-          </div>
-        )}
       </section>
 
       <section className="space-y-6">
@@ -555,5 +444,141 @@ export default function SuppliersPage() {
         </div>
       </section>
     </div>
+    {statement ? (
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-3 backdrop-blur-sm md:p-6"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="supplier-ledger-title"
+      >
+        <div className="flex max-h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-[2rem] bg-white shadow-2xl">
+          <div className="flex flex-col gap-4 border-b border-slate-100 p-5 md:flex-row md:items-start md:justify-between md:p-7">
+            <div>
+              <p className="soft-label">Supplier Ledger</p>
+              <h2 id="supplier-ledger-title" className="mt-2 text-2xl font-black text-slate-950 md:text-3xl">
+                {statement.supplier.name}
+              </h2>
+              <p className="mt-2 text-sm font-medium text-slate-500">
+                Complete history of purchases, advances, payments, discounts, and invoice references.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2 md:justify-end">
+              <button
+                type="button"
+                className="rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-900 transition hover:bg-slate-50"
+                onClick={() => void downloadSupplierStatement(statement.supplier)}
+              >
+                Download PDF
+              </button>
+              <button
+                type="button"
+                className="rounded-2xl bg-slate-950 px-4 py-2 text-sm font-bold text-white transition hover:bg-slate-800"
+                onClick={() => setStatement(null)}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+
+          <div className="overflow-y-auto p-5 md:p-7">
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <div className="rounded-2xl bg-slate-50 p-4">
+                <p className="soft-label">Purchased / Debit</p>
+                <p className="mt-2 text-lg font-black text-slate-950">
+                  <Money value={statement.totals.charges} />
+                </p>
+              </div>
+              <div className="rounded-2xl bg-emerald-50 p-4">
+                <p className="soft-label">Advance / Credit</p>
+                <p className="mt-2 text-lg font-black text-emerald-700">
+                  <Money value={statement.totals.payments} />
+                </p>
+              </div>
+              <div className="rounded-2xl bg-amber-50 p-4">
+                <p className="soft-label">Discounts</p>
+                <p className="mt-2 text-lg font-black text-amber-700">
+                  <Money value={statement.totals.discounts} />
+                </p>
+              </div>
+              <div className="rounded-2xl bg-red-50 p-4">
+                <p className="soft-label">Closing Balance</p>
+                <p className="mt-2 text-lg font-black text-red-700">
+                  <Money value={statement.totals.closing_balance} />
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-5 space-y-3">
+              {statement.rows.map((row) => (
+                <div key={row.id} className="rounded-2xl border border-slate-200 bg-white p-4">
+                  <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span
+                          className={`rounded-full px-3 py-1 text-xs font-black uppercase tracking-[0.12em] ${
+                            row.type === "purchase"
+                              ? "bg-red-50 text-red-700"
+                              : "bg-emerald-50 text-emerald-700"
+                          }`}
+                        >
+                          {row.type === "purchase" ? "Purchase" : "Payment"}
+                        </span>
+                        <span className="text-sm font-bold text-slate-500">{formatDate(row.date)}</span>
+                      </div>
+                      <p className="mt-3 text-base font-black text-slate-950">{row.description}</p>
+                      <div className="mt-2 grid gap-1 text-sm text-slate-600 sm:grid-cols-2">
+                        <span>Invoice / Ref: {row.reference || "-"}</span>
+                        {row.type === "purchase" ? (
+                          <>
+                            <span>Purchase date: {formatDate(row.purchase_date || row.date)}</span>
+                            <span>Goods received: {formatDate(row.goods_received_date)}</span>
+                            <span>Entered currency: {row.transaction_currency}</span>
+                          </>
+                        ) : null}
+                      </div>
+                    </div>
+
+                    <div className="grid min-w-[260px] gap-2 text-sm">
+                      <div className="flex items-center justify-between gap-4">
+                        <span className="text-slate-500">Debit / Purchased</span>
+                        <span className="font-black text-red-700">
+                          {row.charge ? <Money value={row.charge} /> : "-"}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between gap-4">
+                        <span className="text-slate-500">Credit / Advance</span>
+                        <span className="font-black text-emerald-700">
+                          {row.payment ? <Money value={row.payment} /> : "-"}
+                        </span>
+                      </div>
+                      {row.discount_amount ? (
+                        <div className="flex items-center justify-between gap-4">
+                          <span className="text-slate-500">Discount</span>
+                          <span className="font-black text-amber-700">
+                            <Money value={row.discount_amount} />
+                          </span>
+                        </div>
+                      ) : null}
+                      <div className="flex items-center justify-between gap-4 border-t border-slate-100 pt-2">
+                        <span className="font-bold text-slate-600">Running balance</span>
+                        <span className="font-black text-slate-950">
+                          <Money value={row.balance} />
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {statement.rows.length === 0 ? (
+                <div className="rounded-2xl bg-slate-50 px-4 py-5 text-sm font-medium text-slate-600">
+                  No purchases or payments recorded for this supplier.
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      </div>
+    ) : null}
+    </>
   );
 }
