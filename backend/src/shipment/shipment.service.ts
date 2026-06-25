@@ -6,6 +6,7 @@ import { Expense } from '../expense/expense.entity';
 import { Invoice } from '../invoice/invoice.entity';
 import { Purchase } from '../purchase/purchase.entity';
 import { CreateShipmentDto } from './dto/create-shipment.dto';
+import { LinkShipmentRecordsDto } from './dto/link-shipment-records.dto';
 import { UpdateShipmentDto } from './dto/update-shipment.dto';
 import { Shipment } from './shipment.entity';
 
@@ -123,6 +124,63 @@ export class ShipmentService implements OnModuleInit {
 
     await this.repo.remove(shipment);
     return { message: 'Shipment deleted' };
+  }
+
+  async linkRecords(id: number, data: LinkShipmentRecordsDto) {
+    await this.getById(id);
+
+    const purchaseIds = data.purchase_ids ?? [];
+    const invoiceIds = data.invoice_ids ?? [];
+    const expenseIds = data.expense_ids ?? [];
+    const totalSelected = purchaseIds.length + invoiceIds.length + expenseIds.length;
+
+    if (!totalSelected) {
+      throw new BadRequestException('Select at least one purchase, invoice, or expense.');
+    }
+
+    const nextShipmentId = data.unlink ? null : id;
+    const updates: Array<Promise<unknown>> = [];
+
+    if (purchaseIds.length) {
+      updates.push(
+        this.dataSource
+          .getRepository(Purchase)
+          .createQueryBuilder()
+          .update(Purchase)
+          .set({ shipment_id: nextShipmentId })
+          .where('id IN (:...ids)', { ids: purchaseIds })
+          .execute(),
+      );
+    }
+
+    if (invoiceIds.length) {
+      updates.push(
+        this.dataSource
+          .getRepository(Invoice)
+          .createQueryBuilder()
+          .update(Invoice)
+          .set({ shipment_id: nextShipmentId })
+          .where('id IN (:...ids)', { ids: invoiceIds })
+          .execute(),
+      );
+    }
+
+    if (expenseIds.length) {
+      updates.push(
+        this.dataSource
+          .getRepository(Expense)
+          .createQueryBuilder()
+          .update(Expense)
+          .set({ shipment_id: nextShipmentId })
+          .where('id IN (:...ids)', { ids: expenseIds })
+          .execute(),
+      );
+    }
+
+    await Promise.all(updates);
+
+    const [summary] = await this.summary(id);
+    return summary;
   }
 
   async summary(id?: number) {

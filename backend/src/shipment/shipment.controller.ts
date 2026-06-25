@@ -5,6 +5,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { UserRole } from '../user/user-role.enum';
 import { CreateShipmentDto } from './dto/create-shipment.dto';
+import { LinkShipmentRecordsDto } from './dto/link-shipment-records.dto';
 import { UpdateShipmentDto } from './dto/update-shipment.dto';
 import { ShipmentService } from './shipment.service';
 
@@ -30,6 +31,11 @@ export class ShipmentController {
   @Get('summary')
   summary(@Query('id') id?: string) {
     return this.service.summary(id ? Number(id) : undefined);
+  }
+
+  @Patch(':id/links')
+  linkRecords(@Param('id') id: string, @Body() body: LinkShipmentRecordsDto) {
+    return this.service.linkRecords(Number(id), body);
   }
 
   @Patch(':id')

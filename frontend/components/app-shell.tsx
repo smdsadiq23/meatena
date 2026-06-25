@@ -39,6 +39,7 @@ const baseNavGroups = [
     roles: ["admin", "staff"],
     purpose: "Purchases and stock",
     items: [
+      { href: "/shipments", label: "Shipments", hint: "Profit by shipment", roles: ["admin"] },
       { href: "/purchases", label: "Receive Purchase", hint: "Supplier bill, stock inward", roles: ["admin"] },
       { href: "/inventory", label: "Stock Control", hint: "Pieces, kg, price, movements" },
       { href: "/expenses", label: "Shipment Expenses", hint: "Landing and operating costs", roles: ["admin"] },
@@ -83,6 +84,7 @@ type NavGroup = {
 
 const routeRoles: { href: string; roles: UserRole[] }[] = [
   { href: "/dashboard", roles: ["admin"] },
+  { href: "/shipments", roles: ["admin"] },
   { href: "/purchases", roles: ["admin"] },
   { href: "/suppliers", roles: ["admin"] },
   { href: "/knet", roles: ["admin"] },
