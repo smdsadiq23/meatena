@@ -1,8 +1,7 @@
-import fs from 'node:fs';
-import path from 'node:path';
 import PDFDocument from 'pdfkit';
 import type { Response } from 'express';
 import type { Customer } from '../customer/customer.entity';
+import { drawCleanJcmFooter, drawJcmLetterheadPage, getArabicFontPath } from '../common/pdf/jcm-letterhead';
 import type { InvoiceItem } from './invoice-item.entity';
 import type { InvoiceWithNumber } from './invoice.service';
 
@@ -10,36 +9,6 @@ type ProductPdfName = {
   name: string;
   name_ar: string | null;
 };
-
-function getArabicFontPath() {
-  const fontPaths = [
-    '/usr/share/fonts/google-noto/NotoSansArabic-Regular.ttf',
-    '/usr/share/fonts/google-noto/NotoNaskhArabic-Regular.ttf',
-    '/usr/share/fonts/google-noto-naskh-arabic/NotoNaskhArabic-Regular.ttf',
-    '/usr/share/fonts/google-noto-naskh-arabic-vf/NotoNaskhArabic[wght].ttf',
-    '/usr/share/fonts/google-noto-sans-arabic/NotoSansArabic-Regular.ttf',
-    '/usr/share/fonts/google-noto-sans-arabic-vf/NotoSansArabic[wdth,wght].ttf',
-    '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
-    '/Library/Fonts/Arial Unicode.ttf',
-    '/System/Library/Fonts/Supplemental/Arial Unicode.ttf',
-    '/System/Library/Fonts/GeezaPro.ttc',
-    path.join(process.cwd(), 'src/assets/fonts/arabic.ttf'),
-    path.join(process.cwd(), 'dist/assets/fonts/arabic.ttf'),
-    path.join(__dirname, '../assets/fonts/arabic.ttf'),
-  ];
-
-  return fontPaths.find((fontPath) => fs.existsSync(fontPath)) ?? fontPaths[0];
-}
-
-function getLetterheadPath() {
-  const imagePaths = [
-    path.join(process.cwd(), 'src/assets/letterheads/jcm-letterhead.jpeg'),
-    path.join(process.cwd(), 'dist/assets/letterheads/jcm-letterhead.jpeg'),
-    path.join(__dirname, '../assets/letterheads/jcm-letterhead.jpeg'),
-  ];
-
-  return imagePaths.find((imagePath) => fs.existsSync(imagePath)) ?? null;
-}
 
 function clean(value: string | null | undefined, fallback = '-') {
   const next = value?.trim();
@@ -410,61 +379,6 @@ function drawArabicTitleWithSlash(
   doc.moveTo(x + 38, baselineY).lineTo(x + width - 6, baselineY).stroke();
 }
 
-function drawCleanLetterheadFooter(doc: PDFKit.PDFDocument) {
-  const pageWidth = doc.page.width;
-  const footerTop = 740;
-  const lineBlueY = 747;
-  const lineRedY = 750;
-  const textWidth = pageWidth - 40;
-
-  doc.save();
-  doc.rect(0, footerTop, pageWidth, doc.page.height - footerTop).fill('#ffffff');
-
-  doc
-    .lineWidth(1)
-    .strokeColor('#1b4b9b')
-    .moveTo(14, lineBlueY)
-    .lineTo(pageWidth - 14, lineBlueY)
-    .stroke();
-  doc
-    .strokeColor('#c01822')
-    .moveTo(14, lineRedY)
-    .lineTo(pageWidth - 14, lineRedY)
-    .stroke();
-
-  doc
-    .fillColor('#1b2f6b')
-    .font('Times-Roman')
-    .fontSize(10)
-    .text('Shuwaikh Industrial Area 3, Block No.1, Street No.71, Building No.222, Shop No.06', 20, 758, {
-      width: textWidth,
-      align: 'center',
-      lineBreak: false,
-    });
-
-  doc
-    .fillColor('#c01822')
-    .font('Arabic')
-    .fontSize(9)
-    .text(rtlVisual('منطقة الشويخ الصناعية ٣، قطعة رقم ١، شارع رقم ٧١، مبنى رقم ٢٢٢، محل رقم ٠٦'), 20, 770, {
-      width: textWidth,
-      align: 'center',
-      lineBreak: false,
-    });
-
-  doc
-    .fillColor('#1b2f6b')
-    .font('Times-Roman')
-    .fontSize(8.4)
-    .text('javedmeatsupply@gmail.com', 20, 790, {
-      width: textWidth,
-      align: 'center',
-      lineBreak: false,
-    });
-
-  doc.restore();
-}
-
 export function generateInvoicePDF(
   invoice: InvoiceWithNumber,
   items: InvoiceItem[],
@@ -495,10 +409,7 @@ export function generateInvoicePDF(
   const pageWidth = doc.page.width;
   const pageHeight = doc.page.height;
   const currency = invoiceCurrency(invoice);
-  const letterheadPath = getLetterheadPath();
-  if (letterheadPath) {
-    doc.image(letterheadPath, 0, 0, { width: pageWidth, height: pageHeight });
-  }
+  drawJcmLetterheadPage(doc);
 
   const leftX = 24;
   const tableX = 18;
@@ -861,7 +772,7 @@ export function generateInvoicePDF(
     });
   }
 
-  drawCleanLetterheadFooter(doc);
+  drawCleanJcmFooter(doc);
 
   doc.end();
 }

@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import PDFDocument from 'pdfkit';
 import type { Response } from 'express';
+import { drawCleanJcmFooter, drawJcmLetterheadPage } from './jcm-letterhead';
 
 export type StatementCurrency = 'KWD' | 'USD';
 
@@ -122,51 +123,7 @@ function drawText(
 }
 
 function drawPageHeader(doc: PDFKit.PDFDocument, options: PartnerLedgerPdfOptions) {
-  const pageWidth = doc.page.width;
-
-  doc
-    .fillColor('#0f172a')
-    .font('Helvetica-Bold')
-    .fontSize(16)
-    .text('JCM', page.marginX, page.headerTop, { width: 72, align: 'center' })
-    .fontSize(8)
-    .fillColor('#0f766e')
-    .text('JAWEED MEAT', page.marginX, page.headerTop + 19, { width: 72, align: 'center' });
-
-  doc
-    .fillColor('#111827')
-    .font('Helvetica-Bold')
-    .fontSize(12)
-    .text('JAWEED CENTER FOR WHOLESALE MEAT COMPANY', pageWidth - 380, page.headerTop, {
-      width: 358,
-      align: 'right',
-      lineBreak: false,
-    })
-    .font('Helvetica')
-    .fontSize(8.5)
-    .fillColor('#4b5563')
-    .text('Shuwaikh Industrial Area 3, Block No.1', pageWidth - 380, page.headerTop + 20, {
-      width: 358,
-      align: 'right',
-      lineBreak: false,
-    })
-    .text('Street No.71, Building No.222, Shop No.06', pageWidth - 380, page.headerTop + 34, {
-      width: 358,
-      align: 'right',
-      lineBreak: false,
-    })
-    .text('javedmeatsupply@gmail.com', pageWidth - 380, page.headerTop + 48, {
-      width: 358,
-      align: 'right',
-      lineBreak: false,
-    });
-
-  doc
-    .moveTo(page.marginX, 92)
-    .lineTo(pageWidth - page.marginX, 92)
-    .lineWidth(0.5)
-    .strokeColor('#d1d5db')
-    .stroke();
+  drawJcmLetterheadPage(doc);
 
   doc
     .rect(page.tableX, 150, tableWidth, 22)
@@ -203,24 +160,7 @@ function drawPageHeader(doc: PDFKit.PDFDocument, options: PartnerLedgerPdfOption
 }
 
 function drawCompactHeader(doc: PDFKit.PDFDocument) {
-  const pageWidth = doc.page.width;
-
-  doc
-    .font('Helvetica-Bold')
-    .fontSize(9)
-    .fillColor('#0f172a')
-    .text('JAWEED CENTER FOR WHOLESALE MEAT COMPANY', page.marginX, 36, {
-      width: 360,
-      lineBreak: false,
-    })
-    .font('Helvetica')
-    .fontSize(8)
-    .fillColor('#4b5563')
-    .text('Partner Ledger', pageWidth - 220, 36, {
-      width: 198,
-      align: 'right',
-      lineBreak: false,
-    });
+  drawJcmLetterheadPage(doc);
 }
 
 function drawTableHeader(doc: PDFKit.PDFDocument, y: number) {
@@ -369,29 +309,15 @@ function drawTotalRow(
   });
 }
 
-function drawFooter(doc: PDFKit.PDFDocument, pageNumber: number, totalPages: number, footerText?: string) {
-  const y = 535;
-  const pageWidth = doc.page.width;
-
-  doc
-    .moveTo(page.marginX, y)
-    .lineTo(pageWidth - page.marginX, y)
-    .strokeColor('#111827')
-    .lineWidth(1.3)
-    .stroke();
+function drawFooter(doc: PDFKit.PDFDocument, pageNumber: number, totalPages: number, _footerText?: string) {
+  drawCleanJcmFooter(doc);
+  const y = doc.page.height - 24;
 
   doc
     .fillColor('#4b5563')
-    .font('Helvetica-Bold')
-    .fontSize(8.5)
-    .text(footerText ?? 'javedmeatsupply@gmail.com', page.marginX, y + 7, {
-      width: tableWidth,
-      align: 'center',
-      lineBreak: false,
-    })
     .font('Helvetica')
     .fontSize(8)
-    .text(`Page: ${pageNumber} / ${totalPages}`, page.marginX, y + 28, {
+    .text(`Page: ${pageNumber} / ${totalPages}`, page.marginX, y, {
       width: tableWidth,
       align: 'center',
       lineBreak: false,
