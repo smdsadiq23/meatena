@@ -8,6 +8,7 @@ import {
   ParseIntPipe,
   Patch,
   Post,
+  Query,
   Res,
   UseGuards,
 } from '@nestjs/common';
@@ -62,6 +63,7 @@ export class SupplierController {
   @Header('Content-Type', 'application/pdf')
   async getStatementPdf(
     @Param('id', ParseIntPipe) id: number,
+    @Query('currency') selectedCurrency: string | undefined,
     @Res() res: Response,
   ) {
     const data = await this.service.getStatement(id);
@@ -72,6 +74,7 @@ export class SupplierController {
       data.totals,
       res,
       currency.kwd_to_usd_rate,
+      selectedCurrency,
     );
   }
 

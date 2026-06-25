@@ -1,4 +1,4 @@
-import { Controller, Get, Header, Param, Res, UseGuards } from '@nestjs/common';
+import { Controller, Get, Header, Param, Query, Res, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOkResponse, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -38,10 +38,17 @@ export class LedgerController {
   @Header('Content-Type', 'application/pdf')
   async getStatementPdf(
     @Param('customer_id') customer_id: number,
+    @Query('currency') selectedCurrency: string | undefined,
     @Res() res: Response,
   ) {
     const data = await this.service.getStatementPdfData(Number(customer_id));
     const currency = await this.appSettingService.getCurrencyRate();
-    generateStatementPDF(data.customer, data.rows, res, currency.kwd_to_usd_rate);
+    generateStatementPDF(
+      data.customer,
+      data.rows,
+      res,
+      currency.kwd_to_usd_rate,
+      selectedCurrency,
+    );
   }
 }

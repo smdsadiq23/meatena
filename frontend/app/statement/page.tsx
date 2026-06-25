@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { downloadAuthenticatedFile, fetchJson } from "../../lib/auth";
-import { formatDualCurrency, Money } from "../../lib/currency";
+import { formatDualCurrency, Money, useDisplayCurrency } from "../../lib/currency";
 
 type Customer = {
   id: number;
@@ -60,6 +60,7 @@ export default function Statement() {
   const [loadingCustomers, setLoadingCustomers] = useState(true);
   const [loadingStatement, setLoadingStatement] = useState(false);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
+  const displayCurrency = useDisplayCurrency();
 
   const activeCustomerId = customerId || customerIdFromURL;
   const validActiveCustomerId = /^\d+$/.test(activeCustomerId) ? activeCustomerId : "";
@@ -175,7 +176,7 @@ export default function Statement() {
 
     try {
       await downloadAuthenticatedFile(
-        `/ledger/statement/${validActiveCustomerId}/pdf`,
+        `/ledger/statement/${validActiveCustomerId}/pdf?currency=${displayCurrency}`,
         `statement-${selectedCustomer.name.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}-${validActiveCustomerId}.pdf`
       );
     } catch (error) {

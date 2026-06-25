@@ -2,9 +2,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import PDFDocument from 'pdfkit';
 import type { Response } from 'express';
-import { dualCurrency } from '../common/utils/currency';
 import type { Supplier } from './supplier.entity';
 import type { SupplierStatementRow } from './supplier.service';
+
+type StatementCurrency = 'KWD' | 'USD';
 
 type SupplierStatementTotals = {
   charges: number;
@@ -32,6 +33,23 @@ function formatDate(value: string) {
   return date.toISOString().slice(0, 10);
 }
 
+function normalizeCurrency(value?: string): StatementCurrency {
+  return value === 'USD' ? 'USD' : 'KWD';
+}
+
+function formatMoney(
+  value: number | string,
+  currency: StatementCurrency,
+  rate = 3.25,
+) {
+  const kwd = Number(value ?? 0);
+  if (currency === 'USD') {
+    return `USD ${(kwd * rate).toFixed(2)}`;
+  }
+
+  return `KWD ${kwd.toFixed(3)}`;
+}
+
 function drawMoney(
   doc: PDFKit.PDFDocument,
   value: number,
@@ -39,17 +57,12 @@ function drawMoney(
   y: number,
   width: number,
   rate?: number,
+  currency: StatementCurrency = 'KWD',
 ) {
-  const [kwd, usd] = dualCurrency(value, rate).split(' / ');
-
   doc
     .font('Helvetica-Bold')
-    .fontSize(8)
-    .text(kwd, x, y, { width, align: 'right' })
-    .font('Helvetica')
-    .fontSize(7)
-    .fillColor('#64748b')
-    .text(usd, x, y + 10, { width, align: 'right' })
+    .fontSize(8.5)
+    .text(formatMoney(value, currency, rate), x, y, { width, align: 'right' })
     .fillColor('#0f172a');
 }
 
@@ -88,9 +101,11 @@ export function generateSupplierStatementPDF(
   totals: SupplierStatementTotals,
   res: Response,
   kwdToUsdRate?: number,
+  selectedCurrency?: string,
 ) {
   const doc = new PDFDocument({ margin: 36, size: 'A4' });
   const letterheadPath = getLetterheadPath();
+  const currency = normalizeCurrency(selectedCurrency);
 
   res.setHeader('Content-Type', 'application/pdf');
   res.setHeader(
@@ -135,13 +150,13 @@ export function generateSupplierStatementPDF(
     .fontSize(10)
     .fillColor('#0f172a')
     .text('Closing Balance', 330, 188);
-  drawMoney(doc, totals.closing_balance, 330, 206, 190, kwdToUsdRate);
+  drawMoney(doc, totals.closing_balance, 330, 206, 190, kwdToUsdRate, currency);
   doc
     .font('Helvetica')
     .fontSize(8)
     .fillColor('#64748b')
     .text(
-      `Purchases ${dualCurrency(totals.charges, kwdToUsdRate)} | Payments ${dualCurrency(totals.payments, kwdToUsdRate)}`,
+      `Purchases ${formatMoney(totals.charges, currency, kwdToUsdRate)} | Payments ${formatMoney(totals.payments, currency, kwdToUsdRate)}`,
       330,
       232,
       { width: 190 },
@@ -205,9 +220,9 @@ export function generateSupplierStatementPDF(
       .text(row.type === 'purchase' ? 'Purchase' : 'Payment', columns.type, y)
       .text(row.reference, columns.reference, y, { width: 96 });
 
-    drawMoney(doc, row.charge, columns.charge, y, 80, kwdToUsdRate);
-    drawMoney(doc, row.payment, columns.payment, y, 80, kwdToUsdRate);
-    drawMoney(doc, row.balance, columns.balance, y, 62, kwdToUsdRate);
+    drawMoney(doc, row.charge, columns.charge, y, 80, kwdToUsdRate, currency);
+    drawMoney(doc, row.payment, columns.payment, y, 80, kwdToUsdRate, currency);
+    drawMoney(doc, row.balance, columns.balance, y, 62, kwdToUsdRate, currency);
 
     y += 34;
   });

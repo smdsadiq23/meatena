@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { downloadAuthenticatedFile, fetchJson, fetchJsonOrThrow } from "../../lib/auth";
-import { formatDualCurrency, Money } from "../../lib/currency";
+import { formatDualCurrency, Money, useDisplayCurrency } from "../../lib/currency";
 
 type Supplier = {
   id: number;
@@ -63,6 +63,7 @@ export default function SuppliersPage() {
   const [loading, setLoading] = useState(false);
   const [statement, setStatement] = useState<SupplierStatement | null>(null);
   const [statementLoading, setStatementLoading] = useState(false);
+  const displayCurrency = useDisplayCurrency();
 
   const loadSuppliers = async (preserveStatus = false) => {
     if (!preserveStatus) {
@@ -222,7 +223,7 @@ export default function SuppliersPage() {
 
     try {
       await downloadAuthenticatedFile(
-        `/suppliers/${supplier.id}/statement/pdf`,
+        `/suppliers/${supplier.id}/statement/pdf?currency=${displayCurrency}`,
         `supplier-statement-${supplier.id}.pdf`
       );
     } catch (error) {

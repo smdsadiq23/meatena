@@ -3,7 +3,8 @@ import path from 'node:path';
 import PDFDocument from 'pdfkit';
 import type { Response } from 'express';
 import type { Customer } from '../customer/customer.entity';
-import { dualCurrency } from '../common/utils/currency';
+
+type StatementCurrency = 'KWD' | 'USD';
 
 type StatementRow = {
   date: string;
@@ -74,8 +75,21 @@ function labelType(value: string) {
     .join(' ');
 }
 
-function moneyParts(value: number | string, rate?: number) {
-  return dualCurrency(value, rate).split(' / ');
+function normalizeCurrency(value?: string): StatementCurrency {
+  return value === 'USD' ? 'USD' : 'KWD';
+}
+
+function formatMoney(
+  value: number | string,
+  currency: StatementCurrency,
+  rate = 3.25,
+) {
+  const kwd = Number(value ?? 0);
+  if (currency === 'USD') {
+    return `USD ${(kwd * rate).toFixed(2)}`;
+  }
+
+  return `KWD ${kwd.toFixed(3)}`;
 }
 
 function drawMoney(
@@ -86,16 +100,15 @@ function drawMoney(
   width: number,
   rate?: number,
   prefix = '',
+  currency: StatementCurrency = 'KWD',
 ) {
-  const [kwd, usd] = moneyParts(value, rate);
-
   doc
     .font('Helvetica-Bold')
-    .fontSize(8)
-    .text(`${prefix}${kwd}`, x, y, { width, align: 'right' })
-    .font('Helvetica')
-    .fontSize(7.5)
-    .text(usd, x, y + 10, { width, align: 'right' });
+    .fontSize(8.5)
+    .text(`${prefix}${formatMoney(value, currency, rate)}`, x, y, {
+      width,
+      align: 'right',
+    });
 }
 
 function drawCleanLetterheadFooter(doc: PDFKit.PDFDocument) {
@@ -158,10 +171,12 @@ export function generateStatementPDF(
   rows: StatementRow[],
   res: Response,
   kwdToUsdRate?: number,
+  selectedCurrency?: string,
 ) {
   const doc = new PDFDocument({ margin: 36, size: 'A4' });
   doc.registerFont('Arabic', getArabicFontPath());
   const letterheadPath = getLetterheadPath();
+  const currency = normalizeCurrency(selectedCurrency);
   const closingBalance = rows.at(-1)?.balance ?? 0;
   const charges = rows
     .filter((row) => row.amount >= 0)
@@ -217,12 +232,12 @@ export function generateStatementPDF(
     .fillColor('#0f172a')
     .text('Closing Balance', summaryX, 190)
     .fontSize(18)
-    .text(dualCurrency(closingBalance, kwdToUsdRate), summaryX, 208)
+    .text(formatMoney(closingBalance, currency, kwdToUsdRate), summaryX, 208)
     .font('Helvetica')
     .fontSize(9)
     .fillColor('#64748b')
     .text(
-      `Charges ${dualCurrency(charges, kwdToUsdRate)} | Receipts ${dualCurrency(receipts, kwdToUsdRate)}`,
+      `Charges ${formatMoney(charges, currency, kwdToUsdRate)} | Receipts ${formatMoney(receipts, currency, kwdToUsdRate)}`,
       summaryX,
       234,
       { width: 210 },
@@ -287,10 +302,11 @@ export function generateStatementPDF(
       120,
       kwdToUsdRate,
       row.amount < 0 ? '-' : '+',
+      currency,
     );
 
     doc.fillColor('#0f172a');
-    drawMoney(doc, row.balance, columns.balance, y, 120, kwdToUsdRate);
+    drawMoney(doc, row.balance, columns.balance, y, 120, kwdToUsdRate, '', currency);
 
     y += 32;
   });
