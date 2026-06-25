@@ -631,13 +631,18 @@ export function generateInvoicePDF(
   };
 
   contacts.forEach((contact, index) => {
-    const y = 112 + index * 22;
-    fitText(`${contact.name} :`, leftX, y, 116, {
+    const y = 112 + index * 21;
+    fitText(contact.name, leftX, y, 108, {
       font: 'Helvetica-Bold',
       maxSize: 14,
       minSize: 10,
     });
-    fitText(contact.phone, leftX + 126, y, 86, {
+    doc.font('Helvetica-Bold').fontSize(14).text(':', leftX + 113, y, {
+      width: 7,
+      align: 'center',
+      lineBreak: false,
+    });
+    fitText(contact.phone, leftX + 130, y, 82, {
       font: 'Helvetica-Bold',
       maxSize: 14,
       minSize: 10,
@@ -647,28 +652,29 @@ export function generateInvoicePDF(
       align: 'right',
       lineBreak: false,
     });
-    doc.font('Helvetica-Bold').fontSize(15).text(':', pageWidth - 124, y, {
+    doc.font('Helvetica-Bold').fontSize(15).text(':', pageWidth - 122, y, {
       width: 8,
+      align: 'center',
       lineBreak: false,
     });
-    drawArabicPhoneDigits(doc, toArabicDigits(contact.phone), pageWidth - 210, y - 1, 16, 9.2);
+    drawArabicPhoneDigits(doc, toArabicDigits(contact.phone), pageWidth - 197, y - 1, 15.5, 8.8);
   });
 
   const centerX = 224;
   const centerW = 150;
-  doc.font('Arabic').fontSize(9.5).text(rtlVisual(activityArabic), centerX, 105, {
+  doc.font('Arabic').fontSize(9).text(rtlVisual(activityArabic), centerX, 109, {
     width: centerW,
     align: 'center',
     lineBreak: false,
   });
-  doc.font('Helvetica-Bold').fontSize(10.5).text(activityEnglish, centerX, 130, {
+  doc.font('Helvetica-Bold').fontSize(10.5).text(activityEnglish, centerX, 127, {
     width: centerW,
     align: 'center',
     lineBreak: false,
   });
 
-  drawArabicSlashPhrase(doc, 'فاتورة نقدية', 'بالحساب', centerX, 165, centerW, 10);
-  fitText(titleEnglish, centerX, 183, centerW, {
+  drawArabicSlashPhrase(doc, 'فاتورة نقدية', 'بالحساب', centerX, 160, centerW, 9.5);
+  fitText(titleEnglish, centerX, 177, centerW, {
     font: 'Helvetica-Bold',
     maxSize: 13,
     minSize: 9,
@@ -680,10 +686,10 @@ export function generateInvoicePDF(
     width: 55,
     lineBreak: false,
   });
-  fitText(invoice.invoice_number, leftX + 74, 196, 250, {
+  fitText(invoice.invoice_number, leftX + 74, 197, 170, {
     font: 'Helvetica',
-    maxSize: 22,
-    minSize: 14,
+    maxSize: 20,
+    minSize: 11,
     color: '#c01822',
   });
   doc.fillColor('#000000').font('Helvetica-Bold').fontSize(17).text('Date', 382, 200, {
