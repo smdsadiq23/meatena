@@ -647,17 +647,17 @@ export function generateInvoicePDF(
       maxSize: 14,
       minSize: 10,
     });
-    doc.font('Arabic').fontSize(14).text(rtlVisual(arabicContactNames[index]), pageWidth - 96, y + 1, {
-      width: 78,
+    doc.font('Arabic').fontSize(12).text(rtlVisual(arabicContactNames[index]), pageWidth - 88, y + 3, {
+      width: 70,
       align: 'right',
       lineBreak: false,
     });
-    doc.font('Helvetica-Bold').fontSize(15).text(':', pageWidth - 122, y, {
+    doc.font('Helvetica-Bold').fontSize(13.5).text(':', pageWidth - 121, y + 1, {
       width: 8,
       align: 'center',
       lineBreak: false,
     });
-    drawArabicPhoneDigits(doc, toArabicDigits(contact.phone), pageWidth - 197, y - 1, 15.5, 8.8);
+    drawArabicPhoneDigits(doc, toArabicDigits(contact.phone), pageWidth - 190, y + 1, 13.5, 8.1);
   });
 
   const centerX = 224;
