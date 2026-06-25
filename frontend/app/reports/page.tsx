@@ -323,6 +323,31 @@ export default function ReportsPage() {
 
   const selectedShipment =
     shipments.find((shipment) => String(shipment.id) === selectedShipmentId) ?? shipments[0];
+  const selectedShipmentActivity = selectedShipment
+    ? [
+        ...selectedShipment.purchases.map((purchase) => ({
+          id: `purchase-${purchase.id}`,
+          type: "Purchase",
+          name: purchase.invoice_no || `Purchase #${purchase.id}`,
+          date: purchase.date,
+          amount: purchase.total,
+        })),
+        ...selectedShipment.invoices.map((invoice) => ({
+          id: `invoice-${invoice.id}`,
+          type: "Sale",
+          name: invoice.invoice_number || `Invoice #${invoice.id}`,
+          date: invoice.date,
+          amount: invoice.total,
+        })),
+        ...selectedShipment.expenses.map((expense) => ({
+          id: `expense-${expense.id}`,
+          type: "Expense",
+          name: expense.title,
+          date: expense.date,
+          amount: expense.amount,
+        })),
+      ]
+    : [];
 
   const loadShipments = async () => {
     setShipmentLoading(true);
@@ -517,40 +542,46 @@ export default function ReportsPage() {
         </p>
       </section>
 
-      <section className="panel p-6 md:p-8">
-        <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
-          <div className="max-w-2xl">
+      <section className="panel p-5 md:p-7">
+        <div className="grid gap-5 xl:grid-cols-[1fr_360px]">
+          <div>
             <p className="soft-label">Shipment Profit</p>
             <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-950">
-              Purchase, sales, expenses, and profit by shipment
+              Shipment profit
             </h2>
-            <p className="mt-2 text-sm font-medium leading-6 text-slate-600">
-              Link purchases, invoices, and expenses to a shipment to see the true profit of that shipment.
+            <p className="mt-2 max-w-2xl text-sm font-medium leading-6 text-slate-600">
+              Select one shipment to see purchase cost, sales, expenses, and profit.
             </p>
           </div>
-          <div className="grid w-full gap-3 xl:max-w-3xl xl:grid-cols-[1fr_0.8fr_0.7fr_auto]">
-            <input
-              className="field"
-              placeholder="Shipment name"
-              value={shipmentForm.name}
-              onChange={(event) => setShipmentForm((current) => ({ ...current, name: event.target.value }))}
-            />
-            <input
-              className="field"
-              placeholder="Reference no."
-              value={shipmentForm.referenceNo}
-              onChange={(event) => setShipmentForm((current) => ({ ...current, referenceNo: event.target.value }))}
-            />
-            <input
-              className="field"
-              type="date"
-              value={shipmentForm.arrivalDate}
-              onChange={(event) => setShipmentForm((current) => ({ ...current, arrivalDate: event.target.value }))}
-            />
-            <button className="btn-primary whitespace-nowrap" onClick={createShipment}>
-              Create Shipment
-            </button>
-          </div>
+
+          <details className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
+            <summary className="cursor-pointer list-none text-sm font-black text-slate-950">
+              + New shipment
+            </summary>
+            <div className="mt-4 grid gap-3">
+              <input
+                className="field"
+                placeholder="Shipment name"
+                value={shipmentForm.name}
+                onChange={(event) => setShipmentForm((current) => ({ ...current, name: event.target.value }))}
+              />
+              <input
+                className="field"
+                placeholder="Reference no."
+                value={shipmentForm.referenceNo}
+                onChange={(event) => setShipmentForm((current) => ({ ...current, referenceNo: event.target.value }))}
+              />
+              <input
+                className="field"
+                type="date"
+                value={shipmentForm.arrivalDate}
+                onChange={(event) => setShipmentForm((current) => ({ ...current, arrivalDate: event.target.value }))}
+              />
+              <button className="btn-primary" onClick={createShipment}>
+                Create Shipment
+              </button>
+            </div>
+          </details>
         </div>
 
         {shipmentLoading ? (
@@ -561,71 +592,99 @@ export default function ReportsPage() {
 
         {shipments.length ? (
           <>
-            <div className="mt-6 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-              <select
-                className="field md:max-w-xl"
-                value={selectedShipment ? String(selectedShipment.id) : ""}
-                onChange={(event) => setSelectedShipmentId(event.target.value)}
-              >
-                {shipments.map((shipment) => (
-                  <option key={shipment.id} value={shipment.id}>
-                    {shipment.name}
-                    {shipment.reference_no ? ` · ${shipment.reference_no}` : ""}
-                  </option>
-                ))}
-              </select>
-              {selectedShipment ? (
-                <div className="status-pill bg-black/5 text-slate-700">
-                  {selectedShipment.purchase_count} purchases · {selectedShipment.invoice_count} sales ·{" "}
-                  {selectedShipment.expense_count} expenses
+            <div className="mt-6 rounded-[28px] border border-slate-200 bg-white p-4 md:p-5">
+              <div className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-end">
+                <label className="block">
+                  <span className="soft-label">Select shipment</span>
+                  <select
+                    className="field mt-2"
+                    value={selectedShipment ? String(selectedShipment.id) : ""}
+                    onChange={(event) => setSelectedShipmentId(event.target.value)}
+                  >
+                    {shipments.map((shipment) => (
+                      <option key={shipment.id} value={shipment.id}>
+                        {shipment.name}
+                        {shipment.reference_no ? ` · ${shipment.reference_no}` : ""}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <div className="rounded-2xl bg-slate-50 px-4 py-3 text-sm font-black text-slate-700">
+                  {selectedShipment
+                    ? `${selectedShipment.purchase_count} purchases · ${selectedShipment.invoice_count} sales · ${selectedShipment.expense_count} expenses`
+                    : "No activity"}
                 </div>
-              ) : null}
+              </div>
             </div>
 
             {selectedShipment ? (
               <>
-                <div className="mt-5 grid gap-4 md:grid-cols-4">
-                  <CloseCard label="Purchase Amount" value={selectedShipment.purchase_amount} tone="slate" />
-                  <CloseCard label="Sales Amount" value={selectedShipment.sales_amount} tone="green" />
-                  <CloseCard label="Expenses" value={selectedShipment.expenses_amount} tone="red" />
-                  <CloseCard
-                    label="Profit"
-                    value={selectedShipment.profit}
-                    tone={selectedShipment.profit >= 0 ? "amber" : "red"}
-                  />
+                <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                  <div className="rounded-3xl bg-slate-50 p-5">
+                    <p className="soft-label">Purchase</p>
+                    <p className="mt-3 text-3xl font-black text-slate-950">
+                      <Money value={selectedShipment.purchase_amount} />
+                    </p>
+                  </div>
+                  <div className="rounded-3xl bg-emerald-50 p-5">
+                    <p className="soft-label text-emerald-700">Sales</p>
+                    <p className="mt-3 text-3xl font-black text-emerald-800">
+                      <Money value={selectedShipment.sales_amount} />
+                    </p>
+                  </div>
+                  <div className="rounded-3xl bg-red-50 p-5">
+                    <p className="soft-label text-red-700">Expenses</p>
+                    <p className="mt-3 text-3xl font-black text-red-700">
+                      <Money value={selectedShipment.expenses_amount} />
+                    </p>
+                  </div>
+                  <div className="rounded-3xl bg-amber-50 p-5">
+                    <p className="soft-label text-amber-700">Profit</p>
+                    <p
+                      className={[
+                        "mt-3 text-3xl font-black",
+                        selectedShipment.profit >= 0 ? "text-amber-800" : "text-red-700",
+                      ].join(" ")}
+                    >
+                      <Money value={selectedShipment.profit} />
+                    </p>
+                  </div>
                 </div>
 
-                <div className="mt-6 grid gap-5 xl:grid-cols-3">
-                  <HistoricMoneyList
-                    title="Shipment Purchases"
-                    empty="No purchases linked to this shipment."
-                    rows={selectedShipment.purchases.map((purchase) => ({
-                      id: purchase.id,
-                      primary: purchase.invoice_no || `Purchase #${purchase.id}`,
-                      secondary: new Date(purchase.date).toLocaleDateString(),
-                      amount: purchase.total,
-                    }))}
-                  />
-                  <HistoricMoneyList
-                    title="Shipment Sales"
-                    empty="No invoices linked to this shipment."
-                    rows={selectedShipment.invoices.map((invoice) => ({
-                      id: invoice.id,
-                      primary: invoice.invoice_number || `Invoice #${invoice.id}`,
-                      secondary: `${invoice.type} · ${new Date(invoice.date).toLocaleDateString()}`,
-                      amount: invoice.total,
-                    }))}
-                  />
-                  <HistoricMoneyList
-                    title="Shipment Expenses"
-                    empty="No expenses linked to this shipment."
-                    rows={selectedShipment.expenses.map((expense) => ({
-                      id: expense.id,
-                      primary: expense.title,
-                      secondary: `${expense.category} · ${new Date(expense.date).toLocaleDateString()}`,
-                      amount: expense.amount,
-                    }))}
-                  />
+                <div className="mt-5 rounded-[28px] border border-slate-200 p-5">
+                  <div className="flex flex-col gap-1 md:flex-row md:items-end md:justify-between">
+                    <div>
+                      <p className="soft-label">Linked activity</p>
+                      <h3 className="text-xl font-black text-slate-950">
+                        Purchases, sales, and expenses
+                      </h3>
+                    </div>
+                    <p className="text-sm font-semibold text-slate-500">
+                      Profit = Sales - Purchase - Expenses
+                    </p>
+                  </div>
+
+                  <div className="mt-4 grid gap-3">
+                    {selectedShipmentActivity.length ? (
+                      selectedShipmentActivity.map((row) => (
+                        <div
+                          key={row.id}
+                          className="grid gap-2 rounded-2xl bg-slate-50 px-4 py-3 text-sm md:grid-cols-[120px_1fr_140px_150px] md:items-center"
+                        >
+                          <span className="font-black text-slate-950">{row.type}</span>
+                          <span className="font-semibold text-slate-700">{row.name}</span>
+                          <span className="text-slate-500">{new Date(row.date).toLocaleDateString()}</span>
+                          <span className="font-black text-slate-950 md:text-right">
+                            <Money value={row.amount} />
+                          </span>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="rounded-2xl bg-slate-50 px-4 py-6 text-sm font-semibold text-slate-600">
+                        Nothing linked yet. Select this shipment when creating purchases, invoices, or expenses.
+                      </div>
+                    )}
+                  </div>
                 </div>
               </>
             ) : null}
