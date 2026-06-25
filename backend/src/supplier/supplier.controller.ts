@@ -52,6 +52,12 @@ export class SupplierController {
     return this.service.findAll();
   }
 
+  @ApiOkResponse({ description: 'Supplier purchase, shipment, sales, expenses, and profit report.' })
+  @Get(':id/full-report')
+  getFullReport(@Param('id', ParseIntPipe) id: number) {
+    return this.service.getFullReport(id);
+  }
+
   @ApiOkResponse({ description: 'Supplier payable statement.' })
   @Get(':id/statement')
   getStatement(@Param('id', ParseIntPipe) id: number) {

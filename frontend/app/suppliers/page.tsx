@@ -70,6 +70,92 @@ type SupplierStatement = {
   };
 };
 
+type CurrencyTotals = {
+  kwd: number;
+  usd: number;
+};
+
+type SupplierFullReport = {
+  supplier: Supplier;
+  totals: {
+    purchases: CurrencyTotals;
+    sales: CurrencyTotals;
+    expenses: CurrencyTotals;
+    cost: CurrencyTotals;
+    profit: CurrencyTotals;
+    purchase_discount: number;
+    sales_discount: number;
+  };
+  shipments: Array<{
+    shipment: {
+      id: number | null;
+      name: string;
+      reference_no?: string | null;
+      arrival_date?: string | null;
+      status: string;
+    };
+    purchase_totals: CurrencyTotals;
+    sales_totals: CurrencyTotals;
+    expense_totals: CurrencyTotals;
+    total_cost: CurrencyTotals;
+    profit: CurrencyTotals;
+    purchase_count: number;
+    invoice_count: number;
+    expense_count: number;
+    purchases: Array<{
+      id: number;
+      invoice_no?: string | null;
+      purchase_date?: string | null;
+      goods_received_date?: string | null;
+      transaction_currency: "KWD" | "USD";
+      subtotal: number;
+      discount_amount: number;
+      advance_paid: number;
+      balance_due: number;
+      total: number;
+      pieces: number;
+      weight: number;
+      items: Array<{
+        id: number;
+        product_name: string;
+        pieces: number;
+        weight: number;
+        cost_per_kg: number;
+        amount: number;
+      }>;
+    }>;
+    invoices: Array<{
+      id: number;
+      invoice_number?: string | null;
+      customer_name: string;
+      date: string;
+      type: string;
+      transaction_currency: "KWD" | "USD";
+      subtotal: number;
+      discount_amount: number;
+      total: number;
+      pieces: number;
+      weight: number;
+      items: Array<{
+        id: number;
+        product_name: string;
+        pieces: number;
+        weight: number;
+        price_per_kg: number;
+        discount_amount: number;
+        amount: number;
+      }>;
+    }>;
+    expenses: Array<{
+      id: number;
+      title: string;
+      category: string;
+      amount: number;
+      date: string;
+    }>;
+  }>;
+};
+
 const emptySupplier = { name: "", mobile: "", address: "" };
 const emptyPayment = {
   supplier_id: "",
@@ -83,6 +169,15 @@ const emptyPayment = {
 
 function formatSupplierMoney(value: number | string | undefined | null, currency: "KWD" | "USD") {
   return `${currency} ${Number(value ?? 0).toFixed(currency === "KWD" ? 3 : 2)}`;
+}
+
+function formatCurrencyTotals(totals: CurrencyTotals) {
+  return (
+    <span className="inline-flex flex-col leading-tight">
+      <span>{formatSupplierMoney(totals.kwd, "KWD")}</span>
+      <span className="text-sm opacity-70">{formatSupplierMoney(totals.usd, "USD")}</span>
+    </span>
+  );
 }
 
 function formatDate(value?: string | null) {
@@ -104,7 +199,9 @@ export default function SuppliersPage() {
   const [statusType, setStatusType] = useState<"success" | "error">("success");
   const [loading, setLoading] = useState(false);
   const [statement, setStatement] = useState<SupplierStatement | null>(null);
+  const [fullReport, setFullReport] = useState<SupplierFullReport | null>(null);
   const [statementLoading, setStatementLoading] = useState(false);
+  const [reportLoading, setReportLoading] = useState(false);
   const displayCurrency = useDisplayCurrency();
 
   const loadSuppliers = async (preserveStatus = false) => {
@@ -280,6 +377,21 @@ export default function SuppliersPage() {
     }
   };
 
+  const openSupplierFullReport = async (supplier: Supplier) => {
+    setReportLoading(true);
+    setStatus("");
+
+    try {
+      const data = await fetchJson<SupplierFullReport>(`/suppliers/${supplier.id}/full-report`);
+      setFullReport(data);
+    } catch (error) {
+      setStatusType("error");
+      setStatus(error instanceof Error ? error.message : "Could not load supplier full report.");
+    } finally {
+      setReportLoading(false);
+    }
+  };
+
   const downloadSupplierStatement = async (supplier: Supplier) => {
     setStatus("");
 
@@ -353,7 +465,7 @@ export default function SuppliersPage() {
           </div>
 
           <div className="mt-4 overflow-hidden rounded-3xl border border-slate-200">
-            <div className="hidden grid-cols-[1.3fr_1fr_1fr_280px] gap-4 bg-slate-950 px-5 py-3 text-xs font-black uppercase tracking-[0.16em] text-white lg:grid">
+            <div className="hidden grid-cols-[1.3fr_1fr_1fr_390px] gap-4 bg-slate-950 px-5 py-3 text-xs font-black uppercase tracking-[0.16em] text-white lg:grid">
               <span>Supplier</span>
               <span>Contact</span>
               <span className="text-right">Balance</span>
@@ -363,7 +475,7 @@ export default function SuppliersPage() {
               {filteredSuppliers.map((supplier) => (
                 <div
                   key={supplier.id}
-                  className="grid gap-4 bg-white px-5 py-4 lg:grid-cols-[1.3fr_1fr_1fr_280px] lg:items-center"
+                  className="grid gap-4 bg-white px-5 py-4 lg:grid-cols-[1.3fr_1fr_1fr_390px] lg:items-center"
                 >
                   <div className="min-w-0">
                     <p className="truncate text-base font-black text-slate-950">{supplier.name}</p>
@@ -384,6 +496,14 @@ export default function SuppliersPage() {
                     </div>
                   </div>
                   <div className="flex flex-wrap gap-2 lg:justify-end">
+                    <button
+                      type="button"
+                      className="rounded-2xl bg-primary px-4 py-2 text-sm font-bold text-white transition hover:bg-primary-dark disabled:cursor-not-allowed disabled:opacity-60"
+                      onClick={() => void openSupplierFullReport(supplier)}
+                      disabled={reportLoading}
+                    >
+                      Full Report
+                    </button>
                     <button
                       type="button"
                       className="rounded-2xl bg-slate-950 px-4 py-2 text-sm font-bold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
@@ -727,6 +847,252 @@ export default function SuppliersPage() {
               {statement.rows.length === 0 ? (
                 <div className="rounded-2xl bg-slate-50 px-4 py-5 text-sm font-medium text-slate-600">
                   No purchases or payments recorded for this supplier.
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      </div>
+    ) : null}
+    {fullReport ? (
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-3 backdrop-blur-sm md:p-6"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="supplier-full-report-title"
+      >
+        <div className="flex max-h-[92vh] w-full max-w-7xl flex-col overflow-hidden rounded-[2rem] bg-white shadow-2xl">
+          <div className="flex flex-col gap-4 border-b border-slate-100 p-5 md:flex-row md:items-start md:justify-between md:p-7">
+            <div>
+              <p className="soft-label">Supplier Full Report</p>
+              <h2 id="supplier-full-report-title" className="mt-2 text-2xl font-black text-slate-950 md:text-3xl">
+                {fullReport.supplier.name}
+              </h2>
+              <p className="mt-2 max-w-3xl text-sm font-medium leading-6 text-slate-500">
+                Purchase history, generated shipment sales, buying and selling discounts,
+                shipment expenses, and profit in one owner view.
+              </p>
+            </div>
+            <button
+              type="button"
+              className="rounded-2xl bg-slate-950 px-4 py-2 text-sm font-bold text-white transition hover:bg-slate-800"
+              onClick={() => setFullReport(null)}
+            >
+              Close
+            </button>
+          </div>
+
+          <div className="overflow-y-auto p-5 md:p-7">
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+              <div className="rounded-2xl bg-slate-50 p-4">
+                <p className="soft-label">Purchase</p>
+                <p className="mt-2 text-lg font-black text-slate-950">
+                  {formatCurrencyTotals(fullReport.totals.purchases)}
+                </p>
+              </div>
+              <div className="rounded-2xl bg-red-50 p-4">
+                <p className="soft-label text-red-700">Expenses</p>
+                <p className="mt-2 text-lg font-black text-red-700">
+                  {formatCurrencyTotals(fullReport.totals.expenses)}
+                </p>
+              </div>
+              <div className="rounded-2xl bg-slate-100 p-4">
+                <p className="soft-label">Total Cost</p>
+                <p className="mt-2 text-lg font-black text-slate-950">
+                  {formatCurrencyTotals(fullReport.totals.cost)}
+                </p>
+              </div>
+              <div className="rounded-2xl bg-emerald-50 p-4">
+                <p className="soft-label text-emerald-700">Sales</p>
+                <p className="mt-2 text-lg font-black text-emerald-700">
+                  {formatCurrencyTotals(fullReport.totals.sales)}
+                </p>
+              </div>
+              <div className="rounded-2xl bg-amber-50 p-4">
+                <p className="soft-label text-amber-700">Profit</p>
+                <p className="mt-2 text-lg font-black text-amber-800">
+                  {formatCurrencyTotals(fullReport.totals.profit)}
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-5 grid gap-3 sm:grid-cols-2">
+              <div className="rounded-2xl border border-amber-100 bg-amber-50 p-4">
+                <p className="soft-label text-amber-700">Buying Discount</p>
+                <p className="mt-2 text-xl font-black text-amber-800">
+                  {formatSupplierMoney(fullReport.totals.purchase_discount, "KWD")}
+                </p>
+              </div>
+              <div className="rounded-2xl border border-amber-100 bg-amber-50 p-4">
+                <p className="soft-label text-amber-700">Selling Discount</p>
+                <p className="mt-2 text-xl font-black text-amber-800">
+                  {formatSupplierMoney(fullReport.totals.sales_discount, "KWD")}
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-6 space-y-5">
+              {fullReport.shipments.map((shipmentReport) => (
+                <section
+                  key={shipmentReport.shipment.id ?? "unassigned"}
+                  className="rounded-[2rem] border border-slate-200 bg-white p-5"
+                >
+                  <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                    <div>
+                      <p className="soft-label">Shipment</p>
+                      <h3 className="mt-1 text-2xl font-black text-slate-950">
+                        {shipmentReport.shipment.name}
+                      </h3>
+                      <p className="mt-1 text-sm font-semibold text-slate-500">
+                        {shipmentReport.shipment.reference_no || "No reference"} ·{" "}
+                        {formatDate(shipmentReport.shipment.arrival_date)}
+                      </p>
+                    </div>
+                    <div className="grid gap-2 text-sm sm:grid-cols-4 lg:min-w-[620px]">
+                      <div className="rounded-2xl bg-slate-50 p-3">
+                        <p className="soft-label">Purchase</p>
+                        <p className="mt-1 font-black text-slate-950">
+                          {formatCurrencyTotals(shipmentReport.purchase_totals)}
+                        </p>
+                      </div>
+                      <div className="rounded-2xl bg-red-50 p-3">
+                        <p className="soft-label text-red-700">Expense</p>
+                        <p className="mt-1 font-black text-red-700">
+                          {formatCurrencyTotals(shipmentReport.expense_totals)}
+                        </p>
+                      </div>
+                      <div className="rounded-2xl bg-emerald-50 p-3">
+                        <p className="soft-label text-emerald-700">Sales</p>
+                        <p className="mt-1 font-black text-emerald-700">
+                          {formatCurrencyTotals(shipmentReport.sales_totals)}
+                        </p>
+                      </div>
+                      <div className="rounded-2xl bg-amber-50 p-3">
+                        <p className="soft-label text-amber-700">Profit</p>
+                        <p className="mt-1 font-black text-amber-800">
+                          {formatCurrencyTotals(shipmentReport.profit)}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-5 grid gap-4 xl:grid-cols-3">
+                    <div className="rounded-3xl bg-slate-50 p-4">
+                      <p className="soft-label">Purchases ({shipmentReport.purchase_count})</p>
+                      <div className="mt-3 space-y-3">
+                        {shipmentReport.purchases.map((purchase) => (
+                          <div key={purchase.id} className="rounded-2xl bg-white p-4 text-sm">
+                            <div className="flex items-start justify-between gap-3">
+                              <div>
+                                <p className="font-black text-slate-950">
+                                  {purchase.invoice_no || `Purchase #${purchase.id}`}
+                                </p>
+                                <p className="mt-1 text-xs font-semibold text-slate-500">
+                                  {formatDate(purchase.purchase_date)} · {purchase.weight.toFixed(3)} kg · {purchase.pieces} pcs
+                                </p>
+                              </div>
+                              <p className="text-right font-black text-slate-950">
+                                {formatSupplierMoney(purchase.total, purchase.transaction_currency)}
+                              </p>
+                            </div>
+                            <div className="mt-3 grid gap-2 text-xs font-semibold text-slate-500 sm:grid-cols-2">
+                              <span>Discount: {formatSupplierMoney(purchase.discount_amount, purchase.transaction_currency)}</span>
+                              <span>Advance: {formatSupplierMoney(purchase.advance_paid, purchase.transaction_currency)}</span>
+                              <span>Balance: {formatSupplierMoney(purchase.balance_due, purchase.transaction_currency)}</span>
+                              <span>Received: {formatDate(purchase.goods_received_date)}</span>
+                            </div>
+                            <div className="mt-3 space-y-1 border-t border-slate-100 pt-3">
+                              {purchase.items.map((item) => (
+                                <div key={item.id} className="flex justify-between gap-3 text-xs text-slate-600">
+                                  <span className="font-bold">{item.product_name}</span>
+                                  <span>{item.pieces} pcs · {item.weight.toFixed(3)} kg · {formatSupplierMoney(item.cost_per_kg, purchase.transaction_currency)}/kg</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                        {shipmentReport.purchases.length === 0 ? (
+                          <p className="rounded-2xl bg-white p-4 text-sm font-semibold text-slate-500">
+                            No purchases from this supplier.
+                          </p>
+                        ) : null}
+                      </div>
+                    </div>
+
+                    <div className="rounded-3xl bg-emerald-50 p-4">
+                      <p className="soft-label text-emerald-700">Sales ({shipmentReport.invoice_count})</p>
+                      <div className="mt-3 space-y-3">
+                        {shipmentReport.invoices.map((invoice) => (
+                          <div key={invoice.id} className="rounded-2xl bg-white p-4 text-sm">
+                            <div className="flex items-start justify-between gap-3">
+                              <div>
+                                <p className="font-black text-slate-950">
+                                  {invoice.invoice_number || `Invoice #${invoice.id}`}
+                                </p>
+                                <p className="mt-1 text-xs font-semibold text-slate-500">
+                                  {invoice.customer_name} · {formatDate(invoice.date)}
+                                </p>
+                              </div>
+                              <p className="text-right font-black text-emerald-700">
+                                {formatSupplierMoney(invoice.total, invoice.transaction_currency)}
+                              </p>
+                            </div>
+                            <div className="mt-3 grid gap-2 text-xs font-semibold text-slate-500 sm:grid-cols-2">
+                              <span>Discount: {formatSupplierMoney(invoice.discount_amount, invoice.transaction_currency)}</span>
+                              <span>Weight: {invoice.weight.toFixed(3)} kg</span>
+                              <span>Pieces: {invoice.pieces}</span>
+                              <span>Type: {invoice.type}</span>
+                            </div>
+                            <div className="mt-3 space-y-1 border-t border-slate-100 pt-3">
+                              {invoice.items.map((item) => (
+                                <div key={item.id} className="flex justify-between gap-3 text-xs text-slate-600">
+                                  <span className="font-bold">{item.product_name}</span>
+                                  <span>{item.pieces} pcs · {item.weight.toFixed(3)} kg · {formatSupplierMoney(item.price_per_kg, invoice.transaction_currency)}/kg</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                        {shipmentReport.invoices.length === 0 ? (
+                          <p className="rounded-2xl bg-white p-4 text-sm font-semibold text-slate-500">
+                            No sales invoices linked to this shipment.
+                          </p>
+                        ) : null}
+                      </div>
+                    </div>
+
+                    <div className="rounded-3xl bg-red-50 p-4">
+                      <p className="soft-label text-red-700">Expenses ({shipmentReport.expense_count})</p>
+                      <div className="mt-3 space-y-3">
+                        {shipmentReport.expenses.map((expense) => (
+                          <div key={expense.id} className="rounded-2xl bg-white p-4 text-sm">
+                            <div className="flex items-start justify-between gap-3">
+                              <div>
+                                <p className="font-black text-slate-950">{expense.title}</p>
+                                <p className="mt-1 text-xs font-semibold text-slate-500">
+                                  {expense.category} · {formatDate(expense.date)}
+                                </p>
+                              </div>
+                              <p className="text-right font-black text-red-700">
+                                {formatSupplierMoney(expense.amount, "KWD")}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                        {shipmentReport.expenses.length === 0 ? (
+                          <p className="rounded-2xl bg-white p-4 text-sm font-semibold text-slate-500">
+                            No expenses linked to this shipment.
+                          </p>
+                        ) : null}
+                      </div>
+                    </div>
+                  </div>
+                </section>
+              ))}
+
+              {fullReport.shipments.length === 0 ? (
+                <div className="rounded-2xl bg-slate-50 px-4 py-6 text-sm font-semibold text-slate-600">
+                  No purchase history found for this supplier.
                 </div>
               ) : null}
             </div>

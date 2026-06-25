@@ -7,8 +7,14 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { roundMoney } from '../common/utils/money';
+import { Customer } from '../customer/customer.entity';
+import { Expense } from '../expense/expense.entity';
+import { InvoiceItem } from '../invoice/invoice-item.entity';
+import { Invoice } from '../invoice/invoice.entity';
+import { Product } from '../product/product.entity';
 import { Purchase } from '../purchase/purchase.entity';
 import { PurchaseItem } from '../purchase/purchase-item.entity';
+import { Shipment } from '../shipment/shipment.entity';
 import { SupplierPayment } from '../supplier-payment/supplier-payment.entity';
 import { CreateSupplierDto } from './dto/create-supplier.dto';
 import { UpdateSupplierDto } from './dto/update-supplier.dto';
@@ -40,6 +46,31 @@ export type SupplierStatementRow = {
   payment_usd: number;
   balance_usd: number;
 };
+
+type CurrencyTotals = {
+  kwd: number;
+  usd: number;
+};
+
+function emptyCurrencyTotals(): CurrencyTotals {
+  return { kwd: 0, usd: 0 };
+}
+
+function addCurrencyTotal(
+  totals: CurrencyTotals,
+  amount: number | string | undefined | null,
+  currency?: 'KWD' | 'USD' | null,
+) {
+  const key = currency === 'USD' ? 'usd' : 'kwd';
+  totals[key] = roundMoney(totals[key] + Number(amount ?? 0));
+}
+
+function subtractCurrencyTotals(left: CurrencyTotals, right: CurrencyTotals) {
+  return {
+    kwd: roundMoney(left.kwd - right.kwd),
+    usd: roundMoney(left.usd - right.usd),
+  };
+}
 
 @Injectable()
 export class SupplierService implements OnModuleInit {
@@ -87,6 +118,280 @@ export class SupplierService implements OnModuleInit {
 
   findAll() {
     return this.repo.find({ order: { name: 'ASC' } });
+  }
+
+  async getFullReport(id: number) {
+    const supplier = await this.repo.findOne({ where: { id } });
+
+    if (!supplier) {
+      throw new NotFoundException('Supplier not found');
+    }
+
+    const purchases = await this.purchaseRepo.find({
+      where: { supplier_id: id },
+      order: { date: 'DESC', id: 'DESC' },
+    });
+    const purchaseIds = purchases.map((purchase) => purchase.id);
+    const shipmentIds = Array.from(
+      new Set(
+        purchases
+          .map((purchase) => purchase.shipment_id)
+          .filter((shipmentId): shipmentId is number => Number.isFinite(Number(shipmentId))),
+      ),
+    );
+
+    const [purchaseItems, shipments, invoices, expenses, products, customers] = await Promise.all([
+      purchaseIds.length
+        ? this.purchaseItemRepo
+            .createQueryBuilder('item')
+            .where('item.purchase_id IN (:...purchaseIds)', { purchaseIds })
+            .orderBy('item.purchase_id', 'DESC')
+            .getMany()
+        : Promise.resolve([]),
+      shipmentIds.length
+        ? this.dataSource.getRepository(Shipment).findByIds(shipmentIds)
+        : Promise.resolve([]),
+      shipmentIds.length
+        ? this.dataSource
+            .getRepository(Invoice)
+            .createQueryBuilder('invoice')
+            .where('invoice.shipment_id IN (:...shipmentIds)', { shipmentIds })
+            .andWhere("invoice.status != 'void'")
+            .orderBy('invoice.date', 'DESC')
+            .addOrderBy('invoice.id', 'DESC')
+            .getMany()
+        : Promise.resolve([]),
+      shipmentIds.length
+        ? this.dataSource
+            .getRepository(Expense)
+            .createQueryBuilder('expense')
+            .where('expense.shipment_id IN (:...shipmentIds)', { shipmentIds })
+            .orderBy('expense.date', 'DESC')
+            .addOrderBy('expense.id', 'DESC')
+            .getMany()
+        : Promise.resolve([]),
+      this.dataSource.getRepository(Product).find(),
+      this.dataSource.getRepository(Customer).find(),
+    ]);
+
+    const invoiceIds = invoices.map((invoice) => invoice.id);
+    const invoiceItems = invoiceIds.length
+      ? await this.dataSource
+          .getRepository(InvoiceItem)
+          .createQueryBuilder('item')
+          .where('item.invoice_id IN (:...invoiceIds)', { invoiceIds })
+          .orderBy('item.invoice_id', 'DESC')
+          .getMany()
+      : [];
+
+    const productNameById = new Map(products.map((product) => [product.id, product.name]));
+    const customerNameById = new Map(customers.map((customer) => [customer.id, customer.name]));
+    const shipmentById = new Map(shipments.map((shipment) => [shipment.id, shipment]));
+    const purchaseItemsByPurchaseId = new Map<number, PurchaseItem[]>();
+    const invoiceItemsByInvoiceId = new Map<number, InvoiceItem[]>();
+
+    for (const item of purchaseItems) {
+      purchaseItemsByPurchaseId.set(item.purchase_id, [
+        ...(purchaseItemsByPurchaseId.get(item.purchase_id) ?? []),
+        item,
+      ]);
+    }
+
+    for (const item of invoiceItems) {
+      invoiceItemsByInvoiceId.set(item.invoice_id, [
+        ...(invoiceItemsByInvoiceId.get(item.invoice_id) ?? []),
+        item,
+      ]);
+    }
+
+    const purchasesByShipmentId = new Map<number | null, Purchase[]>();
+    const invoicesByShipmentId = new Map<number, Invoice[]>();
+    const expensesByShipmentId = new Map<number, Expense[]>();
+
+    for (const purchase of purchases) {
+      const key = purchase.shipment_id ?? null;
+      purchasesByShipmentId.set(key, [...(purchasesByShipmentId.get(key) ?? []), purchase]);
+    }
+
+    for (const invoice of invoices) {
+      if (!invoice.shipment_id) {
+        continue;
+      }
+      invoicesByShipmentId.set(invoice.shipment_id, [
+        ...(invoicesByShipmentId.get(invoice.shipment_id) ?? []),
+        invoice,
+      ]);
+    }
+
+    for (const expense of expenses) {
+      if (!expense.shipment_id) {
+        continue;
+      }
+      expensesByShipmentId.set(expense.shipment_id, [
+        ...(expensesByShipmentId.get(expense.shipment_id) ?? []),
+        expense,
+      ]);
+    }
+
+    const reportShipmentIds = [
+      ...shipmentIds,
+      ...(purchasesByShipmentId.has(null) ? [null] : []),
+    ];
+    const grandPurchase = emptyCurrencyTotals();
+    const grandSales = emptyCurrencyTotals();
+    const grandExpenses = emptyCurrencyTotals();
+    let purchaseDiscountTotal = 0;
+    let salesDiscountTotal = 0;
+
+    const shipmentReports = reportShipmentIds.map((shipmentId) => {
+      const shipment = shipmentId ? shipmentById.get(shipmentId) : null;
+      const shipmentPurchases = purchasesByShipmentId.get(shipmentId) ?? [];
+      const shipmentInvoices = shipmentId ? invoicesByShipmentId.get(shipmentId) ?? [] : [];
+      const shipmentExpenses = shipmentId ? expensesByShipmentId.get(shipmentId) ?? [] : [];
+      const purchaseTotals = emptyCurrencyTotals();
+      const salesTotals = emptyCurrencyTotals();
+      const expenseTotals = emptyCurrencyTotals();
+
+      const purchaseRows = shipmentPurchases.map((purchase) => {
+        addCurrencyTotal(purchaseTotals, purchase.total, purchase.transaction_currency);
+        addCurrencyTotal(grandPurchase, purchase.total, purchase.transaction_currency);
+        purchaseDiscountTotal = roundMoney(
+          purchaseDiscountTotal + Number(purchase.discount_amount ?? 0),
+        );
+
+        const items = (purchaseItemsByPurchaseId.get(purchase.id) ?? []).map((item) => ({
+          id: item.id,
+          product_id: item.product_id,
+          product_name: productNameById.get(item.product_id) ?? `Product #${item.product_id}`,
+          pieces: Number(item.pieces ?? 0),
+          weight: Number(item.weight ?? 0),
+          cost_per_kg: Number(item.cost_per_kg ?? 0),
+          amount: Number(item.amount ?? 0),
+        }));
+
+        return {
+          id: purchase.id,
+          invoice_no: purchase.invoice_no,
+          date: purchase.date,
+          purchase_date: purchase.purchase_date,
+          goods_received_date: purchase.goods_received_date,
+          transaction_currency: purchase.transaction_currency ?? 'KWD',
+          exchange_rate: Number(purchase.exchange_rate ?? 1),
+          subtotal: Number(purchase.subtotal ?? purchase.total ?? 0),
+          discount_amount: Number(purchase.discount_amount ?? 0),
+          advance_paid: Number(purchase.advance_paid ?? 0),
+          balance_due: Number(purchase.balance_due ?? 0),
+          total: Number(purchase.total ?? 0),
+          pieces: items.reduce((sum, item) => sum + Number(item.pieces ?? 0), 0),
+          weight: roundMoney(items.reduce((sum, item) => sum + Number(item.weight ?? 0), 0)),
+          items,
+        };
+      });
+
+      const invoiceRows = shipmentInvoices.map((invoice) => {
+        addCurrencyTotal(salesTotals, invoice.total, invoice.transaction_currency);
+        addCurrencyTotal(grandSales, invoice.total, invoice.transaction_currency);
+        salesDiscountTotal = roundMoney(
+          salesDiscountTotal + Number(invoice.discount_amount ?? 0),
+        );
+
+        const items = (invoiceItemsByInvoiceId.get(invoice.id) ?? []).map((item) => ({
+          id: item.id,
+          product_id: item.product_id,
+          product_name: item.product_id
+            ? productNameById.get(item.product_id) ?? `Product #${item.product_id}`
+            : 'Counter item',
+          pieces: Number(item.pieces ?? 0),
+          weight: Number(item.weight ?? 0),
+          price_per_kg: Number(item.price_per_kg ?? 0),
+          discount_amount: Number(item.discount_amount ?? 0),
+          amount: Number(item.amount ?? 0),
+        }));
+
+        return {
+          id: invoice.id,
+          invoice_number: invoice.invoice_number,
+          customer_id: invoice.customer_id,
+          customer_name: customerNameById.get(invoice.customer_id) ?? `Customer #${invoice.customer_id}`,
+          date: invoice.date,
+          type: invoice.type,
+          transaction_currency: invoice.transaction_currency ?? 'KWD',
+          subtotal: Number(invoice.subtotal ?? invoice.total ?? 0),
+          discount_amount: Number(invoice.discount_amount ?? 0),
+          total: Number(invoice.total ?? 0),
+          pieces: items.reduce((sum, item) => sum + Number(item.pieces ?? 0), 0),
+          weight: roundMoney(items.reduce((sum, item) => sum + Number(item.weight ?? 0), 0)),
+          items,
+        };
+      });
+
+      const expenseRows = shipmentExpenses.map((expense) => {
+        addCurrencyTotal(expenseTotals, expense.amount, 'KWD');
+        addCurrencyTotal(grandExpenses, expense.amount, 'KWD');
+
+        return {
+          id: expense.id,
+          title: expense.title,
+          category: expense.category,
+          amount: Number(expense.amount ?? 0),
+          date: expense.date,
+        };
+      });
+
+      const totalCost = {
+        kwd: roundMoney(purchaseTotals.kwd + expenseTotals.kwd),
+        usd: roundMoney(purchaseTotals.usd + expenseTotals.usd),
+      };
+      const profit = subtractCurrencyTotals(salesTotals, totalCost);
+
+      return {
+        shipment: shipment
+          ? {
+              id: shipment.id,
+              name: shipment.name,
+              reference_no: shipment.reference_no,
+              arrival_date: shipment.arrival_date,
+              status: shipment.status,
+            }
+          : {
+              id: null,
+              name: 'Unassigned purchases',
+              reference_no: null,
+              arrival_date: null,
+              status: 'open',
+            },
+        purchase_totals: purchaseTotals,
+        sales_totals: salesTotals,
+        expense_totals: expenseTotals,
+        total_cost: totalCost,
+        profit,
+        purchase_count: purchaseRows.length,
+        invoice_count: invoiceRows.length,
+        expense_count: expenseRows.length,
+        purchases: purchaseRows,
+        invoices: invoiceRows,
+        expenses: expenseRows,
+      };
+    });
+
+    const grandCost = {
+      kwd: roundMoney(grandPurchase.kwd + grandExpenses.kwd),
+      usd: roundMoney(grandPurchase.usd + grandExpenses.usd),
+    };
+
+    return {
+      supplier,
+      totals: {
+        purchases: grandPurchase,
+        sales: grandSales,
+        expenses: grandExpenses,
+        cost: grandCost,
+        profit: subtractCurrencyTotals(grandSales, grandCost),
+        purchase_discount: purchaseDiscountTotal,
+        sales_discount: salesDiscountTotal,
+      },
+      shipments: shipmentReports,
+    };
   }
 
   async getStatement(id: number) {
