@@ -52,7 +52,7 @@ export function generateStatementPDF(
   generatePartnerLedgerPDF(
     {
       filename: `statement-${customer.id}.pdf`,
-      title: 'Partner Ledger',
+      title: 'Customer Ledger',
       partnerName: customer.name,
       partnerAccount: 'Receivable Accounts',
       startDate: dates[0],

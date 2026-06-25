@@ -38,7 +38,7 @@ export function generateSupplierStatementPDF(
   generatePartnerLedgerPDF(
     {
       filename: `supplier-statement-${supplier.id}.pdf`,
-      title: 'Partner Ledger',
+      title: 'Supplier Ledger',
       partnerName: supplier.name,
       partnerAccount: 'Payable Accounts',
       startDate: dates[0],
