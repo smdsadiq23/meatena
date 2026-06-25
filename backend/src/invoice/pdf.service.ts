@@ -642,8 +642,8 @@ export function generateInvoicePDF(
       maxSize: 14,
       minSize: 10,
     });
-    doc.font('Arabic').fontSize(17).text(rtlVisual(arabicContactNames[index]), pageWidth - 88, y - 2, {
-      width: 70,
+    doc.font('Arabic').fontSize(14).text(rtlVisual(arabicContactNames[index]), pageWidth - 96, y + 1, {
+      width: 78,
       align: 'right',
       lineBreak: false,
     });
@@ -656,18 +656,18 @@ export function generateInvoicePDF(
 
   const centerX = 224;
   const centerW = 150;
-  doc.font('Arabic').fontSize(11).text(rtlVisual(activityArabic), centerX, 112, {
+  doc.font('Arabic').fontSize(9.5).text(rtlVisual(activityArabic), centerX, 105, {
     width: centerW,
     align: 'center',
     lineBreak: false,
   });
-  doc.font('Helvetica-Bold').fontSize(11).text(activityEnglish, centerX, 128, {
+  doc.font('Helvetica-Bold').fontSize(10.5).text(activityEnglish, centerX, 130, {
     width: centerW,
     align: 'center',
     lineBreak: false,
   });
 
-  drawArabicSlashPhrase(doc, 'فاتورة نقدية', 'بالحساب', centerX, 167, centerW, 11);
+  drawArabicSlashPhrase(doc, 'فاتورة نقدية', 'بالحساب', centerX, 165, centerW, 10);
   fitText(titleEnglish, centerX, 183, centerW, {
     font: 'Helvetica-Bold',
     maxSize: 13,
@@ -694,7 +694,7 @@ export function generateInvoicePDF(
     width: 84,
     lineBreak: false,
   });
-  doc.font('Arabic').fontSize(18).text(rtlVisual('التاريخ:'), pageWidth - 70, 198, {
+  doc.font('Arabic').fontSize(15).text(rtlVisual('التاريخ:'), pageWidth - 70, 193, {
     width: 54,
     align: 'right',
     lineBreak: false,
