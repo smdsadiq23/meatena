@@ -630,34 +630,47 @@ export function generateInvoicePDF(
       });
   };
 
+  const contactTableY = 112;
+  const contactRowH = 21;
+  const englishContactCols = {
+    nameX: leftX,
+    colonX: leftX + 111,
+    phoneX: leftX + 130,
+  };
+  const arabicContactCols = {
+    phoneX: pageWidth - 190,
+    colonX: pageWidth - 121,
+    nameX: pageWidth - 89,
+  };
+
   contacts.forEach((contact, index) => {
-    const y = 112 + index * 21;
-    fitText(contact.name, leftX, y, 108, {
+    const y = contactTableY + index * contactRowH;
+    fitText(contact.name, englishContactCols.nameX, y, 106, {
       font: 'Helvetica-Bold',
       maxSize: 14,
       minSize: 10,
     });
-    doc.font('Helvetica-Bold').fontSize(14).text(':', leftX + 113, y, {
-      width: 7,
-      align: 'center',
-      lineBreak: false,
-    });
-    fitText(contact.phone, leftX + 130, y, 82, {
-      font: 'Helvetica-Bold',
-      maxSize: 14,
-      minSize: 10,
-    });
-    doc.font('Arabic').fontSize(12).text(rtlVisual(arabicContactNames[index]), pageWidth - 88, y + 3, {
-      width: 70,
-      align: 'right',
-      lineBreak: false,
-    });
-    doc.font('Helvetica-Bold').fontSize(13.5).text(':', pageWidth - 121, y + 1, {
+    doc.font('Helvetica-Bold').fontSize(14).text(':', englishContactCols.colonX, y, {
       width: 8,
       align: 'center',
       lineBreak: false,
     });
-    drawArabicPhoneDigits(doc, toArabicDigits(contact.phone), pageWidth - 190, y + 1, 13.5, 8.1);
+    fitText(contact.phone, englishContactCols.phoneX, y, 82, {
+      font: 'Helvetica-Bold',
+      maxSize: 14,
+      minSize: 10,
+    });
+    drawArabicPhoneDigits(doc, toArabicDigits(contact.phone), arabicContactCols.phoneX, y + 1, 13.5, 8.1);
+    doc.font('Helvetica-Bold').fontSize(13.5).text(':', arabicContactCols.colonX, y + 1, {
+      width: 8,
+      align: 'center',
+      lineBreak: false,
+    });
+    doc.font('Arabic').fontSize(12.5).text(rtlVisual(arabicContactNames[index]), arabicContactCols.nameX, y + 2, {
+      width: 72,
+      align: 'right',
+      lineBreak: false,
+    });
   });
 
   const centerX = 224;
