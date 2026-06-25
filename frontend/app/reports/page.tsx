@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { fetchJson } from "../../lib/auth";
+import { fetchJson, fetchJsonOrThrow } from "../../lib/auth";
 import { Money } from "../../lib/currency";
 
 type ReportType = "day" | "week" | "month" | "year";
@@ -163,6 +163,24 @@ type HistoricReport = {
   }>;
 };
 
+type Shipment = {
+  id: number;
+  name: string;
+  reference_no?: string | null;
+  arrival_date?: string | null;
+  status: "open" | "closed";
+  purchase_amount: number;
+  sales_amount: number;
+  expenses_amount: number;
+  profit: number;
+  purchase_count: number;
+  invoice_count: number;
+  expense_count: number;
+  purchases: Array<{ id: number; invoice_no?: string | null; total: number; date: string }>;
+  invoices: Array<{ id: number; invoice_number?: string | null; total: number; date: string; type: string }>;
+  expenses: Array<{ id: number; title: string; category: string; amount: number; date: string }>;
+};
+
 const reportOptions: { value: ReportType; label: string; caption: string }[] = [
   { value: "day", label: "Day", caption: "Today" },
   { value: "week", label: "Week", caption: "This week" },
@@ -291,9 +309,63 @@ export default function ReportsPage() {
   });
   const [historicTo, setHistoricTo] = useState(() => new Date().toISOString().slice(0, 10));
   const [historic, setHistoric] = useState<HistoricReport | null>(null);
+  const [shipments, setShipments] = useState<Shipment[]>([]);
+  const [selectedShipmentId, setSelectedShipmentId] = useState("");
+  const [shipmentForm, setShipmentForm] = useState({
+    name: "",
+    referenceNo: "",
+    arrivalDate: "",
+  });
   const [loading, setLoading] = useState(true);
   const [historicLoading, setHistoricLoading] = useState(true);
+  const [shipmentLoading, setShipmentLoading] = useState(true);
   const [status, setStatus] = useState("");
+
+  const selectedShipment =
+    shipments.find((shipment) => String(shipment.id) === selectedShipmentId) ?? shipments[0];
+
+  const loadShipments = async () => {
+    setShipmentLoading(true);
+
+    try {
+      const data = await fetchJson<Shipment[]>("/shipments/summary");
+      setShipments(data);
+      setSelectedShipmentId((current) => {
+        if (current && data.some((shipment) => String(shipment.id) === current)) {
+          return current;
+        }
+
+        return data[0] ? String(data[0].id) : "";
+      });
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Could not load shipment profit.");
+    } finally {
+      setShipmentLoading(false);
+    }
+  };
+
+  const createShipment = async () => {
+    if (!shipmentForm.name.trim()) {
+      setStatus("Enter shipment name.");
+      return;
+    }
+
+    try {
+      await fetchJsonOrThrow("/shipments", {
+        method: "POST",
+        body: JSON.stringify({
+          name: shipmentForm.name.trim(),
+          reference_no: shipmentForm.referenceNo.trim() || undefined,
+          arrival_date: shipmentForm.arrivalDate || undefined,
+        }),
+      });
+      setShipmentForm({ name: "", referenceNo: "", arrivalDate: "" });
+      setStatus("Shipment created.");
+      await loadShipments();
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Could not create shipment.");
+    }
+  };
 
   const loadHistoric = async (from = historicFrom, to = historicTo) => {
     setHistoricLoading(true);
@@ -425,6 +497,8 @@ export default function ReportsPage() {
         }
       });
 
+    void loadShipments();
+
     return () => {
       active = false;
     };
@@ -441,6 +515,126 @@ export default function ReportsPage() {
           Switch between daily, weekly, monthly, and yearly snapshots to see how
           revenue and operating costs are moving.
         </p>
+      </section>
+
+      <section className="panel p-6 md:p-8">
+        <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
+          <div className="max-w-2xl">
+            <p className="soft-label">Shipment Profit</p>
+            <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-950">
+              Purchase, sales, expenses, and profit by shipment
+            </h2>
+            <p className="mt-2 text-sm font-medium leading-6 text-slate-600">
+              Link purchases, invoices, and expenses to a shipment to see the true profit of that shipment.
+            </p>
+          </div>
+          <div className="grid w-full gap-3 xl:max-w-3xl xl:grid-cols-[1fr_0.8fr_0.7fr_auto]">
+            <input
+              className="field"
+              placeholder="Shipment name"
+              value={shipmentForm.name}
+              onChange={(event) => setShipmentForm((current) => ({ ...current, name: event.target.value }))}
+            />
+            <input
+              className="field"
+              placeholder="Reference no."
+              value={shipmentForm.referenceNo}
+              onChange={(event) => setShipmentForm((current) => ({ ...current, referenceNo: event.target.value }))}
+            />
+            <input
+              className="field"
+              type="date"
+              value={shipmentForm.arrivalDate}
+              onChange={(event) => setShipmentForm((current) => ({ ...current, arrivalDate: event.target.value }))}
+            />
+            <button className="btn-primary whitespace-nowrap" onClick={createShipment}>
+              Create Shipment
+            </button>
+          </div>
+        </div>
+
+        {shipmentLoading ? (
+          <div className="mt-6 rounded-3xl bg-slate-50 px-5 py-8 text-sm font-medium text-slate-600">
+            Loading shipment report...
+          </div>
+        ) : null}
+
+        {shipments.length ? (
+          <>
+            <div className="mt-6 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <select
+                className="field md:max-w-xl"
+                value={selectedShipment ? String(selectedShipment.id) : ""}
+                onChange={(event) => setSelectedShipmentId(event.target.value)}
+              >
+                {shipments.map((shipment) => (
+                  <option key={shipment.id} value={shipment.id}>
+                    {shipment.name}
+                    {shipment.reference_no ? ` · ${shipment.reference_no}` : ""}
+                  </option>
+                ))}
+              </select>
+              {selectedShipment ? (
+                <div className="status-pill bg-black/5 text-slate-700">
+                  {selectedShipment.purchase_count} purchases · {selectedShipment.invoice_count} sales ·{" "}
+                  {selectedShipment.expense_count} expenses
+                </div>
+              ) : null}
+            </div>
+
+            {selectedShipment ? (
+              <>
+                <div className="mt-5 grid gap-4 md:grid-cols-4">
+                  <CloseCard label="Purchase Amount" value={selectedShipment.purchase_amount} tone="slate" />
+                  <CloseCard label="Sales Amount" value={selectedShipment.sales_amount} tone="green" />
+                  <CloseCard label="Expenses" value={selectedShipment.expenses_amount} tone="red" />
+                  <CloseCard
+                    label="Profit"
+                    value={selectedShipment.profit}
+                    tone={selectedShipment.profit >= 0 ? "amber" : "red"}
+                  />
+                </div>
+
+                <div className="mt-6 grid gap-5 xl:grid-cols-3">
+                  <HistoricMoneyList
+                    title="Shipment Purchases"
+                    empty="No purchases linked to this shipment."
+                    rows={selectedShipment.purchases.map((purchase) => ({
+                      id: purchase.id,
+                      primary: purchase.invoice_no || `Purchase #${purchase.id}`,
+                      secondary: new Date(purchase.date).toLocaleDateString(),
+                      amount: purchase.total,
+                    }))}
+                  />
+                  <HistoricMoneyList
+                    title="Shipment Sales"
+                    empty="No invoices linked to this shipment."
+                    rows={selectedShipment.invoices.map((invoice) => ({
+                      id: invoice.id,
+                      primary: invoice.invoice_number || `Invoice #${invoice.id}`,
+                      secondary: `${invoice.type} · ${new Date(invoice.date).toLocaleDateString()}`,
+                      amount: invoice.total,
+                    }))}
+                  />
+                  <HistoricMoneyList
+                    title="Shipment Expenses"
+                    empty="No expenses linked to this shipment."
+                    rows={selectedShipment.expenses.map((expense) => ({
+                      id: expense.id,
+                      primary: expense.title,
+                      secondary: `${expense.category} · ${new Date(expense.date).toLocaleDateString()}`,
+                      amount: expense.amount,
+                    }))}
+                  />
+                </div>
+              </>
+            ) : null}
+          </>
+        ) : !shipmentLoading ? (
+          <div className="mt-6 rounded-3xl bg-slate-50 px-5 py-8 text-sm font-semibold text-slate-600">
+            No shipments yet. Create the first shipment, then link purchases, sales, and expenses to it.
+          </div>
+        ) : null}
       </section>
 
       <section className="panel p-6 md:p-8">

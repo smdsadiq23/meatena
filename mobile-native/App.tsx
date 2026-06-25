@@ -108,6 +108,7 @@ type SupplierStatement = {
 type Purchase = {
   id: number;
   supplier_id: number;
+  shipment_id?: number | null;
   invoice_no?: string | null;
   purchase_date?: string | null;
   goods_received_date?: string | null;
@@ -136,10 +137,26 @@ type PurchaseDetail = Purchase & {
 
 type Expense = {
   id: number;
+  shipment_id?: number | null;
   title: string;
   category: string;
   amount: number | string;
   date?: string;
+};
+
+type Shipment = {
+  id: number;
+  name: string;
+  reference_no?: string | null;
+  arrival_date?: string | null;
+  status: 'open' | 'closed';
+  purchase_amount?: number | string;
+  sales_amount?: number | string;
+  expenses_amount?: number | string;
+  profit?: number | string;
+  purchase_count?: number;
+  invoice_count?: number;
+  expense_count?: number;
 };
 
 type AuditLog = {
@@ -423,6 +440,7 @@ const SERVER_PRESETS = [
 const emptyInvoiceForm = {
   invoiceNumber: '',
   invoiceDate: todayInputDate(),
+  shipmentId: '',
   type: 'credit' as 'cash' | 'credit',
 };
 
@@ -656,6 +674,7 @@ function TextInput(props: TextInputProps) {
 const emptySupplierForm = { name: '', mobile: '', address: '' };
 const emptyPurchaseForm = {
   supplierId: '',
+  shipmentId: '',
   invoiceNo: '',
   purchaseDate: '',
   goodsReceivedDate: '',
@@ -666,7 +685,8 @@ const emptyPurchaseForm = {
   discountAmount: '',
   advancePaid: '',
 };
-const emptyExpenseForm = { title: '', category: 'misc', amount: '' };
+const emptyExpenseForm = { title: '', category: 'misc', amount: '', shipmentId: '' };
+const emptyShipmentForm = { name: '', referenceNo: '', arrivalDate: '' };
 const emptyShiftForm = { countedCash: '', countedKnet: '', notes: '' };
 const emptyUserForm = { username: '', password: '', role: 'staff' as Role };
 const emptyStockForm = { type: 'wastage' as 'wastage' | 'adjustment', quantity: '', note: '' };
@@ -819,6 +839,8 @@ export default function App() {
   const [supplierStatement, setSupplierStatement] = useState<SupplierStatement | null>(null);
   const [purchases, setPurchases] = useState<Purchase[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [shipments, setShipments] = useState<Shipment[]>([]);
+  const [shipmentSummary, setShipmentSummary] = useState<Shipment[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [users, setUsers] = useState<UserRecord[]>([]);
   const [shiftSummary, setShiftSummary] = useState<ShiftSummary | null>(null);
@@ -843,6 +865,7 @@ export default function App() {
   const [purchaseCurrency, setPurchaseCurrency] = useState<TransactionCurrency>('KWD');
   const [purchaseForm, setPurchaseForm] = useState(emptyPurchaseForm);
   const [expenseForm, setExpenseForm] = useState(emptyExpenseForm);
+  const [shipmentForm, setShipmentForm] = useState(emptyShipmentForm);
   const [shiftForm, setShiftForm] = useState(emptyShiftForm);
   const [userForm, setUserForm] = useState(emptyUserForm);
   const [stockForm, setStockForm] = useState(emptyStockForm);
@@ -1192,21 +1215,23 @@ export default function App() {
       setSelectedProductId(current => current ?? productData[0]?.id ?? null);
 
       if (user?.role === 'admin') {
-        const [supplierRes, purchaseRes, expenseRes, auditRes, userRes, knetRes] = await Promise.all([
+        const [supplierRes, purchaseRes, expenseRes, auditRes, userRes, knetRes, shipmentRes] = await Promise.all([
           apiFetch('/suppliers'),
           apiFetch('/purchases'),
           apiFetch('/expenses'),
           apiFetch('/audit'),
           apiFetch('/users'),
           apiFetch('/payments/knet/reconciliation'),
+          apiFetch('/shipments/summary'),
         ]);
-        const [supplierData, purchaseData, expenseData, auditData, userData, knetData] = await Promise.all([
+        const [supplierData, purchaseData, expenseData, auditData, userData, knetData, shipmentData] = await Promise.all([
           supplierRes.json() as Promise<Supplier[]>,
           purchaseRes.json() as Promise<Purchase[]>,
           expenseRes.json() as Promise<Expense[]>,
           auditRes.json() as Promise<AuditLog[]>,
           userRes.json() as Promise<UserRecord[]>,
           knetRes.json() as Promise<KnetReconciliation>,
+          shipmentRes.json() as Promise<Shipment[]>,
         ]);
 
         setSuppliers(supplierData);
@@ -1215,6 +1240,8 @@ export default function App() {
         setAuditLogs(auditData);
         setUsers(userData);
         setKnetReconciliation(knetData);
+        setShipmentSummary(Array.isArray(shipmentData) ? shipmentData : []);
+        setShipments(Array.isArray(shipmentData) ? shipmentData : []);
         setSelectedSupplierId(current => current ?? supplierData[0]?.id ?? null);
       }
 
@@ -1539,6 +1566,7 @@ export default function App() {
         method: 'POST',
         body: JSON.stringify({
           customer_id: selectedCustomerId,
+          shipment_id: invoiceForm.shipmentId ? Number(invoiceForm.shipmentId) : undefined,
           type: invoiceForm.type,
           transaction_currency: invoiceCurrency,
           exchange_rate: currencyRate,
@@ -1564,8 +1592,9 @@ export default function App() {
       setStatus(`Invoice ${invoiceLabel(invoice)} created.`);
       setInvoiceForm(current => ({
         ...current,
-        invoiceNumber: '',
-        invoiceDate: todayInputDate(),
+          invoiceNumber: '',
+          invoiceDate: todayInputDate(),
+          shipmentId: '',
       }));
       setInvoiceCurrency('KWD');
       setCurrentDisplayCurrency('KWD');
@@ -2062,6 +2091,7 @@ export default function App() {
         method: 'POST',
         body: JSON.stringify({
           supplier_id: selectedSupplierId,
+          shipment_id: purchaseForm.shipmentId ? Number(purchaseForm.shipmentId) : undefined,
           invoice_no: purchaseForm.invoiceNo.trim() || undefined,
           purchase_date: purchaseForm.purchaseDate.trim() || undefined,
           goods_received_date: purchaseForm.goodsReceivedDate.trim() || undefined,
@@ -2111,6 +2141,7 @@ export default function App() {
       setCurrentDisplayCurrency(nextCurrency);
       setPurchaseEditForm({
         supplierId: String(detail.supplier_id),
+        shipmentId: detail.shipment_id ? String(detail.shipment_id) : '',
         invoiceNo: detail.invoice_no ?? '',
         purchaseDate: detail.purchase_date ?? detail.created_at?.slice(0, 10) ?? '',
         goodsReceivedDate:
@@ -2176,6 +2207,7 @@ export default function App() {
         method: 'PATCH',
         body: JSON.stringify({
           supplier_id: selectedSupplierId,
+          shipment_id: purchaseEditForm.shipmentId ? Number(purchaseEditForm.shipmentId) : undefined,
           invoice_no: purchaseEditForm.invoiceNo.trim() || undefined,
           purchase_date: purchaseEditForm.purchaseDate.trim() || undefined,
           goods_received_date: purchaseEditForm.goodsReceivedDate.trim() || undefined,
@@ -2222,6 +2254,7 @@ export default function App() {
           title: expenseForm.title.trim(),
           category: expenseForm.category,
           amount: Number(expenseForm.amount),
+          shipment_id: expenseForm.shipmentId ? Number(expenseForm.shipmentId) : undefined,
         }),
       });
       setExpenseForm(emptyExpenseForm);
@@ -2287,6 +2320,34 @@ export default function App() {
       await loadData();
     } catch (error) {
       setStatus(error instanceof Error ? error.message : 'Could not submit shift close.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function createShipment() {
+    if (!shipmentForm.name.trim()) {
+      setStatus('Enter shipment name.');
+      return;
+    }
+
+    setBusy(true);
+    setStatus('');
+
+    try {
+      await apiFetch('/shipments', {
+        method: 'POST',
+        body: JSON.stringify({
+          name: shipmentForm.name.trim(),
+          reference_no: shipmentForm.referenceNo.trim() || undefined,
+          arrival_date: shipmentForm.arrivalDate.trim() || undefined,
+        }),
+      });
+      setShipmentForm(emptyShipmentForm);
+      setStatus('Shipment created.');
+      await loadData();
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : 'Could not create shipment.');
     } finally {
       setBusy(false);
     }
@@ -2879,6 +2940,11 @@ export default function App() {
               <MoneyText value={currency(selectedCustomerId ? customerBalance : 0)} />
             </View>
           </View>
+          <ShipmentPicker
+            shipments={shipments}
+            value={invoiceForm.shipmentId}
+            onChange={value => setInvoiceForm(current => ({ ...current, shipmentId: value }))}
+          />
           <Text style={styles.subhead}>Billing currency</Text>
           <View style={styles.twoCols}>
             <Pill label="KWD" active={invoiceCurrency === 'KWD'} onPress={() => {
@@ -3350,6 +3416,11 @@ export default function App() {
           </View>
         ) : null}
         <SupplierPicker suppliers={suppliers} value={selectedSupplierId} onChange={setSelectedSupplierId} />
+        <ShipmentPicker
+          shipments={shipments}
+          value={purchaseForm.shipmentId}
+          onChange={value => setPurchaseForm(current => ({ ...current, shipmentId: value }))}
+        />
         <ProductPicker products={products} value={selectedProductId} onChange={setSelectedProductId} />
         <Text style={styles.subhead}>Purchase currency</Text>
         <View style={styles.twoCols}>
@@ -3455,6 +3526,11 @@ export default function App() {
               <View style={styles.inlineEditor}>
                 <Text style={styles.subhead}>Edit purchase</Text>
                 <SupplierPicker suppliers={suppliers} value={selectedSupplierId} onChange={setSelectedSupplierId} />
+                <ShipmentPicker
+                  shipments={shipments}
+                  value={purchaseEditForm.shipmentId}
+                  onChange={value => setPurchaseEditForm(current => ({ ...current, shipmentId: value }))}
+                />
                 <ProductPicker products={products} value={selectedProductId} onChange={setSelectedProductId} />
                 <View style={styles.twoCols}>
                   <Pill label="KWD" active={purchaseEditCurrency === 'KWD'} onPress={() => {
@@ -4032,6 +4108,11 @@ export default function App() {
           placeholder="Amount"
           keyboardType="decimal-pad"
         />
+        <ShipmentPicker
+          shipments={shipments}
+          value={expenseForm.shipmentId}
+          onChange={value => setExpenseForm(current => ({ ...current, shipmentId: value }))}
+        />
         <PrimaryButton title="Record Expense" onPress={recordExpense} disabled={busy} />
         <Text style={styles.subhead}>Recent expenses</Text>
         {expenses.slice(0, 8).map(expense => (
@@ -4100,6 +4181,48 @@ export default function App() {
           <Metric label="Profit" value={currency(report?.profit)} />
           <Metric label="Outstanding" value={currency(creditSummary?.total_outstanding)} />
         </View>
+
+        <Text style={styles.subhead}>Shipment Profit</Text>
+        <View style={styles.lineItem}>
+          <Text style={styles.rowTitle}>Create shipment</Text>
+          <TextInput
+            style={styles.input}
+            value={shipmentForm.name}
+            onChangeText={value => setShipmentForm(current => ({ ...current, name: value }))}
+            placeholder="Shipment name"
+          />
+          <TextInput
+            style={styles.input}
+            value={shipmentForm.referenceNo}
+            onChangeText={value => setShipmentForm(current => ({ ...current, referenceNo: value }))}
+            placeholder="Reference no."
+          />
+          <TextInput
+            style={styles.input}
+            value={shipmentForm.arrivalDate}
+            onChangeText={value => setShipmentForm(current => ({ ...current, arrivalDate: value }))}
+            placeholder="Arrival date YYYY-MM-DD"
+          />
+          <PrimaryButton title="Create Shipment" onPress={createShipment} disabled={busy} />
+        </View>
+        {shipmentSummary.length ? (
+          shipmentSummary.slice(0, 10).map(shipment => (
+            <View key={shipment.id} style={styles.lineItem}>
+              <Text style={styles.rowTitle}>{shipment.name}</Text>
+              <Text style={styles.rowSubtitle}>
+                {shipment.reference_no ?? 'No reference'} | Purchases {shipment.purchase_count ?? 0} | Sales {shipment.invoice_count ?? 0} | Expenses {shipment.expense_count ?? 0}
+              </Text>
+              <View style={styles.metricGrid}>
+                <Metric label="Purchase" value={currency(shipment.purchase_amount)} />
+                <Metric label="Sales" value={currency(shipment.sales_amount)} />
+                <Metric label="Expenses" value={currency(shipment.expenses_amount)} />
+                <Metric label="Profit" value={currency(shipment.profit)} />
+              </View>
+            </View>
+          ))
+        ) : (
+          <Text style={styles.mutedDark}>No shipment report yet.</Text>
+        )}
 
         <Text style={styles.subhead}>Historic Report</Text>
         <View style={styles.formGrid}>
@@ -4477,6 +4600,34 @@ function SupplierPicker({
             label={supplier.name}
             active={value === supplier.id}
             onPress={() => onChange(supplier.id)}
+          />
+        ))}
+      </ScrollView>
+    </View>
+  );
+}
+
+function ShipmentPicker({
+  shipments,
+  value,
+  onChange,
+}: {
+  shipments: Shipment[];
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const { t } = useLanguage();
+  return (
+    <View>
+      <Text style={styles.subhead}>{t('Shipment')}</Text>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.selectorRow}>
+        <Pill label="No shipment" active={!value} onPress={() => onChange('')} />
+        {shipments.map(shipment => (
+          <Pill
+            key={shipment.id}
+            label={shipment.reference_no ? `${shipment.name} · ${shipment.reference_no}` : shipment.name}
+            active={value === String(shipment.id)}
+            onPress={() => onChange(String(shipment.id))}
           />
         ))}
       </ScrollView>

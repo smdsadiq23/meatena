@@ -19,6 +19,7 @@ import { PaymentModule } from './payment/payment.module';
 import { ProductModule } from './product/product.module';
 import { PurchaseModule } from './purchase/purchase.module';
 import { ShiftCloseModule } from './shift-close/shift-close.module';
+import { ShipmentModule } from './shipment/shipment.module';
 import { SupplierPaymentModule } from './supplier-payment/supplier-payment.module';
 import { SupplierModule } from './supplier/supplier.module';
 import { UserModule } from './user/user.module';
@@ -62,6 +63,7 @@ const throttlerLimit = Number(process.env.THROTTLE_LIMIT ?? 300);
     SupplierModule,
     SupplierPaymentModule,
     PurchaseModule,
+    ShipmentModule,
     ShiftCloseModule,
   ],
   controllers: [AppController],

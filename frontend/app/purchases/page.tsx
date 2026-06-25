@@ -24,6 +24,7 @@ type Product = {
 type Purchase = {
   id: number;
   supplier_id: number;
+  shipment_id?: number | null;
   invoice_no?: string;
   purchase_date?: string | null;
   goods_received_date?: string | null;
@@ -60,6 +61,12 @@ type PurchaseItem = {
   cost_per_kg: string;
 };
 
+type Shipment = {
+  id: number;
+  name: string;
+  reference_no?: string | null;
+};
+
 const emptyItem = { product_id: "", pieces: "", weight: "", cost_per_kg: "" };
 const emptyProduct = { name: "", name_ar: "", sku: "", price_per_kg: "", low_stock_kg: "" };
 
@@ -68,7 +75,9 @@ export default function PurchasesPage() {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [purchases, setPurchases] = useState<Purchase[]>([]);
+  const [shipments, setShipments] = useState<Shipment[]>([]);
   const [supplierId, setSupplierId] = useState("");
+  const [shipmentId, setShipmentId] = useState("");
   const [invoiceNo, setInvoiceNo] = useState("");
   const [purchaseDate, setPurchaseDate] = useState("");
   const [goodsReceivedDate, setGoodsReceivedDate] = useState("");
@@ -81,6 +90,7 @@ export default function PurchasesPage() {
   const [items, setItems] = useState<PurchaseItem[]>([emptyItem]);
   const [editingPurchaseId, setEditingPurchaseId] = useState<number | null>(null);
   const [editSupplierId, setEditSupplierId] = useState("");
+  const [editShipmentId, setEditShipmentId] = useState("");
   const [editInvoiceNo, setEditInvoiceNo] = useState("");
   const [editPurchaseDate, setEditPurchaseDate] = useState("");
   const [editGoodsReceivedDate, setEditGoodsReceivedDate] = useState("");
@@ -104,14 +114,16 @@ export default function PurchasesPage() {
     }
 
     try {
-      const [supplierData, productData, purchaseData] = await Promise.all([
+      const [supplierData, productData, purchaseData, shipmentData] = await Promise.all([
         fetchJson<Supplier[]>("/suppliers"),
         fetchJson<Product[]>("/products"),
         fetchJson<Purchase[]>("/purchases"),
+        fetchJson<Shipment[]>("/shipments"),
       ]);
       setSuppliers(Array.isArray(supplierData) ? supplierData : []);
       setProducts(Array.isArray(productData) ? productData : []);
       setPurchases(Array.isArray(purchaseData) ? purchaseData : []);
+      setShipments(Array.isArray(shipmentData) ? shipmentData : []);
     } catch (error) {
       setStatusType("error");
       setStatus(error instanceof Error ? error.message : "Could not load purchases.");
@@ -123,11 +135,13 @@ export default function PurchasesPage() {
       fetchJson<Supplier[]>("/suppliers"),
       fetchJson<Product[]>("/products"),
       fetchJson<Purchase[]>("/purchases"),
+      fetchJson<Shipment[]>("/shipments"),
     ])
-      .then(([supplierData, productData, purchaseData]) => {
+      .then(([supplierData, productData, purchaseData, shipmentData]) => {
         setSuppliers(Array.isArray(supplierData) ? supplierData : []);
         setProducts(Array.isArray(productData) ? productData : []);
         setPurchases(Array.isArray(purchaseData) ? purchaseData : []);
+        setShipments(Array.isArray(shipmentData) ? shipmentData : []);
       })
       .catch((error: Error) => {
         setStatusType("error");
@@ -287,6 +301,7 @@ export default function PurchasesPage() {
         method: "POST",
         body: JSON.stringify({
           supplier_id: Number(supplierId),
+          shipment_id: shipmentId ? Number(shipmentId) : undefined,
           invoice_no: invoiceNo || undefined,
           purchase_date: purchaseDate || undefined,
           goods_received_date: goodsReceivedDate || undefined,
@@ -317,6 +332,7 @@ export default function PurchasesPage() {
       }
 
       setInvoiceNo("");
+      setShipmentId("");
       setPurchaseDate("");
       setGoodsReceivedDate("");
       setDiscountAmountInput("");
@@ -349,6 +365,7 @@ export default function PurchasesPage() {
       const detail = await fetchJsonOrThrow<PurchaseDetail>(`/purchases/${purchase.id}`);
       setEditingPurchaseId(purchase.id);
       setEditSupplierId(String(detail.supplier_id));
+      setEditShipmentId(detail.shipment_id ? String(detail.shipment_id) : "");
       setEditInvoiceNo(detail.invoice_no || "");
       setEditPurchaseDate(detail.purchase_date || detail.date?.slice(0, 10) || "");
       setEditGoodsReceivedDate(detail.goods_received_date || detail.purchase_date || detail.date?.slice(0, 10) || "");
@@ -439,6 +456,7 @@ export default function PurchasesPage() {
         method: "PATCH",
         body: JSON.stringify({
           supplier_id: Number(editSupplierId),
+          shipment_id: editShipmentId ? Number(editShipmentId) : undefined,
           invoice_no: editInvoiceNo || undefined,
           purchase_date: editPurchaseDate || undefined,
           goods_received_date: editGoodsReceivedDate || undefined,
@@ -456,6 +474,7 @@ export default function PurchasesPage() {
       });
       setEditingPurchaseId(null);
       setEditSupplierId("");
+      setEditShipmentId("");
       setEditInvoiceNo("");
       setEditPurchaseDate("");
       setEditGoodsReceivedDate("");
@@ -561,11 +580,19 @@ export default function PurchasesPage() {
           </button>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid gap-4 md:grid-cols-3">
           <select className="field" value={supplierId} onChange={(e) => setSupplierId(e.target.value)}>
             <option value="">Select supplier</option>
             {suppliers.map((supplier) => (
               <option key={supplier.id} value={supplier.id}>{supplier.name}</option>
+            ))}
+          </select>
+          <select className="field" value={shipmentId} onChange={(e) => setShipmentId(e.target.value)}>
+            <option value="">Shipment optional</option>
+            {shipments.map((shipment) => (
+              <option key={shipment.id} value={shipment.id}>
+                {shipment.name}{shipment.reference_no ? ` · ${shipment.reference_no}` : ""}
+              </option>
             ))}
           </select>
           <input className="field" placeholder="Supplier invoice no." value={invoiceNo} onChange={(e) => setInvoiceNo(e.target.value)} />
@@ -701,11 +728,19 @@ export default function PurchasesPage() {
             <div key={purchase.id} className="rounded-3xl bg-slate-50 p-4">
               {editingPurchaseId === purchase.id ? (
                 <div className="space-y-4">
-                  <div className="grid gap-3 md:grid-cols-2">
+                  <div className="grid gap-3 md:grid-cols-3">
                     <select className="field bg-white" value={editSupplierId} onChange={(e) => setEditSupplierId(e.target.value)}>
                       <option value="">Select supplier</option>
                       {suppliers.map((supplier) => (
                         <option key={supplier.id} value={supplier.id}>{supplier.name}</option>
+                      ))}
+                    </select>
+                    <select className="field bg-white" value={editShipmentId} onChange={(e) => setEditShipmentId(e.target.value)}>
+                      <option value="">Shipment optional</option>
+                      {shipments.map((shipment) => (
+                        <option key={shipment.id} value={shipment.id}>
+                          {shipment.name}{shipment.reference_no ? ` · ${shipment.reference_no}` : ""}
+                        </option>
                       ))}
                     </select>
                     <input className="field bg-white" placeholder="Supplier invoice no." value={editInvoiceNo} onChange={(e) => setEditInvoiceNo(e.target.value)} />

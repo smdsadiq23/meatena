@@ -23,6 +23,13 @@ export class CreateInvoiceDto {
   @Min(1)
   customer_id: number;
 
+  @ApiProperty({ example: 1, required: false })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  shipment_id?: number;
+
   @ApiProperty({ example: 'credit', enum: ['cash', 'credit'] })
   @IsIn(['cash', 'credit'])
   type: 'cash' | 'credit';

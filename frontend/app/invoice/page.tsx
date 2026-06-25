@@ -35,6 +35,12 @@ type Product = {
   stock_pieces?: number;
 };
 
+type Shipment = {
+  id: number;
+  name: string;
+  reference_no?: string | null;
+};
+
 type InvoiceItem = {
   productId: string;
   pieces: string;
@@ -112,7 +118,9 @@ export default function Invoice() {
   const currencyRate = useCurrencyRate();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [shipments, setShipments] = useState<Shipment[]>([]);
   const [customerId, setCustomerId] = useState("");
+  const [shipmentId, setShipmentId] = useState("");
   const [balance, setBalance] = useState(0);
   const [invoiceId, setInvoiceId] = useState<number | null>(null);
   const [invoiceNumber, setInvoiceNumber] = useState("");
@@ -150,6 +158,10 @@ export default function Invoice() {
         setStatusType("error");
         setStatus(error.message || "Could not load inventory.");
       });
+
+    fetchJson<Shipment[]>("/shipments")
+      .then((data) => setShipments(Array.isArray(data) ? data : []))
+      .catch(() => undefined);
 
     loadInvoiceProfiles();
   }, []);
@@ -373,6 +385,7 @@ export default function Invoice() {
     setInvoiceNumber("");
     setDraftInvoiceNumber("");
     setDraftInvoiceDate(todayInputDate());
+    setShipmentId("");
     setInvoiceCurrency("KWD");
     setDisplayCurrency("KWD");
     setIncludePreviousBalance(false);
@@ -446,6 +459,7 @@ export default function Invoice() {
         method: "POST",
         body: JSON.stringify({
           customer_id: Number(customerId),
+          shipment_id: shipmentId ? Number(shipmentId) : undefined,
           type: "credit",
           transaction_currency: invoiceCurrency,
           exchange_rate: currencyRate,
@@ -482,6 +496,7 @@ export default function Invoice() {
       setItems([{ productId: "", pieces: "", weight: "", price: DEFAULT_PRICE, discount: "", amount: 0 }]);
       setDraftInvoiceNumber("");
       setDraftInvoiceDate(todayInputDate());
+      setShipmentId("");
       fetchJson<Product[]>("/inventory/stock").then(setProducts).catch(() => undefined);
       setTimeout(() => {
         firstInputRef.current?.focus();
@@ -546,6 +561,18 @@ export default function Invoice() {
               {invoiceProfiles.map((profile) => (
                 <option key={profile.id ?? profile.name} value={profile.id ?? ""}>
                   {profile.name} {profile.is_default ? `(${t("Default")})` : ""}
+                </option>
+              ))}
+            </select>
+            <select
+              className="field"
+              value={shipmentId}
+              onChange={(event) => setShipmentId(event.target.value)}
+            >
+              <option value="">Shipment optional</option>
+              {shipments.map((shipment) => (
+                <option key={shipment.id} value={shipment.id}>
+                  {shipment.name}{shipment.reference_no ? ` · ${shipment.reference_no}` : ""}
                 </option>
               ))}
             </select>

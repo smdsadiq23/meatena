@@ -76,6 +76,10 @@ export class PurchaseService implements OnModuleInit {
       ALTER TABLE purchase
       ADD COLUMN IF NOT EXISTS goods_received_date varchar
     `);
+    await this.dataSource.query(`
+      ALTER TABLE purchase
+      ADD COLUMN IF NOT EXISTS shipment_id integer NULL
+    `);
   }
 
   private calculatePurchaseTotals(
@@ -198,6 +202,7 @@ export class PurchaseService implements OnModuleInit {
       const goodsReceivedDate = data.goods_received_date || purchaseDate;
       const purchase = await manager.getRepository(Purchase).save({
         supplier_id: data.supplier_id,
+        shipment_id: data.shipment_id ?? null,
         invoice_no: data.invoice_no?.trim() || null,
         purchase_date: purchaseDate,
         goods_received_date: goodsReceivedDate,
@@ -411,6 +416,7 @@ export class PurchaseService implements OnModuleInit {
       }
 
       purchase.supplier_id = data.supplier_id;
+      purchase.shipment_id = data.shipment_id ?? null;
       purchase.invoice_no = data.invoice_no?.trim() || null;
       purchase.purchase_date = data.purchase_date || purchase.purchase_date || purchase.date.slice(0, 10);
       purchase.goods_received_date =

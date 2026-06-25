@@ -8,10 +8,17 @@ type ExpenseCategory = "rent" | "salary" | "fuel" | "transport" | "misc";
 
 type Expense = {
   id: number;
+  shipment_id?: number | null;
   title: string;
   amount: number;
   category: ExpenseCategory;
   date: string;
+};
+
+type Shipment = {
+  id: number;
+  name: string;
+  reference_no?: string | null;
 };
 
 const categoryOptions: { value: ExpenseCategory; label: string }[] = [
@@ -24,9 +31,11 @@ const categoryOptions: { value: ExpenseCategory; label: string }[] = [
 
 export default function ExpensesPage() {
   const [list, setList] = useState<Expense[]>([]);
+  const [shipments, setShipments] = useState<Shipment[]>([]);
   const [title, setTitle] = useState("");
   const [amount, setAmount] = useState("");
   const [category, setCategory] = useState<ExpenseCategory>("misc");
+  const [shipmentId, setShipmentId] = useState("");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [saving, setSaving] = useState(false);
@@ -56,9 +65,10 @@ export default function ExpensesPage() {
   };
 
   useEffect(() => {
-    fetchJson<Expense[]>("/expenses")
-      .then((data) => {
-        setList(Array.isArray(data) ? data : []);
+    Promise.all([fetchJson<Expense[]>("/expenses"), fetchJson<Shipment[]>("/shipments")])
+      .then(([expenseData, shipmentData]) => {
+        setList(Array.isArray(expenseData) ? expenseData : []);
+        setShipments(Array.isArray(shipmentData) ? shipmentData : []);
         setStatus("");
       })
       .catch((error: Error) => {
@@ -86,12 +96,14 @@ export default function ExpensesPage() {
           title: title.trim(),
           amount: Number(amount),
           category,
+          shipment_id: shipmentId ? Number(shipmentId) : undefined,
         }),
       });
 
       setTitle("");
       setAmount("");
       setCategory("misc");
+      setShipmentId("");
       setStatusType("success");
       setStatus("Expense added successfully.");
       await load();
@@ -144,6 +156,19 @@ export default function ExpensesPage() {
               {categoryOptions.map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
+                </option>
+              ))}
+            </select>
+
+            <select
+              className="field"
+              value={shipmentId}
+              onChange={(e) => setShipmentId(e.target.value)}
+            >
+              <option value="">Shipment optional</option>
+              {shipments.map((shipment) => (
+                <option key={shipment.id} value={shipment.id}>
+                  {shipment.name}{shipment.reference_no ? ` · ${shipment.reference_no}` : ""}
                 </option>
               ))}
             </select>

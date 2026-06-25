@@ -1,11 +1,18 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsIn, IsNumber, IsString, Min } from 'class-validator';
+import { IsIn, IsInt, IsNumber, IsOptional, IsString, Min } from 'class-validator';
 
 export class CreateExpenseDto {
   @ApiProperty({ example: 'Shop rent' })
   @IsString()
   title: string;
+
+  @ApiProperty({ example: 1, required: false })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  shipment_id?: number;
 
   @ApiProperty({ example: 250.5 })
   @Type(() => Number)

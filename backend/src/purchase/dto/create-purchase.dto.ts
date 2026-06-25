@@ -20,6 +20,12 @@ export class CreatePurchaseDto {
   @Min(1)
   supplier_id: number;
 
+  @ApiProperty({ example: 1, required: false })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  shipment_id?: number;
+
   @ApiProperty({ example: 'SUP-1001', required: false })
   @IsOptional()
   @IsString()

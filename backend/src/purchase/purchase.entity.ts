@@ -8,6 +8,9 @@ export class Purchase {
   @Column()
   supplier_id: number;
 
+  @Column({ type: 'integer', nullable: true })
+  shipment_id: number | null;
+
   @Column()
   date: string;
 

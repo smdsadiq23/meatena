@@ -8,6 +8,9 @@ export class Expense {
   @Column()
   title: string;
 
+  @Column({ type: 'integer', nullable: true })
+  shipment_id: number | null;
+
   @Column('decimal', { precision: 10, scale: 3 })
   amount: number;
 

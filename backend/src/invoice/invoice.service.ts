@@ -188,6 +188,10 @@ export class InvoiceService implements OnModuleInit {
       ALTER TABLE invoice_item
       ADD COLUMN IF NOT EXISTS discount_amount numeric(10, 3) NOT NULL DEFAULT 0
     `);
+    await this.dataSource.query(`
+      ALTER TABLE invoice
+      ADD COLUMN IF NOT EXISTS shipment_id integer NULL
+    `);
   }
 
   async create(data: CreateInvoiceDto) {
@@ -321,6 +325,7 @@ export class InvoiceService implements OnModuleInit {
 
       const invoice = await manager.getRepository(Invoice).save({
         customer_id,
+        shipment_id: data.shipment_id ?? null,
         date,
         type,
         transaction_currency: transactionCurrency,

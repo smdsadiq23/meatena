@@ -13,6 +13,7 @@ import { PurchaseItem } from '../purchase/purchase-item.entity';
 import { Purchase } from '../purchase/purchase.entity';
 import { StockMovement } from '../inventory/stock-movement.entity';
 import { ShiftClose } from '../shift-close/shift-close.entity';
+import { Shipment } from '../shipment/shipment.entity';
 import { SupplierPayment } from '../supplier-payment/supplier-payment.entity';
 import { Supplier } from '../supplier/supplier.entity';
 import { User } from '../user/user.entity';
@@ -32,6 +33,7 @@ export const billingEntities = [
   Purchase,
   PurchaseItem,
   ShiftClose,
+  Shipment,
   StockMovement,
   Supplier,
   SupplierPayment,
