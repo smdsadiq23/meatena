@@ -28,6 +28,15 @@ type SupplierStatementRow = {
   type: "purchase" | "payment";
   reference: string;
   description: string;
+  invoice_no?: string | null;
+  purchase_date?: string | null;
+  goods_received_date?: string | null;
+  subtotal: number;
+  discount_amount: number;
+  advance_paid: number;
+  balance_due: number;
+  transaction_currency: "KWD" | "USD";
+  exchange_rate: number;
   charge: number;
   payment: number;
   balance: number;
@@ -39,6 +48,7 @@ type SupplierStatement = {
   totals: {
     charges: number;
     payments: number;
+    discounts: number;
     closing_balance: number;
   };
 };
@@ -51,6 +61,15 @@ const emptyPayment = {
   reference_no: "",
   note: "",
 };
+
+function formatDate(value?: string | null) {
+  if (!value) {
+    return "-";
+  }
+
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString();
+}
 
 export default function SuppliersPage() {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
@@ -224,7 +243,7 @@ export default function SuppliersPage() {
     try {
       await downloadAuthenticatedFile(
         `/suppliers/${supplier.id}/statement/pdf?currency=${displayCurrency}`,
-        `supplier-statement-${supplier.id}.pdf`
+        `supplier-ledger-${supplier.id}.pdf`
       );
     } catch (error) {
       setStatusType("error");
@@ -299,17 +318,23 @@ export default function SuppliersPage() {
         </h2>
         {statement ? (
           <>
-            <div className="mt-5 grid gap-3 sm:grid-cols-3">
+            <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
               <div className="rounded-2xl bg-slate-50 p-4">
-                <p className="soft-label">Purchases</p>
+                <p className="soft-label">Purchased / Debit</p>
                 <p className="mt-2 text-lg font-black text-slate-950">
                   <Money value={statement.totals.charges} />
                 </p>
               </div>
               <div className="rounded-2xl bg-emerald-50 p-4">
-                <p className="soft-label">Payments / Advance</p>
+                <p className="soft-label">Advance / Credit</p>
                 <p className="mt-2 text-lg font-black text-emerald-700">
                   <Money value={statement.totals.payments} />
+                </p>
+              </div>
+              <div className="rounded-2xl bg-amber-50 p-4">
+                <p className="soft-label">Discounts</p>
+                <p className="mt-2 text-lg font-black text-amber-700">
+                  <Money value={statement.totals.discounts} />
                 </p>
               </div>
               <div className="rounded-2xl bg-red-50 p-4">
@@ -319,36 +344,72 @@ export default function SuppliersPage() {
                 </p>
               </div>
             </div>
-            <div className="mt-5 overflow-hidden rounded-2xl border border-slate-200">
-              <div className="grid grid-cols-[1fr_1fr_1fr] gap-2 bg-slate-950 px-4 py-3 text-xs font-black uppercase tracking-[0.16em] text-white md:grid-cols-[1fr_1.1fr_1fr_1fr_1fr]">
-                <span>Date</span>
-                <span className="hidden md:block">Reference</span>
-                <span className="text-right">Charge</span>
-                <span className="text-right">Payment</span>
-                <span className="text-right">Balance</span>
-              </div>
+            <div className="mt-5 space-y-3">
               {statement.rows.map((row) => (
                 <div
                   key={row.id}
-                  className="grid grid-cols-[1fr_1fr_1fr] gap-2 border-t border-slate-100 px-4 py-3 text-sm md:grid-cols-[1fr_1.1fr_1fr_1fr_1fr]"
+                  className="rounded-2xl border border-slate-200 bg-white p-4"
                 >
-                  <span className="font-bold text-slate-900">
-                    {new Date(row.date).toLocaleDateString()}
-                  </span>
-                  <span className="hidden text-slate-600 md:block">{row.reference}</span>
-                  <span className="text-right text-red-700">
-                    {row.charge ? <Money value={row.charge} /> : "-"}
-                  </span>
-                  <span className="text-right text-emerald-700">
-                    {row.payment ? <Money value={row.payment} /> : "-"}
-                  </span>
-                  <span className="text-right font-black text-slate-950">
-                    <Money value={row.balance} />
-                  </span>
+                  <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span
+                          className={`rounded-full px-3 py-1 text-xs font-black uppercase tracking-[0.12em] ${
+                            row.type === "purchase"
+                              ? "bg-red-50 text-red-700"
+                              : "bg-emerald-50 text-emerald-700"
+                          }`}
+                        >
+                          {row.type === "purchase" ? "Purchase" : "Payment"}
+                        </span>
+                        <span className="text-sm font-bold text-slate-500">{formatDate(row.date)}</span>
+                      </div>
+                      <p className="mt-3 text-base font-black text-slate-950">{row.description}</p>
+                      <div className="mt-2 grid gap-1 text-sm text-slate-600">
+                        <span>Invoice / Ref: {row.reference || "-"}</span>
+                        {row.type === "purchase" ? (
+                          <>
+                            <span>Purchase date: {formatDate(row.purchase_date || row.date)}</span>
+                            <span>Goods received: {formatDate(row.goods_received_date)}</span>
+                            <span>Entered currency: {row.transaction_currency}</span>
+                          </>
+                        ) : null}
+                      </div>
+                    </div>
+
+                    <div className="grid min-w-[240px] gap-2 text-sm">
+                      <div className="flex items-center justify-between gap-4">
+                        <span className="text-slate-500">Debit / Purchased</span>
+                        <span className="font-black text-red-700">
+                          {row.charge ? <Money value={row.charge} /> : "-"}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between gap-4">
+                        <span className="text-slate-500">Credit / Advance</span>
+                        <span className="font-black text-emerald-700">
+                          {row.payment ? <Money value={row.payment} /> : "-"}
+                        </span>
+                      </div>
+                      {row.discount_amount ? (
+                        <div className="flex items-center justify-between gap-4">
+                          <span className="text-slate-500">Discount</span>
+                          <span className="font-black text-amber-700">
+                            <Money value={row.discount_amount} />
+                          </span>
+                        </div>
+                      ) : null}
+                      <div className="flex items-center justify-between gap-4 border-t border-slate-100 pt-2">
+                        <span className="font-bold text-slate-600">Running balance</span>
+                        <span className="font-black text-slate-950">
+                          <Money value={row.balance} />
+                        </span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               ))}
               {statement.rows.length === 0 ? (
-                <div className="px-4 py-5 text-sm font-medium text-slate-600">
+                <div className="rounded-2xl bg-slate-50 px-4 py-5 text-sm font-medium text-slate-600">
                   No purchases or payments recorded for this supplier.
                 </div>
               ) : null}

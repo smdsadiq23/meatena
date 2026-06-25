@@ -18,6 +18,15 @@ export type SupplierStatementRow = {
   type: 'purchase' | 'payment';
   reference: string;
   description: string;
+  invoice_no: string | null;
+  purchase_date: string | null;
+  goods_received_date: string | null;
+  subtotal: number;
+  discount_amount: number;
+  advance_paid: number;
+  balance_due: number;
+  transaction_currency: 'KWD' | 'USD';
+  exchange_rate: number;
   charge: number;
   payment: number;
   balance: number;
@@ -70,9 +79,9 @@ export class SupplierService {
 
     const events = [
       ...purchases.map((purchase) => {
-        const balanceDue = roundMoney(Number(purchase.balance_due ?? 0));
-        const charge = balanceDue > 0 ? balanceDue : 0;
-        const payment = balanceDue < 0 ? Math.abs(balanceDue) : 0;
+        const total = roundMoney(Number(purchase.total ?? 0));
+        const advancePaid = roundMoney(Number(purchase.advance_paid ?? 0));
+        const balanceDue = roundMoney(Number(purchase.balance_due ?? total - advancePaid));
         const purchaseDate = purchase.purchase_date || purchase.date;
 
         return {
@@ -84,8 +93,17 @@ export class SupplierService {
             type: 'purchase' as const,
             reference: purchase.invoice_no || `Purchase #${purchase.id}`,
             description: `Purchase ${purchase.invoice_no || `#${purchase.id}`}`,
-            charge,
-            payment,
+            invoice_no: purchase.invoice_no,
+            purchase_date: purchase.purchase_date,
+            goods_received_date: purchase.goods_received_date,
+            subtotal: roundMoney(Number(purchase.subtotal ?? total)),
+            discount_amount: roundMoney(Number(purchase.discount_amount ?? 0)),
+            advance_paid: advancePaid,
+            balance_due: balanceDue,
+            transaction_currency: purchase.transaction_currency ?? 'KWD',
+            exchange_rate: Number(purchase.exchange_rate ?? 3.25),
+            charge: total,
+            payment: advancePaid,
           },
         };
       }),
@@ -97,7 +115,18 @@ export class SupplierService {
           date: payment.date,
           type: 'payment' as const,
           reference: payment.reference_no || `Payment #${payment.id}`,
-          description: `${payment.mode.toUpperCase()} supplier payment`,
+          description: payment.note
+            ? `${payment.mode.toUpperCase()} supplier payment - ${payment.note}`
+            : `${payment.mode.toUpperCase()} supplier payment`,
+          invoice_no: payment.reference_no,
+          purchase_date: null,
+          goods_received_date: null,
+          subtotal: 0,
+          discount_amount: 0,
+          advance_paid: roundMoney(Number(payment.amount ?? 0)),
+          balance_due: 0,
+          transaction_currency: 'KWD' as const,
+          exchange_rate: 3.25,
           charge: 0,
           payment: roundMoney(Number(payment.amount ?? 0)),
         },
@@ -123,6 +152,9 @@ export class SupplierService {
     const paymentsTotal = roundMoney(
       rows.reduce((sum, row) => sum + Number(row.payment), 0),
     );
+    const discounts = roundMoney(
+      rows.reduce((sum, row) => sum + Number(row.discount_amount), 0),
+    );
     const closingBalance = roundMoney(Number(supplier.balance ?? balance));
 
     return {
@@ -131,6 +163,7 @@ export class SupplierService {
       totals: {
         charges,
         payments: paymentsTotal,
+        discounts,
         closing_balance: closingBalance,
       },
     };
