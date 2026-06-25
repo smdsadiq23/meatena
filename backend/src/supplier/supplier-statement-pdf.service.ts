@@ -37,7 +37,7 @@ export function generateSupplierStatementPDF(
   const dates = rows.map((row) => row.date).sort();
   generatePartnerLedgerPDF(
     {
-      filename: `supplier-statement-${supplier.id}.pdf`,
+      filename: `supplier-ledger-${supplier.id}.pdf`,
       title: 'Supplier Ledger',
       partnerName: supplier.name,
       partnerAccount: 'Payable Accounts',

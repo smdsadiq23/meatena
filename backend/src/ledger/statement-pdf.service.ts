@@ -51,7 +51,7 @@ export function generateStatementPDF(
   const dates = rows.map((row) => row.date).sort();
   generatePartnerLedgerPDF(
     {
-      filename: `statement-${customer.id}.pdf`,
+      filename: `customer-ledger-${customer.id}.pdf`,
       title: 'Customer Ledger',
       partnerName: customer.name,
       partnerAccount: 'Receivable Accounts',
