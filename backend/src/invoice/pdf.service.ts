@@ -589,9 +589,14 @@ export function generateInvoicePDF(
     .split(/[,/|]/)
     .map((item) => item.trim())
     .filter(Boolean);
-  const contacts = ['Abdul Basit', 'Zahoor Ellahi', 'Abu Bakar'].map((fallbackName, index) => ({
-    name: contactNames[index] ?? fallbackName,
-    phone: contactPhones[index] ?? '',
+  const fallbackContacts = [
+    { name: 'Abdul Basit', phone: '96684998' },
+    { name: 'Zahoor Ellahi', phone: '94942708' },
+    { name: 'Abu Bakar', phone: '50289040' },
+  ];
+  const contacts = fallbackContacts.map((fallback, index) => ({
+    name: contactNames[index] ?? fallback.name,
+    phone: contactPhones[index] ?? fallback.phone,
   }));
   const arabicContactNames = ['عبدالباسط', 'ظهورالاهي', 'ابوبكر'];
 
